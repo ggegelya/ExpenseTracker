@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct QuickEntryView: View {
-    @StateObject private var viewModel = TransactionViewModel()
+    @EnvironmentObject private var viewModel: TransactionViewModel
     @FocusState private var isDescriptionFocused: Bool
     @State private var showDatePicker = false
     

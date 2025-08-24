@@ -10,17 +10,35 @@ import Combine
 
 @MainActor
 class TransactionViewModel: ObservableObject {
-    @Published var transactions: [Transaction] = []
-    @Published var categories = Category.defaults
-    @Published var accounts = [Account.defaultAccount]
+    private let dataManager: DataManager
     
     // Quick entry props
     @Published var entryAmount: String = ""
     @Published var entryDescription: String = ""
     @Published var selectedCategory: Category?
     @Published var selectedDate: Date = Date()
-    @Published var selectedAccount: Account = Account.defaultAccount
+    @Published var selectedAccount: Account?
     @Published var transactionType: TransactionType = .expense
+    
+    @Published var isProcessing = false
+    @Published var lastError: Error?
+    
+    var transactions: [Transaction] {
+        dataManager.transactions
+    }
+    
+    var categories: [Category] {
+        dataManager.categories
+    }
+    
+    var accounts: [Account] {
+        dataManager.accounts
+    }
+    
+    init(dataManager: DataManager) {
+        self.dataManager = dataManager
+        self.selectedAccount = dataManager.accounts.first { $0.isDefault } ?? dataManager.accounts.first
+    }
     
     var amountDecimal: Decimal? {
         guard !entryAmount.isEmpty else { return nil }
@@ -32,38 +50,45 @@ class TransactionViewModel: ObservableObject {
     }
     
     func addTransaction() {
-        guard let amount = amountDecimal else {return}
+        guard let amount = amountDecimal,
+              let account = selectedAccount else { return }
+        
+        isProcessing = true
+        lastError = nil
         
         let transaction = Transaction(
             transactionDate: selectedDate,
             type: transactionType,
             amount: amount,
             category: selectedCategory,
-            description: entryDescription,
-            fromAccount: transactionType == .expense ? selectedAccount : nil,
-            toAccount: transactionType == .income ? selectedAccount : nil
+            description: entryDescription.trimmingCharacters(in: .whitespacesAndNewlines),
+            fromAccount: transactionType == .expense || transactionType == .transferOut ? account : nil,
+            toAccount: transactionType == .income || transactionType == .transferIn ? account : nil
         )
         
-        transactions.insert(transaction, at: 0)
-        
-        // update accounts balance
-        
-        if transactionType == .expense {
-            if let index = accounts.firstIndex(where: {$0.id == selectedAccount.id}) {
-                accounts[index].balance -= amount
-                
-            }
-        } else if transactionType == .income {
-            if let index = accounts.firstIndex(where: {$0.id == selectedAccount.id}) {
-                accounts[index].balance += amount
-            }
+        do {
+            try dataManager.addTransaction(transaction)
+            clearEntry()
+            
+            // Sync to Google Sheets if configured
+            //                Task {
+            //                    await syncToGoogleSheets(transaction)
+            //                }
+        } catch {
+            lastError = error
+            print("Failed to add transaction: \(error)")
         }
         
-        // reset
-        clearEntry()
-        
-        saveTransactions()
-        
+        isProcessing = false
+    }
+    
+    func deleteTransaction(_ transaction: Transaction) {
+        do {
+            try dataManager.deleteTransaction(transaction)
+        } catch {
+            lastError = error
+            print("Failed to delete transaction: \(error)")
+        }
     }
     
     func clearEntry() {
@@ -71,29 +96,34 @@ class TransactionViewModel: ObservableObject {
         entryDescription = ""
         selectedCategory = nil
         selectedDate = Date()
-        //selectedAccount = Account.defaultAccount
-        //transactionType = .expense
-    }
-    
-    func deleteTransaction(_ transaction: Transaction) {
-        transactions.removeAll { $0.id == transaction.id }
-        saveTransactions()
+        // Keep selected account and transaction type for convenience
     }
     
     func suggestCategory(for description: String) -> Category? {
         let lowercased = description.lowercased()
         
-        // TODO: Make smart patterns based on history analysis
+        // Smart patterns based on actual usage
         let patterns: [String: String] = [
-            "нетфлікс" : "підписки",
-            "netflix" : "підписки",
-            "spotify" : "підписки",
-            "photoshop" : "підписки",
-            "apple" : "підписки",
-            "сільпо" : "продукти",
-            "фора" : "продукти",
-            "метро" : "продукти"
-            ]
+            "нетфлікс": "підписки",
+            "netflix": "підписки",
+            "spotify": "підписки",
+            "photoshop": "підписки",
+            "chatgpt": "підписки",
+            "apple": "підписки",
+            "setapp": "підписки",
+            "сільпо": "продукти",
+            "фора": "продукти",
+            "метро": "продукти",
+            "atb": "продукти",
+            "магаз": "продукти",
+            "таксі": "таксі",
+            "uber": "таксі",
+            "bolt": "таксі",
+            "uklon": "таксі",
+            "аптека": "аптека",
+            "ліки": "аптека",
+            "pharmacy": "аптека"
+        ]
         
         for (pattern, categoryName) in patterns {
             if lowercased.contains(pattern) {
@@ -102,11 +132,6 @@ class TransactionViewModel: ObservableObject {
         }
         
         return nil
-        
     }
     
-    private func saveTransactions() {
-        // TODO: Implement core data or other persistence
-        print("Saving transactions...")
-    }
 }
