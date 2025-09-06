@@ -1,0 +1,8 @@
+import Foundation
+import SwiftUICore
+
+struct FilterView: View {
+    var body: some View {
+        Text("Filter View")
+    }
+}
