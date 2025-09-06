@@ -8,12 +8,14 @@
 
 import Foundation
 
-struct Account: Codable, Hashable {
+struct Account: Codable, Hashable, Identifiable {
     let id: UUID
     let name: String
     let tag: String
     var balance: Decimal
-    let isDefault: Bool
+    var isDefault: Bool
     
     static let defaultAccount = Account(id: UUID(), name: "Основна картка", tag: "#main", balance: 0, isDefault: true)
 }
+
+

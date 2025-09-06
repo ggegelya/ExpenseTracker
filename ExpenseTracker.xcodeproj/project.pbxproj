@@ -34,15 +34,44 @@
 		9C0CEB172E53738F00C06181 /* ClockKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ClockKit.framework; path = System/Library/Frameworks/ClockKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		9C8860E92E64FA1B00610050 /* Exceptions for "ExpenseTracker" folder in "ExpenseTracker" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Tests/UITests/ExpenseTrackerUITests.swift,
+				Tests/UITests/ExpenseTrackerUITestsLaunchTests.swift,
+				Tests/UnitTests/ExpenseTrackerTests.swift,
+				Tests/UnitTests/RepositoryTests.swift,
+			);
+			target = 9C0CEACC2E4E7BA300C06181 /* ExpenseTracker */;
+		};
+		9C8860EA2E64FA1B00610050 /* Exceptions for "ExpenseTracker" folder in "ExpenseTrackerTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Tests/UnitTests/ExpenseTrackerTests.swift,
+				Tests/UnitTests/RepositoryTests.swift,
+			);
+			target = 9C0CEADE2E4E7BA400C06181 /* ExpenseTrackerTests */;
+		};
+		9C8860EB2E64FA2300610050 /* Exceptions for "ExpenseTracker" folder in "ExpenseTrackerUITests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Tests/UITests/ExpenseTrackerUITests.swift,
+				Tests/UITests/ExpenseTrackerUITestsLaunchTests.swift,
+			);
+			target = 9C0CEAE82E4E7BA400C06181 /* ExpenseTrackerUITests */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		9C0CEACF2E4E7BA300C06181 /* ExpenseTracker */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				9C8860E92E64FA1B00610050 /* Exceptions for "ExpenseTracker" folder in "ExpenseTracker" target */,
+				9C8860EA2E64FA1B00610050 /* Exceptions for "ExpenseTracker" folder in "ExpenseTrackerTests" target */,
+				9C8860EB2E64FA2300610050 /* Exceptions for "ExpenseTracker" folder in "ExpenseTrackerUITests" target */,
+			);
 			path = ExpenseTracker;
-			sourceTree = "<group>";
-		};
-		9C0CEAE22E4E7BA400C06181 /* ExpenseTrackerTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = ExpenseTrackerTests;
 			sourceTree = "<group>";
 		};
 		9C0CEAEC2E4E7BA400C06181 /* ExpenseTrackerUITests */ = {
@@ -82,7 +111,6 @@
 			isa = PBXGroup;
 			children = (
 				9C0CEACF2E4E7BA300C06181 /* ExpenseTracker */,
-				9C0CEAE22E4E7BA400C06181 /* ExpenseTrackerTests */,
 				9C0CEAEC2E4E7BA400C06181 /* ExpenseTrackerUITests */,
 				9C0CEB162E53738F00C06181 /* Frameworks */,
 				9C0CEACE2E4E7BA300C06181 /* Products */,
@@ -144,9 +172,6 @@
 			);
 			dependencies = (
 				9C0CEAE12E4E7BA400C06181 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				9C0CEAE22E4E7BA400C06181 /* ExpenseTrackerTests */,
 			);
 			name = ExpenseTrackerTests;
 			packageProductDependencies = (

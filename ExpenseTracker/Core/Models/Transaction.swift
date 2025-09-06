@@ -12,9 +12,9 @@ struct Transaction : Codable, Identifiable {
     let timestamp: Date
     let transactionDate: Date
     let type: TransactionType
-    let amount: Decimal
+    var amount: Decimal
     let category: Category?
-    let description: String
+    var description: String
     let fromAccount: Account?
     let toAccount: Account?
     

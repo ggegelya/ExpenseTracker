@@ -43,3 +43,5 @@ struct PendingTransactionRow: View {
         return formatter.string(from: NSDecimalNumber(decimal: amount)) ?? "₴0"
     }
 }
+
+

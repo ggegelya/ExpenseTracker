@@ -10,7 +10,6 @@ import Foundation
 import CoreData
 import Combine
 
-@MainActor
 final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
     private let persistenceController: PersistenceController
     private let context: NSManagedObjectContext
