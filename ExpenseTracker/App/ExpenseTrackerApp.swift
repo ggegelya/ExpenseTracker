@@ -19,7 +19,11 @@ struct ExpenseTrackerApp: App {
     @State private var showPendingBadge = false
     init() {
         // Setup dependency container
-        self.container = DependencyContainer.shared
+    #if DEBUG
+        self.container = DependencyContainer(environment: .testing)
+        #else
+        self.container = DependencyContainer(environment: .production)
+        #endif
         
         // Create view models
         let transactionVM = container.makeTransactionViewModel()
@@ -78,55 +82,17 @@ struct ExpenseTrackerApp: App {
     }
 }
 
-struct MainTabView: View {
-    @Binding var selectedTab: Int
-    @Binding var showPendingBadge: Bool
-    @EnvironmentObject var pendingViewModel: PendingTransactionsViewModel
-    
-    var body: some View {
-        TabView(selection: $selectedTab) {
-            QuickEntryView()
-                .tabItem {
-                    Label("Додати", systemImage: "plus.circle.fill")
-                }
-                .tag(0)
-            
-            TransactionListView()
-                .tabItem {
-                    Label("Транзакції", systemImage: "list.bullet")
-                }
-                .tag(1)
-            
-            PendingTransactionsView()
-                .tabItem {
-                    Label("Очікує", systemImage: "clock.fill")
-                }
-                .badge(pendingViewModel.pendingTransactions.count)
-                .tag(2)
-            
-            AccountsView()
-                .tabItem {
-                    Label("Рахунки", systemImage: "creditcard.fill")
-                }
-                .tag(3)
-            
-            AnalyticsView()
-                .tabItem {
-                    Label("Аналітика", systemImage: "chart.pie.fill")
-                }
-                .tag(4)
-        }
-        .tint(.blue)
-    }
-}
+
+
+
 
 #Preview {
    MainTabView(
        selectedTab: .constant(0),
        showPendingBadge: .constant(false)
    )
-   .environmentObject(DependencyContainer.preview.makeTransactionViewModel())
-   .environmentObject(DependencyContainer.preview.makeAccountsViewModel())
-   .environmentObject(DependencyContainer.preview.makePendingTransactionsViewModel())
-   .environment(\.managedObjectContext, DependencyContainer.preview.persistenceController.container.viewContext)
+   .environmentObject(DependencyContainer.makeForPreviews().makeTransactionViewModel())
+   .environmentObject(DependencyContainer.makeForPreviews().makeAccountsViewModel())
+   .environmentObject(DependencyContainer.makeForPreviews().makePendingTransactionsViewModel())
+   .environment(\.managedObjectContext, DependencyContainer.makeForPreviews().persistenceController.container.viewContext)
 }

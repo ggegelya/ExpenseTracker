@@ -25,17 +25,17 @@ protocol DependencyContainerProtocol {
 
 // MARK: - Production Dependency Container
 final class DependencyContainer: DependencyContainerProtocol {
-    static let shared = DependencyContainer()
-    
+    let environment: AppEnvironment
     let persistenceController: PersistenceController
     let transactionRepository: TransactionRepositoryProtocol
     let categorizationService: CategorizationServiceProtocol
     let analyticsService: AnalyticsServiceProtocol
     let exportService: ExportServiceProtocol
     
-    private init(isPreview: Bool = false) {
+    init(environment: AppEnvironment = .production) {
+        self.environment = environment
         // Initialize persistence
-        self.persistenceController = isPreview ? .preview : .shared
+        self.persistenceController = environment.usesInMemoryStore ? .preview : .shared
         
         // Initialize repositories
         self.transactionRepository = CoreDataTransactionRepository(
@@ -58,16 +58,6 @@ final class DependencyContainer: DependencyContainerProtocol {
             await setupInitialDataIfNeeded()
         }
     }
-    
-    // MARK: - Preview Container
-    static let preview: DependencyContainer = {
-        let container = DependencyContainer(isPreview: true)
-        // Setup preview data
-        Task {
-            await container.setupPreviewData()
-        }
-        return container
-    }()
     
     // MARK: - Factory Methods
     
@@ -407,5 +397,19 @@ final class ExportService: ExportServiceProtocol {
         // This would integrate with the existing Google Apps Script webhook
         // For now, just a placeholder
         print("Exporting \(transactions.count) transactions to Google Sheets")
+    }
+}
+
+extension DependencyContainer {
+    static func makeForTesting() -> DependencyContainer {
+        return DependencyContainer(environment: .testing)
+    }
+    
+    static func makeForPreviews() -> DependencyContainer {
+        let container = DependencyContainer(environment: .preview)
+        Task {
+            await container.setupPreviewData()
+        }
+        return container
     }
 }

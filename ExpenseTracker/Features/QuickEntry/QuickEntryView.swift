@@ -588,6 +588,6 @@ struct AccountPickerSheet: View {
 
 #Preview {
     QuickEntryView()
-        .environmentObject(DependencyContainer.preview.makeTransactionViewModel())
-        .environmentObject(DependencyContainer.preview.makePendingTransactionsViewModel())
+        .environmentObject(DependencyContainer.makeForPreviews().makeTransactionViewModel())
+        .environmentObject(DependencyContainer.makeForPreviews().makePendingTransactionsViewModel())
 }
