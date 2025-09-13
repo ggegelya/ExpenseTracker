@@ -38,6 +38,8 @@ final class TransactionViewModel: ObservableObject {
     @Published var filterCategory: Category?
     @Published var searchText: String = ""
     
+    @Published var errorHandler: ErrorHandlingService?
+    
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Computed Properties
@@ -209,13 +211,17 @@ final class TransactionViewModel: ObservableObject {
                 category: created.category?.name
             ))
             
+            errorHandler?.showToast("Транзакцію успішно додано", type: .success)
             // Clear entry form
             clearEntry()
             
             // Reload data
             await loadData()
         } catch {
-            handleError(error, context: "Adding transaction")
+            handleError(error, context: "Adding transaction") {
+                await self.addTransaction() // Retry action
+            }
+            
         }
     }
     
@@ -315,9 +321,9 @@ final class TransactionViewModel: ObservableObject {
         self.showError = true
         analyticsService.trackError(error, context: context)
         
-        #if DEBUG
+#if DEBUG
         print("Error in \(context): \(error)")
-        #endif
+#endif
     }
     
     // MARK: - Formatting Helpers
@@ -333,4 +339,27 @@ final class TransactionViewModel: ObservableObject {
         let number = NSDecimalNumber(decimal: amount)
         return formatter.string(from: number) ?? "₴0"
     }
+    
+    func handleError(_ error: Error, context: String, retryAction: (() async -> Void)? = nil) {
+        let appError: AppError
+        
+        if let repoError = error as? RepositoryError {
+            appError = AppError(from: repoError)
+        } else if let urlError = error as? URLError {
+            appError = AppError(from: urlError)
+        } else {
+            appError = .syncFailed // Default mapping
+        }
+        
+        errorHandler?.handle(appError, context: context)
+        
+        if let retryAction = retryAction {
+            errorHandler?.showAlert(appError, retryAction: {
+                Task {
+                    await retryAction()
+                }
+            })
+        }
+    }
 }
+

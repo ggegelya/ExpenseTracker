@@ -8,44 +8,118 @@
 
 import SwiftUI
 
+enum AppTab: Int, CaseIterable, Identifiable {
+    case quickEntry = 0
+    case transactions
+    case pending
+    case accounts
+    case analytics
+    
+    var id: Int { rawValue }
+    
+    var title: String {
+        switch self {
+        case .quickEntry: return "Додати"
+        case .transactions: return "Транзакції"
+        case .pending: return "Очікує"
+        case .accounts: return "Рахунки"
+        case .analytics: return "Аналітика"
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .quickEntry: return "plus.circle.fill"
+        case .transactions: return "list.bullet"
+        case .pending: return "clock.fill"
+        case .accounts: return "creditcard.fill"
+        case .analytics: return "chart.pie.fill"
+        }
+    }
+    
+    var shouldShowBadge: Bool {
+        switch self {
+        case .pending: return true
+        default: return false
+        }
+    }
+
+}
+
 struct MainTabView: View {
-    @Binding var selectedTab: Int
-    @Binding var showPendingBadge: Bool
+    
+    @State private var selectedTab: AppTab = .quickEntry
     @EnvironmentObject var pendingViewModel: PendingTransactionsViewModel
     
     var body: some View {
         TabView(selection: $selectedTab) {
             QuickEntryView()
                 .tabItem {
-                    Label("Додати", systemImage: "plus.circle.fill")
+                    Label(AppTab.quickEntry.title, systemImage: AppTab.quickEntry.icon)
                 }
-                .tag(0)
+                .tag(AppTab.quickEntry)
             
             TransactionListView()
                 .tabItem {
-                    Label("Транзакції", systemImage: "list.bullet")
+                    Label(AppTab.transactions.title, systemImage: AppTab.transactions.icon)
                 }
-                .tag(1)
+                .tag(AppTab.transactions)
             
             PendingTransactionsView()
                 .tabItem {
-                    Label("Очікує", systemImage: "clock.fill")
+                    Label(AppTab.pending.title, systemImage: AppTab.pending.icon)
                 }
                 .badge(pendingViewModel.pendingTransactions.count)
-                .tag(2)
+                .tag(AppTab.pending)
             
             AccountsView()
                 .tabItem {
-                    Label("Рахунки", systemImage: "creditcard.fill")
+                    Label(AppTab.accounts.title, systemImage: AppTab.accounts.icon)
                 }
-                .tag(3)
+                .tag(AppTab.accounts)
             
             AnalyticsView()
                 .tabItem {
-                    Label("Аналітика", systemImage: "chart.pie.fill")
+                    Label(AppTab.analytics.title, systemImage: AppTab.analytics.icon)
                 }
-                .tag(4)
+                .tag(AppTab.analytics)
         }
         .tint(.blue)
     }
+}
+
+
+extension MainTabView {
+    func navigateToTab(_ tab: AppTab) {
+        selectedTab = tab
+    }
+    
+    func navigateToPendingTransactions() {
+        selectedTab = .pending
+    }
+}
+
+extension AppTab {
+    init?(urlPath: String) {
+        switch urlPath.lowercased() {
+        case "quick-entrty": self = .quickEntry
+        case "transactions": self = .transactions
+        case "pending": self = .pending
+        case "accounts": self = .accounts
+        case "analytics": self = .analytics
+        default: return nil
+        }
+    }
+    
+    var urlPath: String {
+        switch self {
+        case .quickEntry: return "quick-entry"
+        case .transactions: return "transactions"
+        case .pending: return "pending"
+        case .accounts: return "accounts"
+        case .analytics: return "analytics"
+        }
+    }
+        
+        
 }

@@ -35,7 +35,7 @@ final class DependencyContainer: DependencyContainerProtocol {
     init(environment: AppEnvironment = .production) {
         self.environment = environment
         // Initialize persistence
-        self.persistenceController = environment.usesInMemoryStore ? .preview : .shared
+        self.persistenceController = PersistenceController(inMemory: environment.usesInMemoryStore)
         
         // Initialize repositories
         self.transactionRepository = CoreDataTransactionRepository(
@@ -49,13 +49,23 @@ final class DependencyContainer: DependencyContainerProtocol {
         
         self.analyticsService = AnalyticsService()
         
+//        self.analyticsService = environment == .testing
+//        ? MockAnalyticsService()
+//        : AnalyticsService()
+//        
         self.exportService = ExportService(
             repository: transactionRepository
         )
         
-        // Setup initial data if needed
-        Task {
-            await setupInitialDataIfNeeded()
+//        self.bankingService = environment == .testing
+//        ? MockBankingService()
+//        : BankingService(baseURL: environment.bankingBaseURL)
+        
+        // Setup initial data for non-testing environments
+        if environment != .testing {
+            Task {
+                await setupInitialDataIfNeeded()
+            }
         }
     }
     
@@ -85,6 +95,11 @@ final class DependencyContainer: DependencyContainerProtocol {
             categorizationService: categorizationService,
             analyticsService: analyticsService
         )
+    }
+    
+    func cleanup() async {
+        // cleanup services, etc.
+        // await bankingService.disconnect()
     }
     
     // MARK: - Setup Methods
@@ -324,36 +339,6 @@ final class CategorizationService: CategorizationServiceProtocol {
 }
 
 // MARK: - Analytics Service
-
-protocol AnalyticsServiceProtocol {
-    func trackEvent(_ event: AnalyticsEvent)
-    func trackError(_ error: Error, context: String?)
-}
-
-enum AnalyticsEvent {
-    case transactionAdded(amount: Decimal, category: String?)
-    case transactionDeleted
-    case accountConnected(bankName: String)
-    case categoryCreated
-    case exportCompleted(format: String)
-}
-
-final class AnalyticsService: AnalyticsServiceProtocol {
-    func trackEvent(_ event: AnalyticsEvent) {
-        // In production, send to analytics service
-        #if DEBUG
-        print("Analytics: \(event)")
-        #endif
-    }
-    
-    func trackError(_ error: Error, context: String?) {
-        // In production, send to error tracking service
-        #if DEBUG
-        print("Error tracked: \(error) - Context: \(context ?? "none")")
-        #endif
-    }
-}
-
 // MARK: - Export Service
 
 protocol ExportServiceProtocol {

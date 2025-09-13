@@ -19,11 +19,11 @@ struct ExpenseTrackerApp: App {
     @State private var showPendingBadge = false
     init() {
         // Setup dependency container
-    #if DEBUG
-        self.container = DependencyContainer(environment: .testing)
-        #else
+#if DEBUG
+        self.container = DependencyContainer(environment: .staging)
+#else
         self.container = DependencyContainer(environment: .production)
-        #endif
+#endif
         
         // Create view models
         let transactionVM = container.makeTransactionViewModel()
@@ -39,17 +39,14 @@ struct ExpenseTrackerApp: App {
     }
     var body: some Scene {
         WindowGroup {
-            MainTabView(
-                selectedTab: $selectedTab,
-                showPendingBadge: $showPendingBadge
-            )
-            .environment(\.managedObjectContext, container.persistenceController.container.viewContext)
-            .environmentObject(transactionViewModel)
-            .environmentObject(accountsViewModel)
-            .environmentObject(pendingViewModel)
-            .onAppear {
-                checkPendingTransactions()
-            }
+            MainTabView()
+                .environment(\.managedObjectContext, container.persistenceController.container.viewContext)
+                .environmentObject(transactionViewModel)
+                .environmentObject(accountsViewModel)
+                .environmentObject(pendingViewModel)
+                .onAppear {
+                    
+                }
         }
     }
     
@@ -87,12 +84,9 @@ struct ExpenseTrackerApp: App {
 
 
 #Preview {
-   MainTabView(
-       selectedTab: .constant(0),
-       showPendingBadge: .constant(false)
-   )
-   .environmentObject(DependencyContainer.makeForPreviews().makeTransactionViewModel())
-   .environmentObject(DependencyContainer.makeForPreviews().makeAccountsViewModel())
-   .environmentObject(DependencyContainer.makeForPreviews().makePendingTransactionsViewModel())
-   .environment(\.managedObjectContext, DependencyContainer.makeForPreviews().persistenceController.container.viewContext)
+    MainTabView()
+        .environmentObject(DependencyContainer.makeForPreviews().makeTransactionViewModel())
+        .environmentObject(DependencyContainer.makeForPreviews().makeAccountsViewModel())
+        .environmentObject(DependencyContainer.makeForPreviews().makePendingTransactionsViewModel())
+        .environment(\.managedObjectContext, DependencyContainer.makeForPreviews().persistenceController.container.viewContext)
 }
