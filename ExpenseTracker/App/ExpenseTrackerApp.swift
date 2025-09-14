@@ -11,12 +11,14 @@ import SwiftUI
 struct ExpenseTrackerApp: App {
     let persistenceController = PersistenceController.shared
     let container: DependencyContainer
+    
     @StateObject private var transactionViewModel: TransactionViewModel
     @StateObject private var accountsViewModel: AccountsViewModel
     @StateObject private var pendingViewModel: PendingTransactionsViewModel
     
     @State private var selectedTab = 0
     @State private var showPendingBadge = false
+    
     init() {
         // Setup dependency container
 #if DEBUG
@@ -44,9 +46,6 @@ struct ExpenseTrackerApp: App {
                 .environmentObject(transactionViewModel)
                 .environmentObject(accountsViewModel)
                 .environmentObject(pendingViewModel)
-                .onAppear {
-                    
-                }
         }
     }
     
@@ -69,13 +68,6 @@ struct ExpenseTrackerApp: App {
         
         UITabBar.appearance().standardAppearance = tabBarAppearance
         UITabBar.appearance().scrollEdgeAppearance = tabBarAppearance
-    }
-    
-    private func checkPendingTransactions() {
-        Task {
-            await pendingViewModel.loadPendingTransactions()
-            showPendingBadge = !pendingViewModel.pendingTransactions.isEmpty
-        }
     }
 }
 

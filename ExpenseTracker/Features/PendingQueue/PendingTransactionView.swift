@@ -51,6 +51,9 @@ struct PendingTransactionsView: View {
             .refreshable {
                 await viewModel.loadPendingTransactions()
             }
+            .task {
+                await viewModel.loadPendingTransactions()
+            }
         }
     }
 }

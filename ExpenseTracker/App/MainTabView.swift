@@ -50,6 +50,7 @@ struct MainTabView: View {
     
     @State private var selectedTab: AppTab = .quickEntry
     @EnvironmentObject var pendingViewModel: PendingTransactionsViewModel
+    @Environment(\.scenePhase) private var scenePhase
     
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -85,6 +86,24 @@ struct MainTabView: View {
                 .tag(AppTab.analytics)
         }
         .tint(.blue)
+        .onChange(of: scenePhase) { _, scenePhase in
+            handleScenePhaseChange(scenePhase)
+        }
+            
+    }
+       
+    /// Handles changes in the app's scene phase to manage pending transactions monitoring.
+    /// - Parameter phase: The new scene phase of the app.
+    @MainActor
+    func handleScenePhaseChange(_ phase: ScenePhase) {
+        switch phase {
+        case .active:
+            pendingViewModel.resumeMonitoring()
+        case .inactive, .background:
+            pendingViewModel.pauseMonitoring()
+        @unknown default:
+            break
+        }
     }
 }
 

@@ -80,15 +80,15 @@ struct MonthSummaryCard: View {
         if absAmount >= 1_000_000 {
             formatter.maximumFractionDigits = 1
             let millions = amount / 1_000_000
-            return formatter.string(from: NSDecimalNumber(decimal: millions))?.replacingOccurrences(of: "₴", with: "₴") ?? "₴0" + "M"
+            return formatter.string(from: NSDecimalNumber(decimal: millions))?.replacingOccurrences(of: "₴", with: "M ₴") ?? "₴"
         } else {
-            return formatter.string(from: NSDecimalNumber(decimal: amount)) ?? "₴0"
+            return formatter.string(from: NSDecimalNumber(decimal: amount)) ?? "₴"
         }
     }
 }
 
 // preview
 #Preview {
-    MonthSummaryCard(expenses: 12500.12, income: 20000.34)
+    MonthSummaryCard(expenses: 0, income: 0)
         .padding()
 }

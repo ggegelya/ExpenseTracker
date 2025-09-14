@@ -20,6 +20,17 @@ final class PendingTransactionsViewModel: ObservableObject {
     @Published var error: Error?
     @Published var processingIds: Set<UUID> = []
     
+    var pendingCount: Int {
+        pendingTransactions.count
+    }
+    
+    var hasPendingTransactions: Bool {
+        !pendingTransactions.isEmpty
+    }
+    
+    private var isActive = false
+    private var pollingTask: Task<Void, Never>?
+    
     init(repository: TransactionRepositoryProtocol,
          categorizationService: CategorizationServiceProtocol,
          analyticsService: AnalyticsServiceProtocol) {
@@ -27,8 +38,44 @@ final class PendingTransactionsViewModel: ObservableObject {
         self.categorizationService = categorizationService
         self.analyticsService = analyticsService
         
-        Task {
+        startMonitoring()
+    }
+    
+    deinit {
+        pollingTask?.cancel()
+        
+    }
+    
+    func startMonitoring() {
+        guard !isActive else { return }
+        isActive = true
+        
+        pollingTask = Task {
             await loadPendingTransactions()
+            
+            while !Task.isCancelled && isActive {
+                try? await Task.sleep(for: .seconds(120))
+                if !Task.isCancelled && isActive {
+                    await loadPendingTransactions()
+                }
+            }
+        }
+    }
+    
+    func stopMonitoring() {
+        isActive = false
+        pollingTask?.cancel()
+        pollingTask = nil
+    }
+    
+    func pauseMonitoring() {
+        isActive = false
+    }
+    
+    func resumeMonitoring() {
+        isActive = true
+        if pollingTask?.isCancelled != false {
+            startMonitoring()
         }
     }
     
@@ -45,8 +92,8 @@ final class PendingTransactionsViewModel: ObservableObject {
     }
     
     func processPendingTransaction(_ pending: PendingTransaction,
-                                  with category: Category? = nil,
-                                  description: String? = nil) async {
+                                   with category: Category? = nil,
+                                   description: String? = nil) async {
         processingIds.insert(pending.id)
         defer { processingIds.remove(pending.id) }
         
