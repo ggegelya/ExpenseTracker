@@ -74,11 +74,6 @@
 			path = ExpenseTracker;
 			sourceTree = "<group>";
 		};
-		9C0CEAEC2E4E7BA400C06181 /* ExpenseTrackerUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = ExpenseTrackerUITests;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -111,7 +106,6 @@
 			isa = PBXGroup;
 			children = (
 				9C0CEACF2E4E7BA300C06181 /* ExpenseTracker */,
-				9C0CEAEC2E4E7BA400C06181 /* ExpenseTrackerUITests */,
 				9C0CEB162E53738F00C06181 /* Frameworks */,
 				9C0CEACE2E4E7BA300C06181 /* Products */,
 			);
@@ -192,9 +186,6 @@
 			);
 			dependencies = (
 				9C0CEAEB2E4E7BA400C06181 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				9C0CEAEC2E4E7BA400C06181 /* ExpenseTrackerUITests */,
 			);
 			name = ExpenseTrackerUITests;
 			packageProductDependencies = (
