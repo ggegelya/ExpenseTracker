@@ -7,7 +7,7 @@
 
 
 import Foundation
-import SwiftUICore
+import SwiftUI
 
 struct FilterView: View {
     var body: some View {

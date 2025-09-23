@@ -5,7 +5,6 @@
 //  Created by Heorhii Hehelia on 15.08.2025.
 //
 
-import SwiftUICore
 import SwiftUI
 
 struct CategoryChip : View {

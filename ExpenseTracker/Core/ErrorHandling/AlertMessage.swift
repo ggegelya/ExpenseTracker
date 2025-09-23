@@ -7,7 +7,7 @@
 
 
 import Foundation
-import SwiftUICore
+import SwiftUI
 
 struct AlertMessage: Identifiable {
     let id = UUID()

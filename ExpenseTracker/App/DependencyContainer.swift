@@ -390,11 +390,16 @@ extension DependencyContainer {
         return DependencyContainer(environment: .testing)
     }
     
+    /// Synchronously creates a preview DependencyContainer and blocks until preview data is fully set up.
+    /// This ensures that Core Data relationships are ready and available for SwiftUI previews.
     static func makeForPreviews() -> DependencyContainer {
         let container = DependencyContainer(environment: .preview)
+        let semaphore = DispatchSemaphore(value: 0)
         Task {
             await container.setupPreviewData()
+            semaphore.signal()
         }
+        semaphore.wait()
         return container
     }
 }

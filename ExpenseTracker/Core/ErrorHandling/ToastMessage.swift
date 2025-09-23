@@ -7,7 +7,7 @@
 
 
 import Foundation
-import SwiftUICore
+import SwiftUI
 
 struct ToastMessage: Identifiable {
     let id = UUID()

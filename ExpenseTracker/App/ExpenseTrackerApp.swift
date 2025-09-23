@@ -1,6 +1,5 @@
 //
 //  ExpenseTrackerApp.swift
-//  ExpenseTracker
 //
 //  Created by Heorhii Hehelia on 14.08.2025.
 //
