@@ -83,7 +83,7 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
             try self.updateEntity(entity, from: transaction, in: context)
             
             // Update account balances
-            try await self.updateAccountBalances(for: entity, isReversal: false, in: context)
+            try self.updateAccountBalances(for: entity, isReversal: false, in: context)
             
             try context.save()
             
@@ -108,13 +108,13 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
             }
             
             // Reverse old balances
-            try await self.updateAccountBalances(for: entity, isReversal: true, in: context)
+            try self.updateAccountBalances(for: entity, isReversal: true, in: context)
             
             // Update entity
             try self.updateEntity(entity, from: transaction, in: context)
             
             // Apply new balances
-            try await self.updateAccountBalances(for: entity, isReversal: false, in: context)
+            try self.updateAccountBalances(for: entity, isReversal: false, in: context)
             
             try context.save()
             
@@ -135,7 +135,7 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
             }
             
             // Reverse balances before deletion
-            try await self.updateAccountBalances(for: entity, isReversal: true, in: context)
+            try self.updateAccountBalances(for: entity, isReversal: true, in: context)
             
             context.delete(entity)
             try context.save()
@@ -291,7 +291,7 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
             pendingEntity.processedAt = Date()
             
             // Update account balances
-            try await self.updateAccountBalances(for: transactionEntity, isReversal: false, in: context)
+            try self.updateAccountBalances(for: transactionEntity, isReversal: false, in: context)
             
             try context.save()
         }
@@ -512,16 +512,15 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
     
     // MARK: - Private Helpers
     
-    private func performBackgroundTask<T>(_ block: @escaping (NSManagedObjectContext) async throws -> T) async throws -> T {
+    private func performBackgroundTask<T>(_ block: @escaping (NSManagedObjectContext) throws -> T) async throws -> T {
+        let context = backgroundContext
         return try await withCheckedThrowingContinuation { continuation in
-            backgroundContext.perform {
-                Task {
-                    do {
-                        let result = try await block(self.backgroundContext)
-                        continuation.resume(returning: result)
-                    } catch {
-                        continuation.resume(throwing: error)
-                    }
+            context.perform {
+                do {
+                    let result = try block(context)
+                    continuation.resume(returning: result)
+                } catch {
+                    continuation.resume(throwing: error)
                 }
             }
         }
@@ -567,7 +566,7 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
     
     private func updateAccountBalances(for transaction: TransactionEntity,
                                       isReversal: Bool,
-                                      in context: NSManagedObjectContext) async throws {
+                                      in context: NSManagedObjectContext) throws {
         guard let type = transaction.type,
               let transactionType = TransactionType(rawValue: type),
               let amount = transaction.amount?.decimalValue else { return }
@@ -701,3 +700,4 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
         )
     }
 }
+
