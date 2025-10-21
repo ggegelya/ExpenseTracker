@@ -21,6 +21,7 @@ protocol DependencyContainerProtocol {
     @MainActor func makeTransactionViewModel() -> TransactionViewModel
     @MainActor func makeAccountsViewModel() -> AccountsViewModel
     @MainActor func makePendingTransactionsViewModel() -> PendingTransactionsViewModel
+    @MainActor func makeAnalyticsViewModel() -> AnalyticsViewModel
 }
 
 // MARK: - Production Dependency Container
@@ -96,7 +97,14 @@ final class DependencyContainer: DependencyContainerProtocol {
             analyticsService: analyticsService
         )
     }
-    
+
+    @MainActor
+    func makeAnalyticsViewModel() -> AnalyticsViewModel {
+        return AnalyticsViewModel(
+            repository: transactionRepository
+        )
+    }
+
     func cleanup() async {
         // cleanup services, etc.
         // await bankingService.disconnect()

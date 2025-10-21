@@ -47,11 +47,12 @@ enum AppTab: Int, CaseIterable, Identifiable {
 }
 
 struct MainTabView: View {
-    
+    let container: DependencyContainer
+
     @State private var selectedTab: AppTab = .quickEntry
     @EnvironmentObject var pendingViewModel: PendingTransactionsViewModel
     @Environment(\.scenePhase) private var scenePhase
-    
+
     var body: some View {
         TabView(selection: $selectedTab) {
             QuickEntryView()
@@ -59,27 +60,27 @@ struct MainTabView: View {
                     Label(AppTab.quickEntry.title, systemImage: AppTab.quickEntry.icon)
                 }
                 .tag(AppTab.quickEntry)
-            
+
             TransactionListView()
                 .tabItem {
                     Label(AppTab.transactions.title, systemImage: AppTab.transactions.icon)
                 }
                 .tag(AppTab.transactions)
-            
+
             PendingTransactionsView()
                 .tabItem {
                     Label(AppTab.pending.title, systemImage: AppTab.pending.icon)
                 }
                 .badge(pendingViewModel.pendingTransactions.count)
                 .tag(AppTab.pending)
-            
+
             AccountsView()
                 .tabItem {
                     Label(AppTab.accounts.title, systemImage: AppTab.accounts.icon)
                 }
                 .tag(AppTab.accounts)
-            
-            AnalyticsView()
+
+            AnalyticsView(container: container)
                 .tabItem {
                     Label(AppTab.analytics.title, systemImage: AppTab.analytics.icon)
                 }
@@ -89,7 +90,7 @@ struct MainTabView: View {
         .onChange(of: scenePhase) { _, scenePhase in
             handleScenePhaseChange(scenePhase)
         }
-            
+
     }
        
     /// Handles changes in the app's scene phase to manage pending transactions monitoring.

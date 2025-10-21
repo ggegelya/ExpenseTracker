@@ -40,7 +40,7 @@ struct ExpenseTrackerApp: App {
     }
     var body: some Scene {
         WindowGroup {
-            MainTabView()
+            MainTabView(container: container)
                 .environment(\.managedObjectContext, container.persistenceController.container.viewContext)
                 .environmentObject(transactionViewModel)
                 .environmentObject(accountsViewModel)
@@ -75,9 +75,10 @@ struct ExpenseTrackerApp: App {
 
 
 #Preview {
-    MainTabView()
-        .environmentObject(DependencyContainer.makeForPreviews().makeTransactionViewModel())
-        .environmentObject(DependencyContainer.makeForPreviews().makeAccountsViewModel())
-        .environmentObject(DependencyContainer.makeForPreviews().makePendingTransactionsViewModel())
-        .environment(\.managedObjectContext, DependencyContainer.makeForPreviews().persistenceController.container.viewContext)
+    let previewContainer = DependencyContainer.makeForPreviews()
+    return MainTabView(container: previewContainer)
+        .environmentObject(previewContainer.makeTransactionViewModel())
+        .environmentObject(previewContainer.makeAccountsViewModel())
+        .environmentObject(previewContainer.makePendingTransactionsViewModel())
+        .environment(\.managedObjectContext, previewContainer.persistenceController.container.viewContext)
 }
