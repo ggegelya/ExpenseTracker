@@ -36,8 +36,17 @@ final class TransactionViewModel: ObservableObject {
     // Filtering
     @Published var filterDateRange: ClosedRange<Date>?
     @Published var filterCategory: Category?
+    @Published var filterCategories: [Category] = []
+    @Published var filterTypes: Set<TransactionType> = []
+    @Published var filterAccounts: [Account] = []
+    @Published var filterMinAmount: Decimal?
+    @Published var filterMaxAmount: Decimal?
     @Published var searchText: String = ""
-    
+
+    // Bulk operations
+    @Published var selectedTransactionIds: Set<Transaction.ID> = []
+    @Published var isBulkEditMode: Bool = false
+
     @Published var errorHandler: ErrorHandlingService?
     
     private var cancellables = Set<AnyCancellable>()
@@ -46,7 +55,7 @@ final class TransactionViewModel: ObservableObject {
     
     var filteredTransactions: [Transaction] {
         var result = transactions
-        
+
         // Apply search filter
         if !searchText.isEmpty {
             result = result.filter { transaction in
@@ -54,17 +63,53 @@ final class TransactionViewModel: ObservableObject {
                 transaction.category?.name.localizedCaseInsensitiveContains(searchText) ?? false
             }
         }
-        
-        // Apply category filter
+
+        // Apply category filter (legacy single category)
         if let category = filterCategory {
             result = result.filter { $0.category?.id == category.id }
         }
-        
+
+        // Apply multi-category filter
+        if !filterCategories.isEmpty {
+            let categoryIds = Set(filterCategories.map { $0.id })
+            result = result.filter { transaction in
+                guard let categoryId = transaction.category?.id else { return false }
+                return categoryIds.contains(categoryId)
+            }
+        }
+
+        // Apply transaction type filter
+        if !filterTypes.isEmpty {
+            result = result.filter { filterTypes.contains($0.type) }
+        }
+
+        // Apply account filter
+        if !filterAccounts.isEmpty {
+            let accountIds = Set(filterAccounts.map { $0.id })
+            result = result.filter { transaction in
+                if let fromAccountId = transaction.fromAccount?.id, accountIds.contains(fromAccountId) {
+                    return true
+                }
+                if let toAccountId = transaction.toAccount?.id, accountIds.contains(toAccountId) {
+                    return true
+                }
+                return false
+            }
+        }
+
+        // Apply amount range filter
+        if let minAmount = filterMinAmount {
+            result = result.filter { $0.amount >= minAmount }
+        }
+        if let maxAmount = filterMaxAmount {
+            result = result.filter { $0.amount <= maxAmount }
+        }
+
         // Apply date range filter
         if let dateRange = filterDateRange {
             result = result.filter { dateRange.contains($0.transactionDate) }
         }
-        
+
         return result
     }
     
@@ -253,7 +298,7 @@ final class TransactionViewModel: ObservableObject {
     func deleteTransactions(_ transactions: [Transaction]) async {
         isLoading = true
         defer { isLoading = false }
-        
+
         do {
             for transaction in transactions {
                 try await repository.deleteTransaction(transaction)
@@ -264,7 +309,107 @@ final class TransactionViewModel: ObservableObject {
             handleError(error, context: "Deleting transactions")
         }
     }
-    
+
+    // MARK: - Bulk Operations
+
+    func selectAllTransactions() {
+        selectedTransactionIds = Set(filteredTransactions.map { $0.id })
+    }
+
+    func deselectAllTransactions() {
+        selectedTransactionIds.removeAll()
+    }
+
+    func toggleTransactionSelection(_ id: Transaction.ID) {
+        if selectedTransactionIds.contains(id) {
+            selectedTransactionIds.remove(id)
+        } else {
+            selectedTransactionIds.insert(id)
+        }
+    }
+
+    func bulkDeleteSelectedTransactions() async {
+        let transactionsToDelete = transactions.filter { selectedTransactionIds.contains($0.id) }
+        guard !transactionsToDelete.isEmpty else { return }
+
+        isLoading = true
+        defer {
+            isLoading = false
+            selectedTransactionIds.removeAll()
+            isBulkEditMode = false
+        }
+
+        do {
+            for transaction in transactionsToDelete {
+                try await repository.deleteTransaction(transaction)
+            }
+            analyticsService.trackEvent(.transactionDeleted)
+            errorHandler?.showToast("Видалено \(transactionsToDelete.count) транзакцій", type: .success)
+            await loadData()
+        } catch {
+            handleError(error, context: "Bulk deleting transactions")
+        }
+    }
+
+    func bulkCategorizeSelectedTransactions(to category: Category) async {
+        let transactionsToUpdate = transactions.filter { selectedTransactionIds.contains($0.id) }
+        guard !transactionsToUpdate.isEmpty else { return }
+
+        isLoading = true
+        defer {
+            isLoading = false
+            selectedTransactionIds.removeAll()
+            isBulkEditMode = false
+        }
+
+        do {
+            for transaction in transactionsToUpdate {
+                // Create new transaction with updated category (since category is immutable)
+                let updatedTransaction = Transaction(
+                    id: transaction.id,
+                    timestamp: transaction.timestamp,
+                    transactionDate: transaction.transactionDate,
+                    type: transaction.type,
+                    amount: transaction.amount,
+                    category: category,
+                    description: transaction.description,
+                    fromAccount: transaction.fromAccount,
+                    toAccount: transaction.toAccount
+                )
+                _ = try await repository.updateTransaction(updatedTransaction)
+            }
+            errorHandler?.showToast("Категоризовано \(transactionsToUpdate.count) транзакцій", type: .success)
+            await loadData()
+        } catch {
+            handleError(error, context: "Bulk categorizing transactions")
+        }
+    }
+
+    var selectedTransactionCount: Int {
+        selectedTransactionIds.count
+    }
+
+    var hasActiveFilters: Bool {
+        !filterCategories.isEmpty ||
+        !filterTypes.isEmpty ||
+        !filterAccounts.isEmpty ||
+        filterMinAmount != nil ||
+        filterMaxAmount != nil ||
+        filterDateRange != nil ||
+        !searchText.isEmpty
+    }
+
+    func clearAllFilters() {
+        filterDateRange = nil
+        filterCategory = nil
+        filterCategories = []
+        filterTypes = []
+        filterAccounts = []
+        filterMinAmount = nil
+        filterMaxAmount = nil
+        searchText = ""
+    }
+
     // MARK: - Category Operations
     
     func createCategory(name: String, icon: String, color: String) async {
