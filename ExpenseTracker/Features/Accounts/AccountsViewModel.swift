@@ -49,15 +49,25 @@ final class AccountsViewModel: ObservableObject {
         }
     }
     
-    func createAccount(name: String, tag: String, initialBalance: Decimal = 0) async {
+    func createAccount(name: String, tag: String, initialBalance: Decimal = 0, accountType: AccountType = .card, currency: Currency = .uah, setAsDefault: Bool = false) async {
+        // If setting as default, unset other defaults first
+        if setAsDefault {
+            for var account in accounts where account.isDefault {
+                account.isDefault = false
+                await updateAccount(account, silent: true)
+            }
+        }
+
         let account = Account(
             id: UUID(),
             name: name,
             tag: tag,
             balance: initialBalance,
-            isDefault: accounts.isEmpty
+            isDefault: setAsDefault || accounts.isEmpty,
+            accountType: accountType,
+            currency: currency
         )
-        
+
         do {
             _ = try await repository.createAccount(account)
             await loadAccounts()
@@ -67,29 +77,96 @@ final class AccountsViewModel: ObservableObject {
         }
     }
     
-    func updateAccount(_ account: Account) async {
+    func updateAccount(_ account: Account, silent: Bool = false) async {
+        // If setting as default, unset other defaults first
+        if account.isDefault {
+            for var otherAccount in accounts where otherAccount.isDefault && otherAccount.id != account.id {
+                otherAccount.isDefault = false
+                do {
+                    _ = try await repository.updateAccount(otherAccount)
+                } catch {
+                    if !silent {
+                        self.error = error
+                        analyticsService.trackError(error, context: "Unsetting default account")
+                    }
+                }
+            }
+        }
+
         do {
             _ = try await repository.updateAccount(account)
-            await loadAccounts()
+            if !silent {
+                await loadAccounts()
+            }
         } catch {
-            self.error = error
-            analyticsService.trackError(error, context: "Updating account")
+            if !silent {
+                self.error = error
+                analyticsService.trackError(error, context: "Updating account")
+            }
         }
     }
-    
-    func deleteAccount(_ account: Account) async {
+
+    func deleteAccount(_ account: Account) async throws {
+        // Check if account has transactions
+        let transactions = try await repository.getAllTransactions()
+        let hasTransactions = transactions.contains { transaction in
+            transaction.fromAccount?.id == account.id || transaction.toAccount?.id == account.id
+        }
+
+        if hasTransactions {
+            throw AccountError.hasTransactions
+        }
+
+        // Don't allow deleting the last account
+        if accounts.count <= 1 {
+            throw AccountError.cannotDeleteLastAccount
+        }
+
         do {
             try await repository.deleteAccount(account)
             await loadAccounts()
         } catch {
             self.error = error
             analyticsService.trackError(error, context: "Deleting account")
+            throw error
         }
     }
-    
+
     func setAsDefault(_ account: Account) async {
         var updatedAccount = account
         updatedAccount.isDefault = true
         await updateAccount(updatedAccount)
+    }
+
+    // Helper to check if tag is unique
+    func isTagUnique(_ tag: String, excludingAccountId: UUID? = nil) -> Bool {
+        !accounts.contains { account in
+            account.tag == tag && account.id != excludingAccountId
+        }
+    }
+}
+
+// MARK: - Account Errors
+
+enum AccountError: LocalizedError {
+    case hasTransactions
+    case cannotDeleteLastAccount
+
+    var errorDescription: String? {
+        switch self {
+        case .hasTransactions:
+            return "Неможливо видалити рахунок з транзакціями"
+        case .cannotDeleteLastAccount:
+            return "Неможливо видалити останній рахунок"
+        }
+    }
+
+    var recoverySuggestion: String? {
+        switch self {
+        case .hasTransactions:
+            return "Спершу видаліть всі транзакції цього рахунку"
+        case .cannotDeleteLastAccount:
+            return "Створіть інший рахунок перед видаленням цього"
+        }
     }
 }
