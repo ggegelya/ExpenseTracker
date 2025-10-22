@@ -14,22 +14,30 @@ final class PendingTransactionsViewModel: ObservableObject {
     private let repository: TransactionRepositoryProtocol
     private let categorizationService: CategorizationServiceProtocol
     private let analyticsService: AnalyticsServiceProtocol
-    
+
     @Published var pendingTransactions: [PendingTransaction] = []
     @Published var isLoading = false
     @Published var error: Error?
     @Published var processingIds: Set<UUID> = []
-    
+    @Published var learningNotification: LearningNotification?
+    @Published var showLearningToast = false
+
     var pendingCount: Int {
         pendingTransactions.count
     }
-    
+
     var hasPendingTransactions: Bool {
         !pendingTransactions.isEmpty
     }
-    
+
     private var isActive = false
     private var pollingTask: Task<Void, Never>?
+
+    struct LearningNotification: Identifiable {
+        let id = UUID()
+        let merchantName: String
+        let categoryName: String
+    }
     
     init(repository: TransactionRepositoryProtocol,
          categorizationService: CategorizationServiceProtocol,
@@ -93,13 +101,19 @@ final class PendingTransactionsViewModel: ObservableObject {
     
     func processPendingTransaction(_ pending: PendingTransaction,
                                    with category: Category? = nil,
-                                   description: String? = nil) async {
+                                   description: String? = nil,
+                                   shouldLearn: Bool = true) async {
         processingIds.insert(pending.id)
         defer { processingIds.remove(pending.id) }
-        
+
         let finalCategory = category ?? pending.suggestedCategory
         let finalDescription = description ?? pending.descriptionText
-        
+
+        guard let finalCategory = finalCategory else {
+            self.error = RepositoryError.invalidData("Category is required")
+            return
+        }
+
         let transaction = Transaction(
             transactionDate: pending.transactionDate,
             type: pending.type,
@@ -109,20 +123,36 @@ final class PendingTransactionsViewModel: ObservableObject {
             fromAccount: pending.type == .expense ? pending.account : nil,
             toAccount: pending.type == .income ? pending.account : nil
         )
-        
+
         do {
             try await repository.processPendingTransaction(pending.id, as: transaction)
-            
+
             // Learn from the categorization if it was corrected
-            if let finalCategory = finalCategory,
+            if shouldLearn,
+               let merchantName = pending.merchantName,
                finalCategory.id != pending.suggestedCategory?.id {
                 await categorizationService.learnFromCorrection(
                     description: pending.descriptionText,
                     merchantName: pending.merchantName,
                     correctCategory: finalCategory
                 )
+
+                // Show learning notification
+                learningNotification = LearningNotification(
+                    merchantName: merchantName,
+                    categoryName: finalCategory.name
+                )
+                showLearningToast = true
+
+                // Auto-hide after 3 seconds
+                Task {
+                    try? await Task.sleep(for: .seconds(3))
+                    await MainActor.run {
+                        showLearningToast = false
+                    }
+                }
             }
-            
+
             await loadPendingTransactions()
         } catch {
             self.error = error
