@@ -12,7 +12,6 @@ struct TransactionListView: View {
     @EnvironmentObject var viewModel: TransactionViewModel
     @State private var showFilters = false
     @State private var selectedTransaction: Transaction?
-    @State private var showTransactionDetail = false
 
     var body: some View {
         NavigationStack {
@@ -60,7 +59,6 @@ struct TransactionListView: View {
                                         viewModel.toggleTransactionSelection(transaction.id)
                                     } else {
                                         selectedTransaction = transaction
-                                        showTransactionDetail = true
                                     }
                                 }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -90,6 +88,7 @@ struct TransactionListView: View {
                 }
             }
             .navigationTitle("Транзакції")
+            .navigationBarTitleDisplayMode(.large)
             .searchable(
                 text: $viewModel.searchText,
                 prompt: "Пошук за описом, категорією"
@@ -132,10 +131,9 @@ struct TransactionListView: View {
             .sheet(isPresented: $showFilters) {
                 FilterView()
             }
-            .sheet(isPresented: $showTransactionDetail) {
-                if let transaction = selectedTransaction {
-                    TransactionDetailView(transaction: transaction)
-                }
+            .sheet(item: $selectedTransaction) { transaction in
+                TransactionDetailView(transaction: transaction)
+                    .environmentObject(viewModel)
             }
             .overlay {
                 if viewModel.filteredTransactions.isEmpty && !viewModel.isLoading {

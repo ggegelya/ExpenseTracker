@@ -25,6 +25,7 @@ final class TransactionViewModel: ObservableObject {
     @Published var entryAmount: String = ""
     @Published var entryDescription: String = ""
     @Published var selectedCategory: Category?
+    @Published var categoryWasAutoDetected: Bool = false
     @Published var selectedDate: Date = Date()
     @Published var transactionType: TransactionType = .expense
     
@@ -444,10 +445,11 @@ final class TransactionViewModel: ObservableObject {
             for: description,
             merchantName: nil
         )
-        
+
         // Only auto-select if confidence is high enough and no category is manually selected
         if confidence > 0.7 && selectedCategory == nil {
             selectedCategory = category
+            categoryWasAutoDetected = true
         }
     }
     
@@ -487,7 +489,7 @@ final class TransactionViewModel: ObservableObject {
     
     func handleError(_ error: Error, context: String, retryAction: (() async -> Void)? = nil) {
         let appError: AppError
-        
+
         if let repoError = error as? RepositoryError {
             appError = AppError(from: repoError)
         } else if let urlError = error as? URLError {
@@ -495,15 +497,168 @@ final class TransactionViewModel: ObservableObject {
         } else {
             appError = .syncFailed // Default mapping
         }
-        
+
         errorHandler?.handle(appError, context: context)
-        
+
         if let retryAction = retryAction {
             errorHandler?.showAlert(appError, retryAction: {
                 Task {
                     await retryAction()
                 }
             })
+        }
+    }
+
+    // MARK: - Split Transaction Operations
+
+    /// Create or update a split transaction
+    func createSplitTransaction(from transaction: Transaction, splits: [SplitItem]) async {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            // Delete the original transaction first (if converting)
+            if !transaction.isSplit {
+                try await repository.deleteTransaction(transaction)
+            }
+
+            // Create the parent transaction with no category (since it's split)
+            let parentTransaction = Transaction(
+                id: transaction.id,
+                timestamp: transaction.timestamp,
+                transactionDate: transaction.transactionDate,
+                type: transaction.type,
+                amount: transaction.amount,
+                category: nil, // Parent has no category
+                description: transaction.description,
+                fromAccount: transaction.fromAccount,
+                toAccount: transaction.toAccount,
+                parentTransactionId: nil,
+                splitTransactions: []
+            )
+
+            let createdParent = try await repository.createTransaction(parentTransaction)
+
+            // Create each split as a child transaction
+            for split in splits {
+                let splitTransaction = Transaction(
+                    timestamp: transaction.timestamp,
+                    transactionDate: transaction.transactionDate,
+                    type: transaction.type,
+                    amount: split.amount,
+                    category: split.category,
+                    description: split.description.isEmpty ? transaction.description : split.description,
+                    fromAccount: transaction.fromAccount,
+                    toAccount: transaction.toAccount,
+                    parentTransactionId: createdParent.id,
+                    splitTransactions: nil
+                )
+
+                _ = try await repository.createTransaction(splitTransaction)
+            }
+
+            await loadData()
+            analyticsService.trackEvent(.transactionAdded(amount: transaction.amount, category: nil))
+        } catch {
+            handleError(error, context: "Creating split transaction")
+        }
+    }
+
+    /// Update an existing split transaction
+    func updateSplitTransaction(_ transaction: Transaction, splits: [SplitItem]) async {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            // Delete existing split transactions
+            if let existingSplits = transaction.splitTransactions {
+                for split in existingSplits {
+                    try await repository.deleteTransaction(split)
+                }
+            }
+
+            // Create new splits
+            for split in splits {
+                let splitTransaction = Transaction(
+                    timestamp: transaction.timestamp,
+                    transactionDate: transaction.transactionDate,
+                    type: transaction.type,
+                    amount: split.amount,
+                    category: split.category,
+                    description: split.description.isEmpty ? transaction.description : split.description,
+                    fromAccount: transaction.fromAccount,
+                    toAccount: transaction.toAccount,
+                    parentTransactionId: transaction.id,
+                    splitTransactions: nil
+                )
+
+                _ = try await repository.createTransaction(splitTransaction)
+            }
+
+            await loadData()
+            analyticsService.trackEvent(.transactionAdded(amount: transaction.amount, category: nil))
+        } catch {
+            handleError(error, context: "Updating split transaction")
+        }
+    }
+
+    /// Convert a split transaction back to a regular transaction
+    func convertSplitToRegular(_ transaction: Transaction, category: Category, description: String? = nil) async {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            // Delete all split transactions
+            if let splits = transaction.splitTransactions {
+                for split in splits {
+                    try await repository.deleteTransaction(split)
+                }
+            }
+
+            // Update the parent to be a regular transaction with a category
+            let regularTransaction = Transaction(
+                id: transaction.id,
+                timestamp: transaction.timestamp,
+                transactionDate: transaction.transactionDate,
+                type: transaction.type,
+                amount: transaction.amount,
+                category: category,
+                description: description ?? transaction.description,
+                fromAccount: transaction.fromAccount,
+                toAccount: transaction.toAccount,
+                parentTransactionId: nil,
+                splitTransactions: nil
+            )
+
+            _ = try await repository.updateTransaction(regularTransaction)
+
+            await loadData()
+            analyticsService.trackEvent(.transactionAdded(amount: transaction.amount, category: category.name))
+        } catch {
+            handleError(error, context: "Converting split to regular transaction")
+        }
+    }
+
+    /// Delete a split transaction (parent and all children)
+    func deleteSplitTransaction(_ transaction: Transaction) async {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            // Delete split transactions first
+            if let splits = transaction.splitTransactions {
+                for split in splits {
+                    try await repository.deleteTransaction(split)
+                }
+            }
+
+            // Delete parent
+            try await repository.deleteTransaction(transaction)
+
+            await loadData()
+            analyticsService.trackEvent(.transactionDeleted)
+        } catch {
+            handleError(error, context: "Deleting split transaction")
         }
     }
 }

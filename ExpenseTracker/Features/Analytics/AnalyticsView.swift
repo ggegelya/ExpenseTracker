@@ -47,6 +47,7 @@ struct AnalyticsView: View {
                 .padding()
             }
             .navigationTitle("Аналітика")
+            .navigationBarTitleDisplayMode(.large)
             .refreshable {
                 await analyticsViewModel.loadData()
             }

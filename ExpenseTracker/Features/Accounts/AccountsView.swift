@@ -143,6 +143,7 @@ struct AccountsView: View {
                 }
             }
             .navigationTitle("Рахунки")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {

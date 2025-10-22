@@ -48,6 +48,7 @@ struct PendingTransactionsView: View {
                 }
                 .listStyle(.plain)
                 .navigationTitle("Очікують обробки")
+                .navigationBarTitleDisplayMode(.large)
                 .toolbar {
                     if !viewModel.pendingTransactions.isEmpty {
                         ToolbarItem(placement: .navigationBarTrailing) {

@@ -98,7 +98,7 @@ struct QuickEntryView: View {
                 .padding(.bottom, keyboardHeight)
             }
             .navigationTitle("Додати транзакцію")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
@@ -362,12 +362,13 @@ struct QuickActionsRow: View {
 struct CategoriesSection: View {
     let categories: [Category]
     @Binding var selectedCategory: Category?
-    
+    @EnvironmentObject private var viewModel: TransactionViewModel
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Категорія")
                 .font(.headline)
-            
+
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
                     ForEach(categories) { category in
@@ -380,6 +381,8 @@ struct CategoriesSection: View {
                                         selectedCategory = nil
                                     } else {
                                         selectedCategory = category
+                                        // Mark as manually selected
+                                        viewModel.categoryWasAutoDetected = false
                                     }
                                 }
                             }
@@ -395,14 +398,15 @@ struct DescriptionSection: View {
     @Binding var description: String
     @FocusState var isDescriptionFocused: Bool
     let suggestedCategory: Category?
-    
+    @EnvironmentObject private var viewModel: TransactionViewModel
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Опис")
                     .font(.headline)
-                
-                if suggestedCategory != nil {
+
+                if suggestedCategory != nil && viewModel.categoryWasAutoDetected {
                     HStack(spacing: 4) {
                         Image(systemName: "sparkles")
                             .font(.caption)
@@ -412,7 +416,7 @@ struct DescriptionSection: View {
                     .foregroundColor(.blue)
                 }
             }
-            
+
             TextField("Наприклад: Кава в Aroma", text: $description)
                 .textFieldStyle(.roundedBorder)
                 .focused($isDescriptionFocused)
@@ -467,25 +471,33 @@ struct AddTransactionButton: View {
 
 struct RecentTransactionsSection: View {
     let transactions: [Transaction]
-    
+    @EnvironmentObject private var viewModel: TransactionViewModel
+    @State private var showAllTransactions = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Останні транзакції")
                     .font(.headline)
                 Spacer()
-                NavigationLink(destination: EmptyView()) {
+                Button {
+                    showAllTransactions = true
+                } label: {
                     Text("Всі")
                         .font(.subheadline)
                         .foregroundColor(.blue)
                 }
             }
-            
+
             VStack(spacing: 8) {
                 ForEach(transactions) { transaction in
                     TransactionRow(transaction: transaction)
                 }
             }
+        }
+        .sheet(isPresented: $showAllTransactions) {
+            TransactionListView()
+                .environmentObject(viewModel)
         }
     }
 }

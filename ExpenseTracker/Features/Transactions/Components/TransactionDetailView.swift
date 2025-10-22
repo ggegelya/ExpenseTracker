@@ -15,6 +15,7 @@ struct TransactionDetailView: View {
     @State private var isEditing = false
     @State private var editedTransaction: Transaction
     @State private var showDeleteConfirmation = false
+    @State private var showSplitView = false
 
     init(transaction: Transaction) {
         self.transaction = transaction
@@ -176,6 +177,14 @@ struct TransactionDetailView: View {
                             Label("Редагувати", systemImage: "pencil")
                         }
 
+                        if !transaction.isSplit {
+                            Button {
+                                showSplitView = true
+                            } label: {
+                                Label("Розділити транзакцію", systemImage: "chart.pie")
+                            }
+                        }
+
                         Divider()
 
                         Button(role: .destructive) {
@@ -201,6 +210,22 @@ struct TransactionDetailView: View {
             }
             .sheet(isPresented: $isEditing) {
                 TransactionEditView(transaction: transaction)
+            }
+            .sheet(isPresented: $showSplitView) {
+                SplitTransactionView(
+                    originalTransaction: transaction,
+                    onSave: { splits in
+                        Task {
+                            if transaction.isSplit {
+                                await viewModel.updateSplitTransaction(transaction, splits: splits)
+                            } else {
+                                await viewModel.createSplitTransaction(from: transaction, splits: splits)
+                            }
+                            dismiss()
+                        }
+                    }
+                )
+                .environmentObject(viewModel)
             }
         }
     }
