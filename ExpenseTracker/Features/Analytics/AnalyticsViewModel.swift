@@ -120,16 +120,25 @@ final class AnalyticsViewModel: ObservableObject {
         transactions.filter { dateRange.contains($0.transactionDate) }
     }
 
+    var flattenedFilteredTransactions: [Transaction] {
+        filteredTransactions.flatMap { transaction -> [Transaction] in
+            if transaction.isSplitParent {
+                return transaction.effectiveSplits
+            }
+            return [transaction]
+        }
+    }
+
     var currentMonthExpenses: Decimal {
-        filteredTransactions
+        flattenedFilteredTransactions
             .filter { $0.type == .expense }
-            .reduce(0) { $0 + $1.amount }
+            .reduce(0) { $0 + $1.effectiveAmount }
     }
 
     var currentMonthIncome: Decimal {
-        filteredTransactions
+        flattenedFilteredTransactions
             .filter { $0.type == .income }
-            .reduce(0) { $0 + $1.amount }
+            .reduce(0) { $0 + $1.effectiveAmount }
     }
 
     var monthComparison: MonthComparison {
@@ -146,17 +155,23 @@ final class AnalyticsViewModel: ObservableObject {
             )
         }
 
-        let currentMonthTransactions = transactions.filter {
-            $0.transactionDate >= currentMonthStart
+        let currentMonthTransactions = transactions.filter { $0.transactionDate >= currentMonthStart }
+
+        // Flatten splits to help the type checker
+        let flattenedCurrentMonth: [Transaction] = currentMonthTransactions.flatMap { txn in
+            txn.isSplitParent ? txn.effectiveSplits : [txn]
         }
 
-        let currentExpenses = currentMonthTransactions
-            .filter { $0.type == .expense }
-            .reduce(0) { $0 + $1.amount }
+        let currentMonthExpensesOnly = flattenedCurrentMonth.filter { $0.type == .expense }
+        let currentMonthIncomeOnly = flattenedCurrentMonth.filter { $0.type == .income }
 
-        let currentIncome = currentMonthTransactions
-            .filter { $0.type == .income }
-            .reduce(0) { $0 + $1.amount }
+        let currentExpenses: Decimal = currentMonthExpensesOnly.reduce(0 as Decimal) { partial, txn in
+            partial + txn.effectiveAmount
+        }
+
+        let currentIncome: Decimal = currentMonthIncomeOnly.reduce(0 as Decimal) { partial, txn in
+            partial + txn.effectiveAmount
+        }
 
         // Previous month
         guard let previousMonthDate = calendar.date(byAdding: .month, value: -1, to: now),
@@ -169,17 +184,22 @@ final class AnalyticsViewModel: ObservableObject {
             )
         }
 
-        let previousMonthTransactions = transactions.filter {
-            previousMonthInterval.contains($0.transactionDate)
+        let previousMonthTransactions = transactions.filter { previousMonthInterval.contains($0.transactionDate) }
+
+        let flattenedPreviousMonth: [Transaction] = previousMonthTransactions.flatMap { txn in
+            txn.isSplitParent ? txn.effectiveSplits : [txn]
         }
 
-        let previousExpenses = previousMonthTransactions
-            .filter { $0.type == .expense }
-            .reduce(0) { $0 + $1.amount }
+        let previousMonthExpensesOnly = flattenedPreviousMonth.filter { $0.type == .expense }
+        let previousMonthIncomeOnly = flattenedPreviousMonth.filter { $0.type == .income }
 
-        let previousIncome = previousMonthTransactions
-            .filter { $0.type == .income }
-            .reduce(0) { $0 + $1.amount }
+        let previousExpenses: Decimal = previousMonthExpensesOnly.reduce(0 as Decimal) { partial, txn in
+            partial + txn.effectiveAmount
+        }
+
+        let previousIncome: Decimal = previousMonthIncomeOnly.reduce(0 as Decimal) { partial, txn in
+            partial + txn.effectiveAmount
+        }
 
         return MonthComparison(
             currentExpenses: currentExpenses,
@@ -190,8 +210,8 @@ final class AnalyticsViewModel: ObservableObject {
     }
 
     var categoryBreakdown: [CategorySpending] {
-        let expenses = filteredTransactions.filter { $0.type == .expense }
-        let totalExpenses = expenses.reduce(0) { $0 + $1.amount }
+        let expenses = flattenedFilteredTransactions.filter { $0.type == .expense }
+        let totalExpenses = expenses.reduce(0) { $0 + $1.effectiveAmount }
 
         guard totalExpenses > 0 else { return [] }
 
@@ -203,13 +223,13 @@ final class AnalyticsViewModel: ObservableObject {
             if let existing = categoryTotals[category.id] {
                 categoryTotals[category.id] = (
                     category: category,
-                    amount: existing.amount + transaction.amount,
+                    amount: existing.amount + transaction.effectiveAmount,
                     count: existing.count + 1
                 )
             } else {
                 categoryTotals[category.id] = (
                     category: category,
-                    amount: transaction.amount,
+                    amount: transaction.effectiveAmount,
                     count: 1
                 )
             }
@@ -227,7 +247,7 @@ final class AnalyticsViewModel: ObservableObject {
     }
 
     var topMerchants: [MerchantSpending] {
-        let expenses = filteredTransactions.filter { $0.type == .expense }
+        let expenses = flattenedFilteredTransactions.filter { $0.type == .expense }
 
         var merchantTotals: [String: (amount: Decimal, count: Int)] = [:]
 
@@ -237,12 +257,12 @@ final class AnalyticsViewModel: ObservableObject {
 
             if let existing = merchantTotals[merchant] {
                 merchantTotals[merchant] = (
-                    amount: existing.amount + transaction.amount,
+                    amount: existing.amount + transaction.effectiveAmount,
                     count: existing.count + 1
                 )
             } else {
                 merchantTotals[merchant] = (
-                    amount: transaction.amount,
+                    amount: transaction.effectiveAmount,
                     count: 1
                 )
             }
@@ -258,7 +278,7 @@ final class AnalyticsViewModel: ObservableObject {
     }
 
     var dailySpending: [DailySpending] {
-        let expenses = filteredTransactions.filter { $0.type == .expense }
+        let expenses = flattenedFilteredTransactions.filter { $0.type == .expense }
         let calendar = Calendar.current
 
         var dailyTotals: [Date: Decimal] = [:]
@@ -267,9 +287,9 @@ final class AnalyticsViewModel: ObservableObject {
             let day = calendar.startOfDay(for: transaction.transactionDate)
 
             if let existing = dailyTotals[day] {
-                dailyTotals[day] = existing + transaction.amount
+                dailyTotals[day] = existing + transaction.effectiveAmount
             } else {
-                dailyTotals[day] = transaction.amount
+                dailyTotals[day] = transaction.effectiveAmount
             }
         }
 
@@ -349,33 +369,24 @@ final class AnalyticsViewModel: ObservableObject {
     // MARK: - Helper Methods
 
     func formatAmount(_ amount: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "UAH"
-        formatter.currencySymbol = "₴"
-        formatter.maximumFractionDigits = 0
-        formatter.minimumFractionDigits = 0
-
         let absAmount = abs(NSDecimalNumber(decimal: amount).doubleValue)
 
         if absAmount >= 1_000_000 {
             let millions = amount / 1_000_000
-            formatter.maximumFractionDigits = 1
-            return formatter.string(from: NSDecimalNumber(decimal: millions))?.replacingOccurrences(of: "₴", with: "") ?? "0" + " млн ₴"
+            let formatted = Formatters.decimalString(millions, minFractionDigits: 0, maxFractionDigits: 1)
+            return "\(formatted) млн ₴"
         } else if absAmount >= 1000 {
             let thousands = amount / 1000
-            formatter.maximumFractionDigits = 1
-            return formatter.string(from: NSDecimalNumber(decimal: thousands))?.replacingOccurrences(of: "₴", with: "") ?? "0" + " тис ₴"
+            let formatted = Formatters.decimalString(thousands, minFractionDigits: 0, maxFractionDigits: 1)
+            return "\(formatted) тис ₴"
         } else {
-            return formatter.string(from: NSDecimalNumber(decimal: amount)) ?? "₴0"
+            return Formatters.currencyStringUAH(amount: amount, minFractionDigits: 0, maxFractionDigits: 0)
         }
     }
 
     func formatPercentage(_ value: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .percent
-        formatter.maximumFractionDigits = 1
-        formatter.minimumFractionDigits = 0
+        let formatter = Formatters.percentFormatter(maxFractionDigits: 1)
         return formatter.string(from: NSNumber(value: value / 100)) ?? "0%"
     }
 }
+

@@ -562,7 +562,7 @@ struct AccountPickerSheet: View {
                         VStack(alignment: .leading) {
                             Text(account.name)
                                 .font(.headline)
-                            Text(formatAmount(account.balance))
+                            Text(formatAmount(account.balance, currency: account.currency))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -589,12 +589,11 @@ struct AccountPickerSheet: View {
         .presentationDetents([.medium])
     }
     
-    private func formatAmount(_ amount: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "UAH"
-        formatter.currencySymbol = "₴"
-        return formatter.string(from: NSDecimalNumber(decimal: amount)) ?? "₴0"
+    private func formatAmount(_ amount: Decimal, currency: Currency) -> String {
+        Formatters.currencyString(amount: amount,
+                                  currency: currency,
+                                  minFractionDigits: 0,
+                                  maxFractionDigits: 2)
     }
 }
 

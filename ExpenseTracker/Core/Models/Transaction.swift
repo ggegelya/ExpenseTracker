@@ -17,8 +17,8 @@ struct Transaction : Codable, Identifiable {
     var description: String
     let fromAccount: Account?
     let toAccount: Account?
-    let parentTransactionId: UUID?
-    let splitTransactions: [Transaction]?
+    var parentTransactionId: UUID?
+    var splitTransactions: [Transaction]?
 
     init(
         id: UUID = UUID(),
@@ -46,30 +46,41 @@ struct Transaction : Codable, Identifiable {
         self.splitTransactions = splitTransactions
     }
 
-    var isSplit: Bool {
-        splitTransactions != nil && !(splitTransactions?.isEmpty ?? true)
+    var isSplitParent: Bool {
+        !(splitTransactions?.isEmpty ?? true)
+    }
+
+    var isSplitChild: Bool {
+        parentTransactionId != nil && (splitTransactions?.isEmpty ?? true)
+    }
+
+    var effectiveSplits: [Transaction] {
+        splitTransactions ?? []
+    }
+
+    var effectiveAmount: Decimal {
+        if isSplitParent {
+            return effectiveSplits.reduce(0) { $0 + $1.amount }
+        }
+        return amount
     }
 
     var primaryCategory: Category? {
         // Return the category of the largest split, or the transaction's own category
-        if let splits = splitTransactions, !splits.isEmpty {
+        if isSplitParent {
+            let splits = effectiveSplits
             return splits.max(by: { $0.amount < $1.amount })?.category
         }
         return category
     }
     
     var formattedAmount : String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "UAH"
-        formatter.currencySymbol = "₴"
-        formatter.maximumFractionDigits = 2
-        formatter.minimumFractionDigits = 2
-        
-        let number = NSDecimalNumber(decimal: amount)
-        return "\(type.symbol)\(formatter.string(from: number) ?? "0")"
+        let baseAmount = effectiveAmount
+        let formatted = Formatters.currencyStringUAH(amount: baseAmount,
+                                                     minFractionDigits: 0,
+                                                     maxFractionDigits: 2)
+        return "\(type.symbol)\(formatted)"
     }
     
     
 }
-

@@ -91,7 +91,7 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
             let savedEntity = try context.existingObject(with: entity.objectID) as? TransactionEntity
             guard let saved = savedEntity else { throw RepositoryError.entityNotFound }
             
-            return try self.convertToTransaction(saved, in: context)
+            return try self.convertToTransaction(saved, includeSplits: true, in: context)
         }
     }
     
@@ -118,7 +118,7 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
             
             try context.save()
             
-            return try self.convertToTransaction(entity, in: context)
+            return try self.convertToTransaction(entity, includeSplits: true, in: context)
         }
     }
     
@@ -152,24 +152,34 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
             return nil
         }
         
-        return try convertToTransaction(entity, in: context)
+        return try convertToTransaction(entity, includeSplits: true, in: context)
     }
     
     func getAllTransactions() async throws -> [Transaction] {
         let request: NSFetchRequest<TransactionEntity> = TransactionEntity.fetchRequest()
-        request.sortDescriptors = [NSSortDescriptor(keyPath: \TransactionEntity.transactionDate, ascending: false)]
-        request.relationshipKeyPathsForPrefetching = ["category", "fromAccount", "toAccount"]
+        request.predicate = NSPredicate(format: "parentTransaction == NIL")
+        request.sortDescriptors = [
+            NSSortDescriptor(keyPath: \TransactionEntity.transactionDate, ascending: false),
+            NSSortDescriptor(keyPath: \TransactionEntity.timestamp, ascending: false)
+        ]
+        request.relationshipKeyPathsForPrefetching = [
+            "category",
+            "fromAccount",
+            "toAccount",
+            "splitTransactions",
+            "splitTransactions.category"
+        ]
         request.fetchBatchSize = 50
         
         let entities = try context.fetch(request)
-        return try entities.compactMap { try convertToTransaction($0, in: context) }
+        return try entities.compactMap { try convertToTransaction($0, includeSplits: true, in: context) }
     }
     
     func getTransactions(for account: Account?,
                         in dateRange: ClosedRange<Date>?,
                         category: Category?) async throws -> [Transaction] {
         let request: NSFetchRequest<TransactionEntity> = TransactionEntity.fetchRequest()
-        var predicates: [NSPredicate] = []
+        var predicates: [NSPredicate] = [NSPredicate(format: "parentTransaction == NIL")]
         
         if let account = account {
             predicates.append(NSPredicate(
@@ -194,15 +204,21 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
             ))
         }
         
-        if !predicates.isEmpty {
-            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
-        }
-        
-        request.sortDescriptors = [NSSortDescriptor(keyPath: \TransactionEntity.transactionDate, ascending: false)]
-        request.relationshipKeyPathsForPrefetching = ["category", "fromAccount", "toAccount"]
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+        request.sortDescriptors = [
+            NSSortDescriptor(keyPath: \TransactionEntity.transactionDate, ascending: false),
+            NSSortDescriptor(keyPath: \TransactionEntity.timestamp, ascending: false)
+        ]
+        request.relationshipKeyPathsForPrefetching = [
+            "category",
+            "fromAccount",
+            "toAccount",
+            "splitTransactions",
+            "splitTransactions.category"
+        ]
         
         let entities = try context.fetch(request)
-        return try entities.compactMap { try convertToTransaction($0, in: context) }
+        return try entities.compactMap { try convertToTransaction($0, includeSplits: true, in: context) }
     }
     
     // MARK: - Pending Transaction Operations
@@ -539,6 +555,13 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
         request.fetchLimit = 1
         return try context.fetch(request).first
     }
+
+    private func fetchTransactionEntity(by id: UUID, in context: NSManagedObjectContext) throws -> TransactionEntity? {
+        let request: NSFetchRequest<TransactionEntity> = TransactionEntity.fetchRequest()
+        request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
     
     private func updateEntity(_ entity: TransactionEntity,
                              from transaction: Transaction,
@@ -553,14 +576,26 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
         // Set relationships
         if let category = transaction.category {
             entity.category = try fetchCategoryEntity(by: category.id, in: context)
+        } else {
+            entity.category = nil
         }
         
         if let fromAccount = transaction.fromAccount {
             entity.fromAccount = try fetchAccountEntity(by: fromAccount.id, in: context)
+        } else {
+            entity.fromAccount = nil
         }
         
         if let toAccount = transaction.toAccount {
             entity.toAccount = try fetchAccountEntity(by: toAccount.id, in: context)
+        } else {
+            entity.toAccount = nil
+        }
+
+        if let parentId = transaction.parentTransactionId {
+            entity.parentTransaction = try fetchTransactionEntity(by: parentId, in: context)
+        } else {
+            entity.parentTransaction = nil
         }
     }
     
@@ -588,6 +623,7 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
     }
     
     private func convertToTransaction(_ entity: TransactionEntity,
+                                     includeSplits: Bool,
                                      in context: NSManagedObjectContext) throws -> Transaction {
         guard let id = entity.id,
               let type = entity.type,
@@ -629,6 +665,26 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
             )
         }
         
+        var splitTransactions: [Transaction]? = nil
+        let shouldIncludeSplits = includeSplits && entity.parentTransaction == nil
+        
+        if shouldIncludeSplits,
+           let childEntities = entity.splitTransactions as? Set<TransactionEntity>,
+           !childEntities.isEmpty {
+            let sortedChildren = childEntities.sorted { lhs, rhs in
+                let lhsDate = lhs.transactionDate ?? lhs.timestamp ?? Date.distantPast
+                let rhsDate = rhs.transactionDate ?? rhs.timestamp ?? Date.distantPast
+                if lhsDate == rhsDate {
+                    return (lhs.timestamp ?? lhsDate) < (rhs.timestamp ?? rhsDate)
+                }
+                return lhsDate < rhsDate
+            }
+            
+            splitTransactions = try sortedChildren.map {
+                try convertToTransaction($0, includeSplits: false, in: context)
+            }
+        }
+        
         return Transaction(
             id: id,
             timestamp: entity.timestamp ?? Date(),
@@ -638,7 +694,9 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
             category: category,
             description: description,
             fromAccount: fromAccount,
-            toAccount: toAccount
+            toAccount: toAccount,
+            parentTransactionId: entity.parentTransaction?.id,
+            splitTransactions: splitTransactions
         )
     }
     
@@ -700,4 +758,3 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
         )
     }
 }
-

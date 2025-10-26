@@ -9,7 +9,7 @@ import SwiftUI
 
 struct SplitTransactionView: View {
     let originalTransaction: Transaction
-    let onSave: ([SplitItem]) -> Void
+    let onSave: ([SplitItem], Bool) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var viewModel: TransactionViewModel
@@ -19,6 +19,7 @@ struct SplitTransactionView: View {
     @State private var showError = false
     @State private var errorMessage = ""
     @State private var isSaving = false
+    @State private var retainParent = true
 
     struct CategoryPickerContext: Identifiable {
         let id = UUID()
@@ -26,18 +27,37 @@ struct SplitTransactionView: View {
         let currentCategory: Category?
     }
 
+    private var positiveSplits: [(item: SplitItem, category: Category)] {
+        splitItems.compactMap { item in
+            guard let category = item.category, item.amount > 0 else { return nil }
+            return (item, category)
+        }
+    }
+
+    private var baseAmount: Decimal {
+        originalTransaction.isSplitParent ? originalTransaction.effectiveAmount : originalTransaction.amount
+    }
+
+    private var totalAmountDouble: Double {
+        max((baseAmount as NSDecimalNumber).doubleValue, 0)
+    }
+
+    private var isRemainingBalanced: Bool {
+        abs((remainingAmount as NSDecimalNumber).doubleValue) < 0.01
+    }
+
     var totalSplitAmount: Decimal {
         splitItems.reduce(Decimal(0)) { $0 + $1.amount }
     }
 
     var remainingAmount: Decimal {
-        originalTransaction.amount - totalSplitAmount
+        baseAmount - totalSplitAmount
     }
 
     var isValid: Bool {
         guard !splitItems.isEmpty else { return false }
         guard splitItems.allSatisfy({ $0.category != nil && $0.amount > 0 }) else { return false }
-        return abs((remainingAmount as NSDecimalNumber).doubleValue) < 0.01 // Allow for floating point errors
+        return isRemainingBalanced
     }
 
     var validationError: String? {
@@ -54,11 +74,11 @@ struct SplitTransactionView: View {
             }
         }
 
-        if abs((remainingAmount as NSDecimalNumber).doubleValue) >= 0.01 {
+        if !isRemainingBalanced {
             if remainingAmount > 0 {
-                return "Розподілено недостатньо: залишилось ₴\(formatDecimal(remainingAmount))"
+                return "Розподілено недостатньо: залишилось \(Formatters.currencyStringUAH(amount: remainingAmount))"
             } else {
-                return "Розподілено забагато: перевищення на ₴\(formatDecimal(abs(remainingAmount)))"
+                return "Розподілено забагато: перевищення на \(Formatters.currencyStringUAH(amount: abs(remainingAmount)))"
             }
         }
 
@@ -102,94 +122,111 @@ struct SplitTransactionView: View {
     }
 
     private var mainContent: some View {
-        VStack(spacing: 20) {
-                    // Original Transaction Card
-                    originalTransactionCard
+        LazyVStack(spacing: 20) {
+            // Original Transaction Card
+            originalTransactionCard
 
-                    // Split Allocation Visualization
-                    splitAllocationView
+            // Split Allocation Visualization
+            splitAllocationView
 
-                    // Split Items List
-                    VStack(spacing: 12) {
-                        HStack {
-                            Text("Розділи")
-                                .font(.headline)
-                            Spacer()
-                            Text("\(splitItems.count)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color(.systemGray5))
-                                .clipShape(Capsule())
-                        }
-
-                        ForEach(Array(splitItems.enumerated()), id: \.element.id) { index, item in
-                            SplitItemRow(
-                                splitItem: Binding(
-                                    get: { splitItems[index] },
-                                    set: { splitItems[index] = $0 }
-                                ),
-                                totalAmount: originalTransaction.amount,
-                                onDelete: {
-                                    withAnimation {
-                                        let _ = splitItems.remove(at: index)
-                                    }
-                                },
-                                onCategorySelect: {
-                                    categoryPickerContext = CategoryPickerContext(
-                                        index: index,
-                                        currentCategory: splitItems[index].category
-                                    )
-                                }
-                            )
-                        }
-
-                        // Add Split Button
-                        Button {
-                            withAnimation {
-                                let newSplit = SplitItem(
-                                    amount: remainingAmount > 0 ? remainingAmount : 0,
-                                    category: nil,
-                                    description: ""
-                                )
-                                splitItems.append(newSplit)
-                            }
-                        } label: {
-                            HStack {
-                                Image(systemName: "plus.circle.fill")
-                                Text("Додати розділ")
-                                    .fontWeight(.medium)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue.opacity(0.1))
-                            .foregroundColor(.blue)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                        }
-                    }
-                    .padding(.horizontal)
-
-                    // Validation Error
-                    if let error = validationError {
-                        HStack {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.orange)
-                            Text(error)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding()
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.orange.opacity(0.1))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .padding(.horizontal)
-                    }
-
-                    // Action Buttons
-                    actionButtons
+            if shouldShowRetainParentToggle {
+                Toggle(isOn: $retainParent) {
+                    Text("Зберегти сумарну транзакцію")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
                 }
-                .padding(.vertical)
+                .padding(.horizontal)
+                .toggleStyle(SwitchToggleStyle(tint: .blue))
+
+                if !retainParent {
+                    Text("Після збереження сумарна транзакція буде вилучена, а розділи залишаться окремими записами.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal)
+                }
+            }
+
+            // Split Items List
+            VStack(spacing: 12) {
+                HStack {
+                    Text("Розділи")
+                        .font(.headline)
+                    Spacer()
+                    Text("\(splitItems.count)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(.systemGray5))
+                        .clipShape(Capsule())
+                }
+
+                ForEach($splitItems) { $item in
+                    SplitItemRow(
+                        splitItem: $item,
+                                totalAmount: baseAmount,
+                        onDelete: {
+                            withAnimation {
+                                let id = item.id
+                                splitItems.removeAll { $0.id == id }
+                            }
+                        },
+                        onCategorySelect: {
+                            if let idx = splitItems.firstIndex(where: { $0.id == item.id }) {
+                                categoryPickerContext = CategoryPickerContext(
+                                    index: idx,
+                                    currentCategory: splitItems[idx].category
+                                )
+                            }
+                        }
+                    )
+                }
+
+                // Add Split Button
+                Button {
+                    withAnimation {
+                        let newSplit = SplitItem(
+                            amount: remainingAmount > 0 ? remainingAmount : 0,
+                            category: nil,
+                            description: ""
+                        )
+                        splitItems.append(newSplit)
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                        Text("Додати розділ")
+                            .fontWeight(.medium)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue.opacity(0.1))
+                    .foregroundColor(.blue)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+            }
+            .padding(.horizontal)
+
+            // Validation Error
+            if let error = validationError {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.orange.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .padding(.horizontal)
+            }
+
+            // Action Buttons
+            actionButtons
+        }
+        .padding(.vertical)
     }
 
     // MARK: - Original Transaction Card
@@ -221,7 +258,7 @@ struct SplitTransactionView: View {
 
                     Spacer()
 
-                    Text(formatAmount(originalTransaction.amount))
+                    Text(formatAmount(baseAmount))
                         .font(.title3)
                         .fontWeight(.bold)
                         .foregroundColor(originalTransaction.type == .expense ? .red : .green)
@@ -249,7 +286,7 @@ struct SplitTransactionView: View {
                     Text(formatAmount(remainingAmount))
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundColor(abs((remainingAmount as NSDecimalNumber).doubleValue) < 0.01 ? .green : .orange)
+                        .foregroundColor(isRemainingBalanced ? .green : .orange)
                 }
             }
 
@@ -263,15 +300,16 @@ struct SplitTransactionView: View {
 
                     // Allocated segments
                     HStack(spacing: 0) {
-                        ForEach(splitItems) { item in
-                            if let category = item.category, item.amount > 0 {
-                                let percentage = (item.amount as NSDecimalNumber).doubleValue / (originalTransaction.amount as NSDecimalNumber).doubleValue
-                                let width = geometry.size.width * CGFloat(percentage)
+                        ForEach(positiveSplits, id: \.item.id) { split in
+                            let ratio = totalAmountDouble > 0
+                                ? (split.item.amount as NSDecimalNumber).doubleValue / totalAmountDouble
+                                : 0
+                            let clampedRatio = max(0, min(ratio, 1))
+                            let width = geometry.size.width * CGFloat(clampedRatio)
 
-                                Rectangle()
-                                    .fill(Color(hex: category.colorHex))
-                                    .frame(width: width, height: 24)
-                            }
+                            Rectangle()
+                                .fill(Color(hex: split.category.colorHex))
+                                .frame(width: width, height: 24)
                         }
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -280,25 +318,23 @@ struct SplitTransactionView: View {
             .frame(height: 24)
 
             // Legend
-            if !splitItems.isEmpty {
+            if !positiveSplits.isEmpty {
                 FlowLayout(spacing: 8) {
-                    ForEach(splitItems.filter { $0.category != nil }) { item in
-                        if let category = item.category {
-                            HStack(spacing: 4) {
-                                Circle()
-                                    .fill(Color(hex: category.colorHex))
-                                    .frame(width: 8, height: 8)
-                                Text(category.name)
-                                    .font(.caption2)
-                                Text("₴\(formatDecimal(item.amount))")
-                                    .font(.caption2)
-                                    .fontWeight(.medium)
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color(.systemGray6))
-                            .clipShape(Capsule())
+                    ForEach(positiveSplits, id: \.item.id) { split in
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(Color(hex: split.category.colorHex))
+                                .frame(width: 8, height: 8)
+                            Text(split.category.name)
+                                .font(.caption2)
+                            Text(Formatters.currencyStringUAH(amount: split.item.amount))
+                                .font(.caption2)
+                                .fontWeight(.medium)
                         }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(.systemGray6))
+                        .clipShape(Capsule())
                     }
                 }
             }
@@ -349,9 +385,11 @@ struct SplitTransactionView: View {
                     description: split.description
                 )
             }
+            retainParent = true
         } else {
             // Create initial split with remaining amount
             splitItems = []
+            retainParent = true
         }
     }
 
@@ -365,7 +403,7 @@ struct SplitTransactionView: View {
         isSaving = true
 
         // Call the save handler
-        onSave(splitItems)
+        onSave(splitItems, retainParent)
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             isSaving = false
@@ -375,26 +413,15 @@ struct SplitTransactionView: View {
 
     // MARK: - Formatters
     private func formatAmount(_ amount: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "UAH"
-        formatter.currencySymbol = "₴"
-        formatter.maximumFractionDigits = 2
-        return formatter.string(from: NSDecimalNumber(decimal: amount)) ?? "₴0"
-    }
-
-    private func formatDecimal(_ amount: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.maximumFractionDigits = 2
-        return formatter.string(from: NSDecimalNumber(decimal: amount)) ?? "0"
+        Formatters.currencyStringUAH(amount: amount)
     }
 
     private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.locale = Locale(identifier: "uk_UA")
-        return formatter.string(from: date)
+        Formatters.dateString(date)
+    }
+
+    private var shouldShowRetainParentToggle: Bool {
+        originalTransaction.parentTransactionId == nil
     }
 }
 

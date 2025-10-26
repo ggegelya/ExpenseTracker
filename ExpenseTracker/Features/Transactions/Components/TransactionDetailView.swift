@@ -177,7 +177,13 @@ struct TransactionDetailView: View {
                             Label("Редагувати", systemImage: "pencil")
                         }
 
-                        if !transaction.isSplit {
+                        if transaction.isSplitParent {
+                            Button {
+                                showSplitView = true
+                            } label: {
+                                Label("Редагувати розподіл", systemImage: "chart.pie")
+                            }
+                        } else {
                             Button {
                                 showSplitView = true
                             } label: {
@@ -197,16 +203,38 @@ struct TransactionDetailView: View {
                     }
                 }
             }
-            .alert("Видалити транзакцію?", isPresented: $showDeleteConfirmation) {
-                Button("Скасувати", role: .cancel) {}
-                Button("Видалити", role: .destructive) {
-                    Task {
-                        await viewModel.deleteTransaction(transaction)
-                        dismiss()
+            .confirmationDialog(transaction.isSplitParent ? "Видалити сумарну транзакцію?" : "Видалити транзакцію?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
+                if transaction.isSplitParent {
+                    Button("Видалити сумарну та всі розділи", role: .destructive) {
+                        Task {
+                            await viewModel.deleteSplitTransaction(transaction, cascade: true)
+                            dismiss()
+                        }
+                    }
+
+                    Button("Видалити лише сумарну", role: .destructive) {
+                        Task {
+                            await viewModel.deleteSplitTransaction(transaction, cascade: false)
+                            dismiss()
+                        }
+                    }
+
+                    Button("Скасувати", role: .cancel) { }
+                } else {
+                    Button("Скасувати", role: .cancel) { }
+                    Button("Видалити", role: .destructive) {
+                        Task {
+                            await viewModel.deleteTransaction(transaction)
+                            dismiss()
+                        }
                     }
                 }
             } message: {
-                Text("Ви впевнені, що хочете видалити цю транзакцію? Цю дію не можна скасувати.")
+                if transaction.isSplitParent {
+                    Text("Видалення сумарної транзакції вплине на пов'язані розділи. Оберіть дію.")
+                } else {
+                    Text("Ви впевнені, що хочете видалити цю транзакцію? Цю дію не можна скасувати.")
+                }
             }
             .sheet(isPresented: $isEditing) {
                 TransactionEditView(transaction: transaction)
@@ -214,12 +242,12 @@ struct TransactionDetailView: View {
             .sheet(isPresented: $showSplitView) {
                 SplitTransactionView(
                     originalTransaction: transaction,
-                    onSave: { splits in
+                    onSave: { splits, retainParent in
                         Task {
-                            if transaction.isSplit {
-                                await viewModel.updateSplitTransaction(transaction, splits: splits)
+                            if transaction.isSplitParent {
+                                await viewModel.updateSplitTransaction(transaction, splits: splits, retainParent: retainParent)
                             } else {
-                                await viewModel.createSplitTransaction(from: transaction, splits: splits)
+                                await viewModel.createSplitTransaction(from: transaction, splits: splits, retainParent: retainParent)
                             }
                             dismiss()
                         }
@@ -267,15 +295,9 @@ struct TransactionDetailView: View {
     }
 
     private func formatBalance(_ amount: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "UAH"
-        formatter.currencySymbol = "₴"
-        formatter.maximumFractionDigits = 2
-        formatter.minimumFractionDigits = 0
-
-        let number = NSDecimalNumber(decimal: amount)
-        return formatter.string(from: number) ?? "₴0"
+        Formatters.currencyStringUAH(amount: amount,
+                                     minFractionDigits: 0,
+                                     maxFractionDigits: 2)
     }
 }
 

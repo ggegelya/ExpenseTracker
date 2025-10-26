@@ -69,20 +69,13 @@ struct MonthSummaryCard: View {
     }
     
     private func formatAmount(_ amount: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "UAH"
-        formatter.currencySymbol = "₴"
-        formatter.maximumFractionDigits = 2
-        formatter.minimumFractionDigits = 2
-        
         let absAmount = abs(NSDecimalNumber(decimal: amount).doubleValue)
         if absAmount >= 1_000_000 {
-            formatter.maximumFractionDigits = 1
             let millions = amount / 1_000_000
-            return formatter.string(from: NSDecimalNumber(decimal: millions))?.replacingOccurrences(of: "₴", with: "M ₴") ?? "₴"
+            let formatted = Formatters.decimalString(millions, minFractionDigits: 0, maxFractionDigits: 1)
+            return "\(formatted) млн ₴"
         } else {
-            return formatter.string(from: NSDecimalNumber(decimal: amount)) ?? "₴"
+            return Formatters.currencyStringUAH(amount: amount, minFractionDigits: 0, maxFractionDigits: 2)
         }
     }
 }

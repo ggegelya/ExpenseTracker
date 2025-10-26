@@ -90,11 +90,16 @@ struct SplitItemRow: View {
                         .frame(width: 80)
                         .focused($isAmountFocused)
                         .onChange(of: amountText) { _, newValue in
-                            let filtered = newValue.replacingOccurrences(of: ",", with: ".")
-                            if let value = Decimal(string: filtered) {
-                                splitItem.amount = value
-                            } else if newValue.isEmpty {
+                            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                            if trimmed.isEmpty {
                                 splitItem.amount = 0
+                                return
+                            }
+
+                            if let value = Formatters.decimalValue(from: trimmed),
+                               value != splitItem.amount {
+                                splitItem.amount = value
                             }
                         }
                         .onChange(of: isAmountFocused) { _, focused in
@@ -150,11 +155,7 @@ struct SplitItemRow: View {
         if splitItem.amount == 0 {
             amountText = ""
         } else {
-            let formatter = NumberFormatter()
-            formatter.numberStyle = .decimal
-            formatter.maximumFractionDigits = 2
-            formatter.minimumFractionDigits = 0
-            amountText = formatter.string(from: NSDecimalNumber(decimal: splitItem.amount)) ?? String(describing: splitItem.amount)
+            amountText = Formatters.decimalString(splitItem.amount)
         }
     }
 }

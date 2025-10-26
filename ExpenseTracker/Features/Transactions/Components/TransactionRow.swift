@@ -23,7 +23,7 @@ struct TransactionRow : View {
     var body: some View {
         HStack {
             // Split indicator icon (if applicable)
-            if transaction.isSplit {
+            if transaction.isSplitParent {
                 Image(systemName: "chart.pie.fill")
                     .foregroundColor(.blue)
                     .font(.caption)
@@ -46,7 +46,7 @@ struct TransactionRow : View {
                         .foregroundColor(.secondary)
                     }
 
-                    if transaction.isSplit, let splitCount = transaction.splitTransactions?.count {
+                    if transaction.isSplitParent, let splitCount = transaction.splitTransactions?.count {
                         Text("\(splitCount) розділів")
                             .font(.caption2)
                             .foregroundColor(.blue)
@@ -72,7 +72,7 @@ struct TransactionRow : View {
                     .foregroundColor(transaction.type == .expense ? .red : .green)
 
                 // Show split categories mini visualization
-                if transaction.isSplit, let splits = transaction.splitTransactions, !splits.isEmpty {
+                if transaction.isSplitParent, let splits = transaction.splitTransactions, !splits.isEmpty {
                     HStack(spacing: 2) {
                         ForEach(splits.prefix(3)) { split in
                             if let category = split.category {
@@ -90,7 +90,7 @@ struct TransactionRow : View {
                 }
             }
 
-            if transaction.isSplit {
+            if transaction.isSplitParent {
                 Image(systemName: "chevron.right")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -102,7 +102,7 @@ struct TransactionRow : View {
         .cornerRadius(6)
         .contentShape(Rectangle())
         .onTapGesture {
-            if transaction.isSplit {
+            if transaction.isSplitParent {
                 onTapSplit?()
             }
         }

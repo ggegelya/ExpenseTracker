@@ -43,6 +43,7 @@ final class TransactionViewModel: ObservableObject {
     @Published var filterMinAmount: Decimal?
     @Published var filterMaxAmount: Decimal?
     @Published var searchText: String = ""
+    @Published var expandedSplitParentIds: Set<Transaction.ID> = []
 
     // Bulk operations
     @Published var selectedTransactionIds: Set<Transaction.ID> = []
@@ -59,23 +60,58 @@ final class TransactionViewModel: ObservableObject {
 
         // Apply search filter
         if !searchText.isEmpty {
+            let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
             result = result.filter { transaction in
-                transaction.description.localizedCaseInsensitiveContains(searchText) ||
-                transaction.category?.name.localizedCaseInsensitiveContains(searchText) ?? false
+                if transaction.description.localizedCaseInsensitiveContains(query) {
+                    return true
+                }
+                if transaction.category?.name.localizedCaseInsensitiveContains(query) ?? false {
+                    return true
+                }
+                let splits = transaction.effectiveSplits
+                let matchesSplit = splits.contains { split in
+                    if split.description.localizedCaseInsensitiveContains(query) {
+                        return true
+                    }
+                    return split.category?.name.localizedCaseInsensitiveContains(query) ?? false
+                }
+                if matchesSplit {
+                    return true
+                }
+                return false
             }
         }
 
         // Apply category filter (legacy single category)
         if let category = filterCategory {
-            result = result.filter { $0.category?.id == category.id }
+            result = result.filter { transaction in
+                if transaction.category?.id == category.id {
+                    return true
+                }
+                let splits = transaction.effectiveSplits
+                if splits.contains(where: { $0.category?.id == category.id }) {
+                    return true
+                }
+                return false
+            }
         }
 
         // Apply multi-category filter
         if !filterCategories.isEmpty {
             let categoryIds = Set(filterCategories.map { $0.id })
             result = result.filter { transaction in
-                guard let categoryId = transaction.category?.id else { return false }
-                return categoryIds.contains(categoryId)
+                if let categoryId = transaction.category?.id,
+                   categoryIds.contains(categoryId) {
+                    return true
+                }
+                let splits = transaction.effectiveSplits
+                if splits.contains(where: { split in
+                    guard let splitCategoryId = split.category?.id else { return false }
+                    return categoryIds.contains(splitCategoryId)
+                }) {
+                    return true
+                }
+                return false
             }
         }
 
@@ -94,16 +130,27 @@ final class TransactionViewModel: ObservableObject {
                 if let toAccountId = transaction.toAccount?.id, accountIds.contains(toAccountId) {
                     return true
                 }
+                if transaction.isSplitParent {
+                    return transaction.effectiveSplits.contains { split in
+                        if let fromAccountId = split.fromAccount?.id, accountIds.contains(fromAccountId) {
+                            return true
+                        }
+                        if let toAccountId = split.toAccount?.id, accountIds.contains(toAccountId) {
+                            return true
+                        }
+                        return false
+                    }
+                }
                 return false
             }
         }
 
         // Apply amount range filter
         if let minAmount = filterMinAmount {
-            result = result.filter { $0.amount >= minAmount }
+            result = result.filter { $0.effectiveAmount >= minAmount }
         }
         if let maxAmount = filterMaxAmount {
-            result = result.filter { $0.amount <= maxAmount }
+            result = result.filter { $0.effectiveAmount <= maxAmount }
         }
 
         // Apply date range filter
@@ -112,6 +159,19 @@ final class TransactionViewModel: ObservableObject {
         }
 
         return result
+    }
+
+    var flattenedFilteredTransactions: [Transaction] {
+        filteredTransactions.flatMap { transaction -> [Transaction] in
+            if transaction.isSplitParent {
+                var items: [Transaction] = [transaction]
+                if expandedSplitParentIds.contains(transaction.id) {
+                    items.append(contentsOf: transaction.effectiveSplits)
+                }
+                return items
+            }
+            return [transaction]
+        }
     }
     
     var amountDecimal: Decimal? {
@@ -135,7 +195,7 @@ final class TransactionViewModel: ObservableObject {
         
         return transactions
             .filter { $0.transactionDate >= startOfMonth && $0.type == .expense }
-            .reduce(0) { $0 + $1.amount }
+            .reduce(0) { $0 + $1.effectiveAmount }
     }
     
     var currentMonthIncome: Decimal {
@@ -145,7 +205,7 @@ final class TransactionViewModel: ObservableObject {
         
         return transactions
             .filter { $0.transactionDate >= startOfMonth && $0.type == .income }
-            .reduce(0) { $0 + $1.amount }
+            .reduce(0) { $0 + $1.effectiveAmount }
     }
     
     // MARK: - Initialization
@@ -171,6 +231,8 @@ final class TransactionViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] transactions in
                 self?.transactions = transactions
+                let currentParentIds = Set(transactions.filter { $0.isSplitParent }.map { $0.id })
+                self?.expandedSplitParentIds = self?.expandedSplitParentIds.intersection(currentParentIds) ?? []
             }
             .store(in: &cancellables)
         
@@ -284,6 +346,11 @@ final class TransactionViewModel: ObservableObject {
     }
     
     func deleteTransaction(_ transaction: Transaction) async {
+        if transaction.isSplitParent {
+            await deleteSplitTransaction(transaction, cascade: true)
+            return
+        }
+
         isLoading = true
         defer { isLoading = false }
         
@@ -302,7 +369,16 @@ final class TransactionViewModel: ObservableObject {
 
         do {
             for transaction in transactions {
-                try await repository.deleteTransaction(transaction)
+                if transaction.isSplitParent {
+                    if let splits = transaction.splitTransactions {
+                        for split in splits {
+                            try await repository.deleteTransaction(split)
+                        }
+                    }
+                    try await repository.deleteTransaction(transaction)
+                } else {
+                    try await repository.deleteTransaction(transaction)
+                }
             }
             analyticsService.trackEvent(.transactionDeleted)
             await loadData()
@@ -314,11 +390,23 @@ final class TransactionViewModel: ObservableObject {
     // MARK: - Bulk Operations
 
     func selectAllTransactions() {
-        selectedTransactionIds = Set(filteredTransactions.map { $0.id })
+        selectedTransactionIds = Set(flattenedFilteredTransactions.map { $0.id })
     }
 
     func deselectAllTransactions() {
         selectedTransactionIds.removeAll()
+    }
+
+    func isSplitExpanded(_ id: Transaction.ID) -> Bool {
+        expandedSplitParentIds.contains(id)
+    }
+
+    func toggleSplitExpansion(_ id: Transaction.ID) {
+        if expandedSplitParentIds.contains(id) {
+            expandedSplitParentIds.remove(id)
+        } else {
+            expandedSplitParentIds.insert(id)
+        }
     }
 
     func toggleTransactionSelection(_ id: Transaction.ID) {
@@ -330,7 +418,7 @@ final class TransactionViewModel: ObservableObject {
     }
 
     func bulkDeleteSelectedTransactions() async {
-        let transactionsToDelete = transactions.filter { selectedTransactionIds.contains($0.id) }
+        let transactionsToDelete = flattenedFilteredTransactions.filter { selectedTransactionIds.contains($0.id) }
         guard !transactionsToDelete.isEmpty else { return }
 
         isLoading = true
@@ -342,7 +430,16 @@ final class TransactionViewModel: ObservableObject {
 
         do {
             for transaction in transactionsToDelete {
-                try await repository.deleteTransaction(transaction)
+                if transaction.isSplitParent {
+                    if let splits = transaction.splitTransactions {
+                        for split in splits {
+                            try await repository.deleteTransaction(split)
+                        }
+                    }
+                    try await repository.deleteTransaction(transaction)
+                } else {
+                    try await repository.deleteTransaction(transaction)
+                }
             }
             analyticsService.trackEvent(.transactionDeleted)
             errorHandler?.showToast("Видалено \(transactionsToDelete.count) транзакцій", type: .success)
@@ -397,6 +494,7 @@ final class TransactionViewModel: ObservableObject {
         filterMinAmount != nil ||
         filterMaxAmount != nil ||
         filterDateRange != nil ||
+        filterCategory != nil ||
         !searchText.isEmpty
     }
 
@@ -476,15 +574,9 @@ final class TransactionViewModel: ObservableObject {
     // MARK: - Formatting Helpers
     
     func formatAmount(_ amount: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "UAH"
-        formatter.currencySymbol = "₴"
-        formatter.maximumFractionDigits = 2
-        formatter.minimumFractionDigits = 0
-        
-        let number = NSDecimalNumber(decimal: amount)
-        return formatter.string(from: number) ?? "₴0"
+        Formatters.currencyStringUAH(amount: amount,
+                                     minFractionDigits: 0,
+                                     maxFractionDigits: 2)
     }
     
     func handleError(_ error: Error, context: String, retryAction: (() async -> Void)? = nil) {
@@ -512,91 +604,153 @@ final class TransactionViewModel: ObservableObject {
     // MARK: - Split Transaction Operations
 
     /// Create or update a split transaction
-    func createSplitTransaction(from transaction: Transaction, splits: [SplitItem]) async {
+    func createSplitTransaction(from transaction: Transaction, splits: [SplitItem], retainParent: Bool) async {
         isLoading = true
         defer { isLoading = false }
 
         do {
-            // Delete the original transaction first (if converting)
-            if !transaction.isSplit {
-                try await repository.deleteTransaction(transaction)
-            }
+            try await repository.deleteTransaction(transaction)
 
-            // Create the parent transaction with no category (since it's split)
-            let parentTransaction = Transaction(
-                id: transaction.id,
-                timestamp: transaction.timestamp,
-                transactionDate: transaction.transactionDate,
-                type: transaction.type,
-                amount: transaction.amount,
-                category: nil, // Parent has no category
-                description: transaction.description,
-                fromAccount: transaction.fromAccount,
-                toAccount: transaction.toAccount,
-                parentTransactionId: nil,
-                splitTransactions: []
-            )
+            let totalAmount = splits.reduce(0) { $0 + $1.amount }
 
-            let createdParent = try await repository.createTransaction(parentTransaction)
-
-            // Create each split as a child transaction
-            for split in splits {
-                let splitTransaction = Transaction(
+            if retainParent {
+                let parentSummary = Transaction(
+                    id: transaction.id,
                     timestamp: transaction.timestamp,
                     transactionDate: transaction.transactionDate,
                     type: transaction.type,
-                    amount: split.amount,
-                    category: split.category,
-                    description: split.description.isEmpty ? transaction.description : split.description,
+                    amount: 0, // summary placeholder
+                    category: nil,
+                    description: transaction.description,
                     fromAccount: transaction.fromAccount,
                     toAccount: transaction.toAccount,
-                    parentTransactionId: createdParent.id,
-                    splitTransactions: nil
+                    parentTransactionId: nil,
+                    splitTransactions: []
                 )
 
-                _ = try await repository.createTransaction(splitTransaction)
+                let createdParent = try await repository.createTransaction(parentSummary)
+
+                for split in splits {
+                    let child = Transaction(
+                        timestamp: transaction.timestamp,
+                        transactionDate: transaction.transactionDate,
+                        type: transaction.type,
+                        amount: split.amount,
+                        category: split.category,
+                        description: split.description.isEmpty ? transaction.description : split.description,
+                        fromAccount: transaction.fromAccount,
+                        toAccount: transaction.toAccount,
+                        parentTransactionId: createdParent.id,
+                        splitTransactions: nil
+                    )
+                    _ = try await repository.createTransaction(child)
+                }
+            } else {
+                for split in splits {
+                    let standalone = Transaction(
+                        timestamp: transaction.timestamp,
+                        transactionDate: transaction.transactionDate,
+                        type: transaction.type,
+                        amount: split.amount,
+                        category: split.category,
+                        description: split.description.isEmpty ? transaction.description : split.description,
+                        fromAccount: transaction.fromAccount,
+                        toAccount: transaction.toAccount,
+                        parentTransactionId: nil,
+                        splitTransactions: nil
+                    )
+                    _ = try await repository.createTransaction(standalone)
+                }
             }
 
             await loadData()
-            analyticsService.trackEvent(.transactionAdded(amount: transaction.amount, category: nil))
+            if retainParent {
+                expandedSplitParentIds.insert(transaction.id)
+            } else {
+                expandedSplitParentIds.remove(transaction.id)
+            }
+            analyticsService.trackEvent(.transactionAdded(amount: totalAmount, category: nil))
         } catch {
             handleError(error, context: "Creating split transaction")
         }
     }
 
     /// Update an existing split transaction
-    func updateSplitTransaction(_ transaction: Transaction, splits: [SplitItem]) async {
+    func updateSplitTransaction(_ transaction: Transaction, splits: [SplitItem], retainParent: Bool) async {
         isLoading = true
         defer { isLoading = false }
 
         do {
-            // Delete existing split transactions
+            let totalAmount = splits.reduce(0) { $0 + $1.amount }
+
             if let existingSplits = transaction.splitTransactions {
                 for split in existingSplits {
                     try await repository.deleteTransaction(split)
                 }
             }
 
-            // Create new splits
-            for split in splits {
-                let splitTransaction = Transaction(
+            if retainParent {
+                let updatedParent = Transaction(
+                    id: transaction.id,
                     timestamp: transaction.timestamp,
                     transactionDate: transaction.transactionDate,
                     type: transaction.type,
-                    amount: split.amount,
-                    category: split.category,
-                    description: split.description.isEmpty ? transaction.description : split.description,
+                    amount: 0,
+                    category: nil,
+                    description: transaction.description,
                     fromAccount: transaction.fromAccount,
                     toAccount: transaction.toAccount,
-                    parentTransactionId: transaction.id,
-                    splitTransactions: nil
+                    parentTransactionId: nil,
+                    splitTransactions: []
                 )
 
-                _ = try await repository.createTransaction(splitTransaction)
+                _ = try await repository.updateTransaction(updatedParent)
+
+                for split in splits {
+                    let child = Transaction(
+                        timestamp: transaction.timestamp,
+                        transactionDate: transaction.transactionDate,
+                        type: transaction.type,
+                        amount: split.amount,
+                        category: split.category,
+                        description: split.description.isEmpty ? transaction.description : split.description,
+                        fromAccount: transaction.fromAccount,
+                        toAccount: transaction.toAccount,
+                        parentTransactionId: transaction.id,
+                        splitTransactions: nil
+                    )
+
+                    _ = try await repository.createTransaction(child)
+                }
+            } else {
+                // Convert parent to standalone splits
+                for split in splits {
+                    let standalone = Transaction(
+                        timestamp: transaction.timestamp,
+                        transactionDate: transaction.transactionDate,
+                        type: transaction.type,
+                        amount: split.amount,
+                        category: split.category,
+                        description: split.description.isEmpty ? transaction.description : split.description,
+                        fromAccount: transaction.fromAccount,
+                        toAccount: transaction.toAccount,
+                        parentTransactionId: nil,
+                        splitTransactions: nil
+                    )
+
+                    _ = try await repository.createTransaction(standalone)
+                }
+
+                try await repository.deleteTransaction(transaction)
             }
 
             await loadData()
-            analyticsService.trackEvent(.transactionAdded(amount: transaction.amount, category: nil))
+            if retainParent {
+                expandedSplitParentIds.insert(transaction.id)
+            } else {
+                expandedSplitParentIds.remove(transaction.id)
+            }
+            analyticsService.trackEvent(.transactionAdded(amount: totalAmount, category: nil))
         } catch {
             handleError(error, context: "Updating split transaction")
         }
@@ -616,12 +770,14 @@ final class TransactionViewModel: ObservableObject {
             }
 
             // Update the parent to be a regular transaction with a category
+            let totalAmount = transaction.effectiveAmount
+
             let regularTransaction = Transaction(
                 id: transaction.id,
                 timestamp: transaction.timestamp,
                 transactionDate: transaction.transactionDate,
                 type: transaction.type,
-                amount: transaction.amount,
+                amount: totalAmount,
                 category: category,
                 description: description ?? transaction.description,
                 fromAccount: transaction.fromAccount,
@@ -633,14 +789,14 @@ final class TransactionViewModel: ObservableObject {
             _ = try await repository.updateTransaction(regularTransaction)
 
             await loadData()
-            analyticsService.trackEvent(.transactionAdded(amount: transaction.amount, category: category.name))
+            analyticsService.trackEvent(.transactionAdded(amount: totalAmount, category: category.name))
         } catch {
             handleError(error, context: "Converting split to regular transaction")
         }
     }
 
     /// Delete a split transaction (parent and all children)
-    func deleteSplitTransaction(_ transaction: Transaction) async {
+    func deleteSplitTransaction(_ transaction: Transaction, cascade: Bool) async {
         isLoading = true
         defer { isLoading = false }
 
@@ -648,7 +804,13 @@ final class TransactionViewModel: ObservableObject {
             // Delete split transactions first
             if let splits = transaction.splitTransactions {
                 for split in splits {
-                    try await repository.deleteTransaction(split)
+                    if cascade {
+                        try await repository.deleteTransaction(split)
+                    } else {
+                        var standalone = split
+                        standalone.parentTransactionId = nil
+                        _ = try await repository.updateTransaction(standalone)
+                    }
                 }
             }
 
@@ -657,9 +819,9 @@ final class TransactionViewModel: ObservableObject {
 
             await loadData()
             analyticsService.trackEvent(.transactionDeleted)
+            expandedSplitParentIds.remove(transaction.id)
         } catch {
             handleError(error, context: "Deleting split transaction")
         }
     }
 }
-

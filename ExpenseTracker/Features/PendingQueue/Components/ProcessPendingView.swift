@@ -318,19 +318,13 @@ struct ProcessPendingView: View {
 
     // MARK: - Formatters
     private func formatAmount(_ amount: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "UAH"
-        formatter.currencySymbol = "₴"
-        return formatter.string(from: NSDecimalNumber(decimal: amount)) ?? "₴0"
+        Formatters.currencyStringUAH(amount: amount)
     }
 
     private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .long
-        formatter.timeStyle = .short
-        formatter.locale = Locale(identifier: "uk_UA")
-        return formatter.string(from: date)
+        Formatters.dateString(date,
+                              dateStyle: .long,
+                              timeStyle: .short)
     }
 }
 
@@ -389,19 +383,14 @@ private struct SimilarTransactionRow: View {
     }
 
     private func formatAmount(_ amount: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "UAH"
-        formatter.currencySymbol = "₴"
-        formatter.maximumFractionDigits = 0
-        return formatter.string(from: NSDecimalNumber(decimal: amount)) ?? "₴0"
+        Formatters.currencyStringUAH(amount: amount,
+                                     minFractionDigits: 0,
+                                     maxFractionDigits: 0)
     }
 
     private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        formatter.locale = Locale(identifier: "uk_UA")
-        return formatter.string(from: date)
+        Formatters.dateString(date,
+                              dateStyle: .short)
     }
 }
 

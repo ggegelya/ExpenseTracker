@@ -150,15 +150,10 @@ extension Account {
     }
 
     func formattedBalance() -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = currency.rawValue
-        formatter.currencySymbol = currency.symbol
-        formatter.maximumFractionDigits = 2
-        formatter.minimumFractionDigits = 0
-
-        return formatter.string(from: NSDecimalNumber(decimal: balance)) ?? "\(currency.symbol)0"
+        Formatters.currencyString(amount: balance,
+                                  currency: currency,
+                                  minFractionDigits: 0,
+                                  maxFractionDigits: 2)
     }
 }
-
 

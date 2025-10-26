@@ -157,14 +157,18 @@ struct MonthOverviewCard: View {
     }
 
     private var dateRangeText: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "d MMM"
-
         let start = viewModel.dateRange.lowerBound
         let end = viewModel.dateRange.upperBound
 
-        return "\(formatter.string(from: start)) - \(formatter.string(from: end))"
+        return "\(Self.dayMonthFormatter.string(from: start)) - \(Self.dayMonthFormatter.string(from: end))"
     }
+
+    private static let dayMonthFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "d MMM"
+        formatter.locale = Locale(identifier: "uk_UA")
+        return formatter
+    }()
 }
 
 // MARK: - Comparison Badge

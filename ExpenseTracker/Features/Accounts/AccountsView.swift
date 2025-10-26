@@ -218,17 +218,12 @@ struct AccountsView: View {
     }
 
     private func formatAmount(_ amount: Decimal, currency: Currency = .uah) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = currency.rawValue
-        formatter.currencySymbol = currency.symbol
-        formatter.maximumFractionDigits = 2
-        formatter.minimumFractionDigits = 0
-
-        return formatter.string(from: NSDecimalNumber(decimal: amount)) ?? "\(currency.symbol)0"
+        Formatters.currencyString(amount: amount,
+                                  currency: currency,
+                                  minFractionDigits: 0,
+                                  maxFractionDigits: 2)
     }
 }
-
 
 
 

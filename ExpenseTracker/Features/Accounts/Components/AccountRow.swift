@@ -121,12 +121,17 @@ struct AccountRow: View {
                 let weeks = days / 7
                 return "\(weeks) тиж. тому"
             } else {
-                let formatter = DateFormatter()
-                formatter.dateFormat = "d MMM"
-                return formatter.string(from: date)
+                return Self.dayMonthFormatter.string(from: date)
             }
         }
 
         return ""
     }
+
+    private static let dayMonthFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "d MMM"
+        formatter.locale = Locale(identifier: "uk_UA")
+        return formatter
+    }()
 }
