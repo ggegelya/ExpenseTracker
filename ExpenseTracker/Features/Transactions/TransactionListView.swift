@@ -221,7 +221,7 @@ struct TransactionListView: View {
                 }
             }
             .navigationTitle("Транзакції")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .searchable(
                 text: $viewModel.searchText,
                 prompt: "Пошук за описом, категорією"

@@ -98,7 +98,7 @@ struct QuickEntryView: View {
                 .padding(.bottom, keyboardHeight)
             }
             .navigationTitle("Додати транзакцію")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
