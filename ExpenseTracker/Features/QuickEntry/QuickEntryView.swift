@@ -27,26 +27,24 @@ struct QuickEntryView: View {
     
     private let hapticFeedback = UIImpactFeedbackGenerator(style: .medium)
 
-    // Auto-suggest categories based on description, only show when 3+ characters
-    private var suggestedCategories: [Category] {
-        let description = viewModel.entryDescription.trimmingCharacters(in: .whitespaces)
+    // Best suggested category based on description (single match)
+    private var bestSuggestedCategory: Category? {
+        let description = viewModel.entryDescription.trimmingCharacters(in: .whitespaces).lowercased()
 
-        // Only show suggestions if description has 3+ characters
+        // Only suggest if description has 3+ characters
         guard description.count >= 3 else {
-            return []
+            return nil
         }
 
-        // Filter categories based on description match
-        let filtered = viewModel.categories.filter { category in
-            category.name.localizedCaseInsensitiveContains(description)
+        // Find best match using fuzzy matching
+        let matches = viewModel.categories.filter { category in
+            let categoryName = category.name.lowercased()
+            // Match if description contains category name OR category name starts with description
+            return description.contains(categoryName) || categoryName.hasPrefix(description)
         }
 
-        // Return matches (max 5), or top 5 categories if no matches
-        if !filtered.isEmpty {
-            return Array(filtered.prefix(5))
-        } else {
-            return Array(viewModel.categories.prefix(5))
-        }
+        // Return first strong match
+        return matches.first
     }
 
     // Recent/frequent categories - using first 4-6 as placeholder
@@ -55,23 +53,10 @@ struct QuickEntryView: View {
         Array(viewModel.categories.prefix(6))
     }
 
-    // Categories to display - always include selected category
-    private var displayedCategories: [Category] {
-        var categories = suggestedCategories
-
-        // If there's a selected category and it's not in the suggestions, add it
-        if let selected = viewModel.selectedCategory,
-           !categories.contains(where: { $0.id == selected.id }) {
-            categories.insert(selected, at: 0)
-        }
-
-        return categories
-    }
-
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 28) {
+                VStack(spacing: 0) {
                     // Pending transactions badge
                     if !pendingViewModel.pendingTransactions.isEmpty {
                         PendingTransactionsBadge(
@@ -89,59 +74,70 @@ struct QuickEntryView: View {
                             }
                             // Navigate to pending transactions tab
                         }
+                        .padding(.bottom, 28)
                     }
-                    
-                    // Amount Section
+
+                    Spacer(minLength: 40) // 1. Navigation title to amount: 40pt
+
+                    // Amount Section with integrated metadata pills
+                    // (metadata pills are 8pt below amount - handled inside AmountInputSection)
                     AmountInputSection(
                         amount: $viewModel.entryAmount,
                         transactionType: $viewModel.transactionType,
-                        isAmountFocused: _isAmountFocused
-                    )
-
-                    // Metadata Row (Date + Account)
-                    MetadataRow(
+                        isAmountFocused: _isAmountFocused,
                         selectedDate: $viewModel.selectedDate,
                         selectedAccount: viewModel.selectedAccount,
                         showAccountSelector: viewModel.accounts.count > 1,
-                        onTap: { showMetadataEditor = true }
+                        onMetadataTap: { showMetadataEditor = true }
                     )
 
-                    // Description Section
+                    Spacer(minLength: 32) // 3. Metadata pills to description: 32pt
+
+                    // Description Section with integrated category suggestion
+                    // (category suggestion is 4pt below - handled inside DescriptionSection)
                     DescriptionSection(
                         description: $viewModel.entryDescription,
                         isDescriptionFocused: _isDescriptionFocused,
-                        suggestedCategory: viewModel.selectedCategory
+                        selectedCategory: $viewModel.selectedCategory,
+                        suggestedCategory: bestSuggestedCategory,
+                        onShowCategoryPicker: { showCategoryPicker = true }
                     )
 
-                    // Categories Section (moved after description, show max 5)
-                    if !suggestedCategories.isEmpty || viewModel.selectedCategory != nil {
-                        CategoriesSection(
-                            categories: displayedCategories,
-                            selectedCategory: $viewModel.selectedCategory,
-                            onShowAllCategories: { showCategoryPicker = true }
-                        )
-                    } else {
-                        // Show "Всі категорії" button when no suggestions and no selection
-                        Button {
-                            showCategoryPicker = true
-                        } label: {
-                            HStack {
-                                Image(systemName: "square.grid.2x2")
-                                    .font(.subheadline)
-                                Text("Обрати категорію")
-                                    .font(.subheadline)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.caption2)
+                    // Show selected category chip if one is selected
+                    if let selected = viewModel.selectedCategory {
+                        HStack(spacing: 6) {
+                            Image(systemName: selected.icon)
+                                .font(.system(size: 11))
+                                .foregroundColor(Color(hex: selected.colorHex))
+
+                            Text(selected.name)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.primary)
+
+                            Spacer()
+
+                            Button {
+                                withAnimation(.spring(response: 0.3)) {
+                                    viewModel.selectedCategory = nil
+                                }
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.secondary)
                             }
-                            .foregroundColor(.blue)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
-                            .background(Color.blue.opacity(0.1))
-                            .cornerRadius(12)
+                            .buttonStyle(.plain)
                         }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .frame(height: 28)
+                        .background(Color(hex: selected.colorHex).opacity(0.15))
+                        .cornerRadius(14)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
                     }
-                    
+
+                    Spacer(minLength: 40) // 5. Category to action button: 40pt
+
                     // Add Button
                     AddTransactionButton(
                         isValid: viewModel.isValidEntry,
@@ -150,7 +146,9 @@ struct QuickEntryView: View {
                     ) {
                         await addTransaction()
                     }
-                    
+
+                    Spacer(minLength: 32) // 6. Action button to recent transactions: 32pt
+
                     // Recent Transactions
                     if !viewModel.transactions.isEmpty {
                         RecentTransactionsSection(
@@ -159,7 +157,7 @@ struct QuickEntryView: View {
                         )
                     }
                 }
-                .padding()
+                .padding(.horizontal, 20)
                 .padding(.bottom, keyboardHeight)
             }
             .navigationTitle("Додати транзакцію")
@@ -312,31 +310,31 @@ struct AmountInputSection: View {
     @Binding var amount: String
     @Binding var transactionType: TransactionType
     @FocusState var isAmountFocused: Bool
+    @Binding var selectedDate: Date
+    let selectedAccount: Account?
+    let showAccountSelector: Bool
+    let onMetadataTap: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Amount input with toggle indicator
-            HStack(alignment: .center, spacing: 12) {
-                // Tap-to-toggle -/+ indicator
+        VStack(spacing: 8) {
+            // Amount input - Hero layout
+            HStack(alignment: .center, spacing: 8) {
+                // Tap-to-toggle -/+ sign only (no background)
                 Button {
                     withAnimation(.spring(response: 0.3)) {
                         transactionType = transactionType == .expense ? .income : .expense
                     }
                 } label: {
-                    ZStack {
-                        Circle()
-                            .fill(transactionType == .expense ? Color.red.opacity(0.15) : Color.green.opacity(0.15))
-                            .frame(width: 44, height: 44)
-
-                        Text(transactionType.symbol)
-                            .font(.system(size: 24, weight: .medium, design: .rounded))
-                            .foregroundColor(transactionType == .expense ? .red : .green)
-                    }
+                    Text(transactionType.symbol)
+                        .font(.system(size: 52, weight: .ultraLight, design: .rounded))
+                        .foregroundColor(transactionType == .expense ? .red : .green)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
 
                 TextField("0", text: $amount)
-                    .font(.system(size: 36, weight: .light, design: .rounded))
+                    .font(.system(size: 52, weight: .ultraLight, design: .rounded))
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.center)
                     .focused($isAmountFocused)
@@ -351,55 +349,48 @@ struct AmountInputSection: View {
                     }
 
                 Text("₴")
-                    .font(.system(size: 36, weight: .light, design: .rounded))
+                    .font(.system(size: 52, weight: .ultraLight, design: .rounded))
                     .foregroundColor(.secondary)
             }
-            .padding(.vertical, 16)
 
-            Divider()
-        }
-    }
-}
-
-struct MetadataRow: View {
-    @Binding var selectedDate: Date
-    let selectedAccount: Account?
-    let showAccountSelector: Bool
-    let onTap: () -> Void
-
-    var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 6) {
-                Image(systemName: "calendar")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                Text(formattedDate)
-                    .font(.subheadline)
+            // Metadata pills
+            HStack(spacing: 8) {
+                // Date pill
+                Button(action: onMetadataTap) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 10))
+                        Text(formattedDate)
+                            .font(.system(size: 13, weight: .medium))
+                    }
                     .foregroundColor(.primary)
-
-                if showAccountSelector, let account = selectedAccount {
-                    Text("·")
-                        .foregroundColor(.secondary)
-
-                    Image(systemName: "creditcard")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
-                    Text(account.name)
-                        .font(.subheadline)
-                        .foregroundColor(.primary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color(.systemGray6).opacity(0.5))
+                    .cornerRadius(12)
                 }
+                .buttonStyle(.plain)
 
-                Spacer()
-
-                Image(systemName: "chevron.down")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
+                // Account pill (only if multiple accounts)
+                if showAccountSelector, let account = selectedAccount {
+                    Button(action: onMetadataTap) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "creditcard")
+                                .font(.system(size: 10))
+                            Text(account.name)
+                                .font(.system(size: 13, weight: .medium))
+                                .lineLimit(1)
+                        }
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color(.systemGray6).opacity(0.5))
+                        .cornerRadius(12)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .padding(.vertical, 12)
         }
-        .buttonStyle(.plain)
     }
 
     private var formattedDate: String {
@@ -472,33 +463,56 @@ struct CategoriesSection: View {
 struct DescriptionSection: View {
     @Binding var description: String
     @FocusState var isDescriptionFocused: Bool
+    @Binding var selectedCategory: Category?
     let suggestedCategory: Category?
+    let onShowCategoryPicker: () -> Void
     @EnvironmentObject private var viewModel: TransactionViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Опис")
-                    .font(.headline)
+        VStack(alignment: .leading, spacing: 4) {
+            // Plain text field with bottom border
+            VStack(spacing: 0) {
+                TextField("Що купили?", text: $description)
+                    .font(.system(size: 17))
+                    .focused($isDescriptionFocused)
+                    .submitLabel(.done)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .onSubmit {
+                        isDescriptionFocused = false
+                    }
+                    .onChange(of: description) { oldValue, newValue in
+                        // Auto-select category when strong suggestion appears
+                        if newValue.count >= 3,
+                           let suggested = suggestedCategory,
+                           selectedCategory == nil {
+                            withAnimation(.spring(response: 0.3)) {
+                                selectedCategory = suggested
+                                viewModel.categoryWasAutoDetected = true
+                            }
+                        }
+                    }
 
-                if suggestedCategory != nil && viewModel.categoryWasAutoDetected {
+                Divider()
+            }
+
+            // Always show category picker button when description is 3+ chars
+            if description.count >= 3 {
+                Button {
+                    onShowCategoryPicker()
+                } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: "sparkles")
-                            .font(.caption)
-                        Text("Категорія підібрана автоматично")
-                            .font(.caption)
+                        Text(selectedCategory == nil ? "Обрати категорію" : "Змінити категорію")
+                            .font(.system(size: 14))
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 12))
                     }
                     .foregroundColor(.blue)
                 }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
             }
-
-            TextField("Наприклад: Кава в Aroma", text: $description)
-                .textFieldStyle(.roundedBorder)
-                .focused($isDescriptionFocused)
-                .submitLabel(.done)
-                .onSubmit {
-                    isDescriptionFocused = false
-                }
         }
     }
 }
@@ -509,32 +523,53 @@ struct AddTransactionButton: View {
     let scale: CGFloat
     let action: () async -> Void
 
+    @State private var isPressed = false
+
     var body: some View {
         Button {
             Task {
                 await action()
             }
         } label: {
-            HStack(spacing: 8) {
+            Group {
                 if isLoading {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
                         .scaleEffect(0.9)
                 } else {
-                    Image(systemName: "plus")
-                        .font(.body.weight(.semibold))
                     Text("Додати")
-                        .fontWeight(.semibold)
+                        .font(.system(size: 17, weight: .semibold))
                 }
             }
-            .foregroundColor(isValid ? .blue : .secondary)
+            .foregroundColor(.white)
             .frame(maxWidth: .infinity)
-            .frame(height: 50)
-            .background(isValid ? Color.blue.opacity(0.1) : Color(.systemGray6))
-            .cornerRadius(12)
+            .frame(height: 52)
+            .background(
+                isValid
+                    ? Color.blue.opacity(0.95)
+                    : Color.gray.opacity(0.3)
+            )
+            .cornerRadius(16)
+            .shadow(
+                color: isValid ? Color.blue.opacity(0.2) : .clear,
+                radius: 8,
+                y: 2
+            )
         }
         .disabled(!isValid || isLoading)
+        .scaleEffect(isPressed ? 0.98 : 1.0)
         .scaleEffect(scale)
+        .animation(.spring(response: 0.2), value: isPressed)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    isPressed = true
+                }
+                .onEnded { _ in
+                    isPressed = false
+                }
+        )
+        .padding(.horizontal, 20)
     }
 }
 
@@ -547,9 +582,10 @@ struct RecentTransactionsSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            // Header
             HStack {
-                Text("Останні транзакції")
-                    .font(.headline)
+                Text("Останні")
+                    .font(.system(size: 22, weight: .semibold))
                 Spacer()
 
                 // Only show "Всі" link if there are more than 3 items
@@ -558,38 +594,47 @@ struct RecentTransactionsSection: View {
                         showAllTransactions = true
                     } label: {
                         Text("Всі")
-                            .font(.subheadline)
-                            .foregroundColor(.blue)
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondary)
                     }
                 }
             }
 
             // Use List for swipe actions
             List {
-                ForEach(transactions) { transaction in
-                    TransactionRow(transaction: transaction)
-                        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            selectedTransaction = transaction
-                        }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) {
-                                deleteTransaction(transaction)
-                            } label: {
-                                Label("Видалити", systemImage: "trash")
+                ForEach(Array(transactions.enumerated()), id: \.element.id) { index, transaction in
+                    VStack(spacing: 0) {
+                        SimpleTransactionRow(transaction: transaction)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                selectedTransaction = transaction
                             }
+
+                        // Add divider except for last item
+                        if index < transactions.count - 1 {
+                            Divider()
+                                .background(Color(.systemGray4))
+                                .padding(.leading, 20)
                         }
-                        .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                            Button {
-                                duplicateTransaction(transaction)
-                            } label: {
-                                Label("Дублювати", systemImage: "doc.on.doc")
-                            }
-                            .tint(.blue)
+                    }
+                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            deleteTransaction(transaction)
+                        } label: {
+                            Label("Видалити", systemImage: "trash")
                         }
+                    }
+                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                        Button {
+                            duplicateTransaction(transaction)
+                        } label: {
+                            Label("Дублювати", systemImage: "doc.on.doc")
+                        }
+                        .tint(.blue)
+                    }
                 }
             }
             .listStyle(.plain)
@@ -620,6 +665,50 @@ struct RecentTransactionsSection: View {
         viewModel.entryDescription = transaction.description
         viewModel.selectedAccount = transaction.fromAccount ?? transaction.toAccount
         viewModel.selectedDate = transaction.transactionDate
+    }
+}
+
+struct SimpleTransactionRow: View {
+    let transaction: Transaction
+
+    var displayCategory: Category? {
+        transaction.primaryCategory
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Category icon and info
+            VStack(alignment: .leading, spacing: 4) {
+                Text(transaction.description)
+                    .font(.system(size: 15))
+                    .lineLimit(1)
+
+                HStack(spacing: 6) {
+                    if let category = displayCategory {
+                        Image(systemName: category.icon)
+                            .font(.system(size: 13))
+                            .foregroundColor(Color(hex: category.colorHex))
+
+                        Text(category.name)
+                            .font(.system(size: 13))
+                            .foregroundColor(.secondary)
+                    }
+
+                    Text(transaction.transactionDate, style: .date)
+                        .font(.system(size: 12))
+                        .foregroundColor(Color(.tertiaryLabel))
+                }
+            }
+
+            Spacer()
+
+            // Amount with color coding
+            Text(transaction.formattedAmount)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(transaction.type == .expense ? .red : .green)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
     }
 }
 
