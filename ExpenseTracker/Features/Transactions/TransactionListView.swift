@@ -265,7 +265,7 @@ struct TransactionListView: View {
                 FilterView()
             }
             .sheet(item: $selectedTransaction) { transaction in
-                TransactionDetailView(transaction: transaction)
+                TransactionDetailSheet(transaction: transaction)
                     .environmentObject(viewModel)
             }
             .overlay {
