@@ -20,10 +20,14 @@ struct QuickEntryView: View {
     @State private var showSuccessFeedback = false
     @State private var showErrorAlert = false
     @State private var keyboardHeight: CGFloat = 0
-    
+
     // Animation states
     @State private var successScale: CGFloat = 1.0
     @State private var pendingBadgeScale: CGFloat = 1.0
+    @State private var toggleRotation: Double = 0
+    @State private var datePillPressed = false
+    @State private var accountPillPressed = false
+    @State private var showCategorySuggestion = false
     
     private let hapticFeedback = UIImpactFeedbackGenerator(style: .medium)
 
@@ -88,6 +92,9 @@ struct QuickEntryView: View {
                         selectedDate: $viewModel.selectedDate,
                         selectedAccount: viewModel.selectedAccount,
                         showAccountSelector: viewModel.accounts.count > 1,
+                        toggleRotation: $toggleRotation,
+                        datePillPressed: $datePillPressed,
+                        accountPillPressed: $accountPillPressed,
                         onMetadataTap: { showMetadataEditor = true }
                     )
 
@@ -166,9 +173,9 @@ struct QuickEntryView: View {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("Готово") {
-                        isAmountFocused = false
-                        isDescriptionFocused = false
+                        handleKeyboardDone()
                     }
+                    .font(.system(size: 17, weight: .semibold))
                 }
             }
             .sheet(isPresented: $showMetadataEditor) {
@@ -203,23 +210,54 @@ struct QuickEntryView: View {
         .onAppear {
             setupKeyboardHandling()
         }
+        .onChange(of: bestSuggestedCategory) { _, newValue in
+            if newValue != nil && !showCategorySuggestion {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    showCategorySuggestion = true
+                }
+            } else if newValue == nil && showCategorySuggestion {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showCategorySuggestion = false
+                }
+            }
+        }
     }
     
     // MARK: - Actions
-    
+
+    private func handleKeyboardDone() {
+        if isAmountFocused {
+            // If amount is valid and focused, move to description field
+            if !viewModel.entryAmount.isEmpty,
+               let _ = Decimal(string: viewModel.entryAmount) {
+                isAmountFocused = false
+                // Delay slightly to ensure smooth transition
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    isDescriptionFocused = true
+                }
+            } else {
+                // If amount is invalid, just dismiss keyboard
+                isAmountFocused = false
+            }
+        } else if isDescriptionFocused {
+            // If description is focused, just dismiss keyboard
+            isDescriptionFocused = false
+        }
+    }
+
     private func addTransaction() async {
         // Haptic feedback
         hapticFeedback.prepare()
         hapticFeedback.impactOccurred()
-        
+
         // Animate button
         withAnimation(.spring(response: 0.3)) {
             successScale = 0.95
         }
-        
+
         // Add transaction
         await viewModel.addTransaction()
-        
+
         // Handle result
         if viewModel.error == nil {
             // Success animation
@@ -227,21 +265,21 @@ struct QuickEntryView: View {
                 successScale = 1.1
                 showSuccessFeedback = true
             }
-            
+
             // Reset after delay
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 withAnimation(.spring(response: 0.3)) {
                     successScale = 1.0
                 }
             }
-            
+
             // Hide success feedback
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                 withAnimation {
                     showSuccessFeedback = false
                 }
             }
-            
+
             // Dismiss keyboard
             isAmountFocused = false
             isDescriptionFocused = false
@@ -313,7 +351,12 @@ struct AmountInputSection: View {
     @Binding var selectedDate: Date
     let selectedAccount: Account?
     let showAccountSelector: Bool
+    @Binding var toggleRotation: Double
+    @Binding var datePillPressed: Bool
+    @Binding var accountPillPressed: Bool
     let onMetadataTap: () -> Void
+
+    @State private var toggleScale: CGFloat = 1.0
 
     var body: some View {
         VStack(spacing: 8) {
@@ -321,8 +364,20 @@ struct AmountInputSection: View {
             HStack(alignment: .center, spacing: 8) {
                 // Tap-to-toggle -/+ sign only (no background)
                 Button {
-                    withAnimation(.spring(response: 0.3)) {
+                    // Rotate 180° and pulse scale
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        toggleRotation += 180
                         transactionType = transactionType == .expense ? .income : .expense
+                    }
+
+                    // Scale pulse: 1.0 → 1.1 → 1.0
+                    withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+                        toggleScale = 1.1
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+                            toggleScale = 1.0
+                        }
                     }
                 } label: {
                     Text(transactionType.symbol)
@@ -332,12 +387,15 @@ struct AmountInputSection: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .rotationEffect(.degrees(toggleRotation))
+                .scaleEffect(toggleScale)
 
                 TextField("0", text: $amount)
                     .font(.system(size: 52, weight: .ultraLight, design: .rounded))
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.center)
                     .focused($isAmountFocused)
+                    .tint(.blue)
                     .onChange(of: amount) { _, newValue in
                         // Format input to max 2 decimal places
                         if let dotIndex = newValue.lastIndex(of: ".") {
@@ -356,7 +414,17 @@ struct AmountInputSection: View {
             // Metadata pills
             HStack(spacing: 8) {
                 // Date pill
-                Button(action: onMetadataTap) {
+                Button {
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        datePillPressed = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        withAnimation(.easeOut(duration: 0.15)) {
+                            datePillPressed = false
+                        }
+                    }
+                    onMetadataTap()
+                } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "calendar")
                             .font(.system(size: 10))
@@ -370,10 +438,21 @@ struct AmountInputSection: View {
                     .cornerRadius(12)
                 }
                 .buttonStyle(.plain)
+                .scaleEffect(datePillPressed ? 0.95 : 1.0)
 
                 // Account pill (only if multiple accounts)
                 if showAccountSelector, let account = selectedAccount {
-                    Button(action: onMetadataTap) {
+                    Button {
+                        withAnimation(.easeOut(duration: 0.15)) {
+                            accountPillPressed = true
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            withAnimation(.easeOut(duration: 0.15)) {
+                                accountPillPressed = false
+                            }
+                        }
+                        onMetadataTap()
+                    } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "creditcard")
                                 .font(.system(size: 10))
@@ -388,6 +467,7 @@ struct AmountInputSection: View {
                         .cornerRadius(12)
                     }
                     .buttonStyle(.plain)
+                    .scaleEffect(accountPillPressed ? 0.95 : 1.0)
                 }
             }
         }
@@ -476,6 +556,7 @@ struct DescriptionSection: View {
                     .font(.system(size: 17))
                     .focused($isDescriptionFocused)
                     .submitLabel(.done)
+                    .tint(.blue)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .onSubmit {
@@ -560,6 +641,7 @@ struct AddTransactionButton: View {
         .scaleEffect(isPressed ? 0.98 : 1.0)
         .scaleEffect(scale)
         .animation(.spring(response: 0.2), value: isPressed)
+        .animation(.easeInOut(duration: 0.2), value: isValid)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
@@ -719,81 +801,7 @@ struct TransactionDetailSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // Amount
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Сума")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        HStack(alignment: .center, spacing: 8) {
-                            Text(transaction.type.symbol)
-                                .font(.system(size: 32, weight: .medium, design: .rounded))
-                                .foregroundColor(transaction.type == .expense ? .red : .green)
-                            Text(Formatters.currencyString(
-                                amount: transaction.amount,
-                                currency: (transaction.fromAccount ?? transaction.toAccount)?.currency ?? .uah
-                            ))
-                            .font(.system(size: 32, weight: .light, design: .rounded))
-                        }
-                    }
-
-                    Divider()
-
-                    // Date
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Дата")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        Text(transaction.transactionDate, style: .date)
-                            .font(.body)
-                    }
-
-                    Divider()
-
-                    // Account
-                    if let account = transaction.fromAccount ?? transaction.toAccount {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Рахунок")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            Text(account.name)
-                                .font(.body)
-                        }
-
-                        Divider()
-                    }
-
-                    // Category
-                    if let category = transaction.category {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Категорія")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            HStack(spacing: 8) {
-                                Image(systemName: category.icon)
-                                    .foregroundColor(Color(hex: category.colorHex))
-                                Text(category.name)
-                                    .font(.body)
-                            }
-                        }
-
-                        Divider()
-                    }
-
-                    // Description
-                    if !transaction.description.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Опис")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            Text(transaction.description)
-                                .font(.body)
-                        }
-                    }
-                }
-                .padding()
-            }
+            TransactionDetailContentView(transaction: transaction)
             .navigationTitle("Деталі транзакції")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
