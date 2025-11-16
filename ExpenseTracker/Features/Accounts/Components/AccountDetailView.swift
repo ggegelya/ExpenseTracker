@@ -18,96 +18,149 @@ struct AccountDetailView: View {
     @State private var deleteError: String?
 
     var body: some View {
-        List {
-            // Account header
-            Section {
-                VStack(spacing: 16) {
-                    // Account type icon
-                    ZStack {
-                        Circle()
-                            .fill(accountTypeColor.opacity(0.2))
-                            .frame(width: 80, height: 80)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                // Hero Balance Section
+                VStack(alignment: .center, spacing: 6) {
+                    Text(account.formattedBalance())
+                        .font(.system(size: 52, weight: .ultraLight, design: .rounded))
+                        .foregroundColor(balanceColor)
+                        .frame(maxWidth: .infinity)
 
-                        Image(systemName: account.accountType.icon)
-                            .font(.system(size: 36))
-                            .foregroundColor(accountTypeColor)
-                    }
+                    // Metadata pills
+                    HStack(spacing: 8) {
+                        // Account type pill
+                        HStack(spacing: 4) {
+                            Image(systemName: account.accountType.icon)
+                                .font(.system(size: 10))
+                            Text(account.accountType.localizedName)
+                                .font(.system(size: 13, weight: .medium))
+                        }
+                        .foregroundColor(accountTypeColor)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(accountTypeColor.opacity(0.1))
+                        .cornerRadius(12)
 
-                    // Account name
-                    Text(account.name)
-                        .font(.title2)
-                        .fontWeight(.bold)
+                        // Account name pill
+                        HStack(spacing: 4) {
+                            Image(systemName: "building.columns")
+                                .font(.system(size: 10))
+                            Text(account.name)
+                                .font(.system(size: 13, weight: .medium))
+                        }
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color(.systemGray6).opacity(0.5))
+                        .cornerRadius(12)
 
-                    // Balance
-                    VStack(spacing: 4) {
-                        Text("Поточний баланс")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        Text(account.formattedBalance())
-                            .font(.system(size: 32, weight: .bold))
-                            .foregroundColor(balanceColor)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-            }
-            .listRowBackground(Color.clear)
-
-            // Account details
-            Section {
-                DetailRow(label: "Тип", value: account.accountType.localizedName)
-                DetailRow(label: "Тег", value: account.tag)
-                DetailRow(label: "Валюта", value: account.currency.localizedName)
-
-                if let lastDate = account.lastTransactionDate {
-                    DetailRow(
-                        label: "Остання транзакція",
-                        value: formatDate(lastDate)
-                    )
-                }
-
-                HStack {
-                    Text("За замовчуванням")
-                    Spacer()
-                    if account.isDefault {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                    } else {
-                        Image(systemName: "circle")
-                            .foregroundColor(.secondary)
+                        // Tag pill
+                        HStack(spacing: 4) {
+                            Image(systemName: "tag")
+                                .font(.system(size: 10))
+                            Text(account.tag)
+                                .font(.system(size: 13, weight: .medium))
+                        }
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color(.systemGray6).opacity(0.5))
+                        .cornerRadius(12)
                     }
                 }
-            } header: {
-                Text("Деталі")
-            }
 
-            // Quick actions
-            Section {
-                NavigationLink {
-                    // TODO: Add income to this account
-                    EmptyView()
-                } label: {
-                    Label("Додати дохід", systemImage: "arrow.down.circle.fill")
-                        .foregroundColor(.green)
+                Divider()
+
+                // Account Details Section
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Деталі")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                    VStack(spacing: 10) {
+                        DetailRow(label: "Валюта", value: account.currency.localizedName)
+
+                        if let lastDate = account.lastTransactionDate {
+                            DetailRow(
+                                label: "Остання транзакція",
+                                value: formatDate(lastDate)
+                            )
+                        }
+
+                        HStack {
+                            Text("За замовчуванням")
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            if account.isDefault {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                    Text("Так")
+                                        .fontWeight(.medium)
+                                }
+                            } else {
+                                Text("Ні")
+                                    .fontWeight(.medium)
+                            }
+                        }
+                    }
                 }
 
-                NavigationLink {
-                    // TODO: Add expense from this account
-                    EmptyView()
-                } label: {
-                    Label("Додати витрату", systemImage: "arrow.up.circle.fill")
-                        .foregroundColor(.red)
-                }
-            } header: {
-                Text("Швидкі дії")
-            }
+                Divider()
 
-            // Transaction history
-            Section {
-                if accountTransactions.isEmpty {
-                    HStack {
-                        Spacer()
+                // Quick Actions Section
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Швидкі дії")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                    VStack(spacing: 8) {
+                        Button {
+                            // TODO: Add income to this account
+                        } label: {
+                            HStack {
+                                Label("Додати дохід", systemImage: "arrow.down.circle.fill")
+                                    .foregroundColor(.green)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(12)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            // TODO: Add expense from this account
+                        } label: {
+                            HStack {
+                                Label("Додати витрату", systemImage: "arrow.up.circle.fill")
+                                    .foregroundColor(.red)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(12)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                Divider()
+
+                // Transaction History Section
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Останні транзакції")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                    if accountTransactions.isEmpty {
                         VStack(spacing: 8) {
                             Image(systemName: "tray")
                                 .font(.largeTitle)
@@ -115,31 +168,39 @@ struct AccountDetailView: View {
                             Text("Немає транзакцій")
                                 .foregroundColor(.secondary)
                         }
-                        .padding()
-                        Spacer()
-                    }
-                } else {
-                    ForEach(accountTransactions.prefix(5)) { transaction in
-                        TransactionRow(transaction: transaction)
-                    }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 24)
+                    } else {
+                        VStack(spacing: 8) {
+                            ForEach(accountTransactions.prefix(5)) { transaction in
+                                SimplifiedTransactionRow(transaction: transaction)
+                            }
 
-                    if accountTransactions.count > 5 {
-                        NavigationLink {
-                            // TODO: Show all transactions for this account
-                            EmptyView()
-                        } label: {
-                            Text("Показати всі (\(accountTransactions.count))")
-                                .foregroundColor(.accentColor)
+                            if accountTransactions.count > 5 {
+                                Button {
+                                    // TODO: Show all transactions for this account
+                                } label: {
+                                    HStack {
+                                        Text("Показати всі (\(accountTransactions.count))")
+                                            .foregroundColor(.accentColor)
+                                            .font(.subheadline)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption)
+                                            .foregroundColor(.accentColor)
+                                    }
+                                    .padding(12)
+                                    .background(Color.accentColor.opacity(0.1))
+                                    .cornerRadius(8)
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
                     }
                 }
-            } header: {
-                Text("Останні транзакції")
-            }
 
-            // Delete error
-            if let error = deleteError {
-                Section {
+                // Delete error
+                if let error = deleteError {
                     HStack {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundColor(.red)
@@ -149,8 +210,12 @@ struct AccountDetailView: View {
                                 .font(.caption)
                         }
                     }
+                    .padding(12)
+                    .background(Color.red.opacity(0.1))
+                    .cornerRadius(8)
                 }
             }
+            .padding(16)
         }
         .navigationTitle("Деталі рахунку")
         .navigationBarTitleDisplayMode(.inline)
@@ -248,7 +313,7 @@ struct AccountDetailView: View {
     }
 }
 
-// MARK: - Detail Row Component
+// MARK: - Supporting Components
 
 struct DetailRow: View {
     let label: String
@@ -262,5 +327,50 @@ struct DetailRow: View {
             Text(value)
                 .fontWeight(.medium)
         }
+    }
+}
+
+struct SimplifiedTransactionRow: View {
+    let transaction: Transaction
+
+    var displayCategory: Category? {
+        transaction.primaryCategory
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Transaction info
+            VStack(alignment: .leading, spacing: 4) {
+                Text(transaction.description)
+                    .font(.system(size: 15))
+                    .lineLimit(1)
+
+                HStack(spacing: 6) {
+                    if let category = displayCategory {
+                        Image(systemName: category.icon)
+                            .font(.system(size: 13))
+                            .foregroundColor(Color(hex: category.colorHex))
+
+                        Text(category.name)
+                            .font(.system(size: 13))
+                            .foregroundColor(.secondary)
+                    }
+
+                    Text(transaction.transactionDate, style: .date)
+                        .font(.system(size: 12))
+                        .foregroundColor(Color(.tertiaryLabel))
+                }
+            }
+
+            Spacer()
+
+            // Amount with color coding
+            Text(transaction.formattedAmount)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(transaction.type == .expense ? .red : .green)
+        }
+        .padding(12)
+        .background(Color(.systemGray6))
+        .cornerRadius(8)
     }
 }
