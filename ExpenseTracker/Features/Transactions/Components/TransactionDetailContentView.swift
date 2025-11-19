@@ -14,9 +14,9 @@ struct TransactionDetailContentView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: Spacing.betweenSections) {
                 // Hero Amount Section
-                VStack(alignment: .center, spacing: 6) {
+                VStack(alignment: .center, spacing: Spacing.xs) {
                     HStack(alignment: .center, spacing: 8) {
                         Text(transaction.type.symbol)
                             .font(.system(size: 52, weight: .ultraLight, design: .rounded))
@@ -27,17 +27,17 @@ struct TransactionDetailContentView: View {
                     .frame(maxWidth: .infinity)
 
                     // Metadata pills
-                    HStack(spacing: 8) {
+                    HStack(spacing: Spacing.betweenPills) {
                         // Transaction type pill
-                        HStack(spacing: 4) {
+                        HStack(spacing: Spacing.xxs) {
                             Image(systemName: transaction.type == .expense ? "arrow.down" : "arrow.up")
                                 .font(.system(size: 10))
                             Text(typeLocalizedName(transaction.type))
                                 .font(.system(size: 13, weight: .medium))
                         }
                         .foregroundColor(transaction.type == .expense ? .red : .green)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, Spacing.pillHorizontal)
+                        .padding(.vertical, Spacing.pillVertical)
                         .background(
                             (transaction.type == .expense ? Color.red : Color.green)
                                 .opacity(0.1)
@@ -45,15 +45,15 @@ struct TransactionDetailContentView: View {
                         .cornerRadius(12)
 
                         // Date pill
-                        HStack(spacing: 4) {
+                        HStack(spacing: Spacing.xxs) {
                             Image(systemName: "calendar")
                                 .font(.system(size: 10))
                             Text(transaction.transactionDate, style: .date)
                                 .font(.system(size: 13, weight: .medium))
                         }
                         .foregroundColor(.primary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, Spacing.pillHorizontal)
+                        .padding(.vertical, Spacing.pillVertical)
                         .background(Color(.systemGray6).opacity(0.5))
                         .cornerRadius(12)
                     }
@@ -63,7 +63,7 @@ struct TransactionDetailContentView: View {
 
                 // Description Section
                 if !transaction.description.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
                         Text("Опис")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
@@ -75,7 +75,7 @@ struct TransactionDetailContentView: View {
                 }
 
                 // Category Section
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text("Категорія")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
@@ -97,7 +97,7 @@ struct TransactionDetailContentView: View {
 
                 // Account Section
                 if transaction.fromAccount != nil || transaction.toAccount != nil {
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: Spacing.md) {
                         Text("Рахунок")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
@@ -130,7 +130,7 @@ struct TransactionDetailContentView: View {
 
                         // Balance impact
                         if let account = transaction.fromAccount ?? transaction.toAccount {
-                            VStack(alignment: .leading, spacing: 6) {
+                            VStack(alignment: .leading, spacing: Spacing.xs) {
                                 Text("Вплив на баланс")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
@@ -162,12 +162,12 @@ struct TransactionDetailContentView: View {
                 }
 
                 // Timestamps Section
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: Spacing.md) {
                     Text("Час")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
 
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
                         HStack {
                             Text("Дата транзакції:")
                                 .font(.subheadline)
@@ -198,7 +198,7 @@ struct TransactionDetailContentView: View {
                     }
                 }
             }
-            .padding(16)
+            .padding(Spacing.paddingBase)
         }
     }
 

@@ -19,52 +19,52 @@ struct AccountDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: Spacing.betweenSections) {
                 // Hero Balance Section
-                VStack(alignment: .center, spacing: 6) {
+                VStack(alignment: .center, spacing: Spacing.xs) {
                     Text(account.formattedBalance())
                         .font(.system(size: 52, weight: .ultraLight, design: .rounded))
                         .foregroundColor(balanceColor)
                         .frame(maxWidth: .infinity)
 
                     // Metadata pills
-                    HStack(spacing: 8) {
+                    HStack(spacing: Spacing.betweenPills) {
                         // Account type pill
-                        HStack(spacing: 4) {
+                        HStack(spacing: Spacing.xxs) {
                             Image(systemName: account.accountType.icon)
                                 .font(.system(size: 10))
                             Text(account.accountType.localizedName)
                                 .font(.system(size: 13, weight: .medium))
                         }
                         .foregroundColor(accountTypeColor)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, Spacing.pillHorizontal)
+                        .padding(.vertical, Spacing.pillVertical)
                         .background(accountTypeColor.opacity(0.1))
                         .cornerRadius(12)
 
                         // Account name pill
-                        HStack(spacing: 4) {
+                        HStack(spacing: Spacing.xxs) {
                             Image(systemName: "building.columns")
                                 .font(.system(size: 10))
                             Text(account.name)
                                 .font(.system(size: 13, weight: .medium))
                         }
                         .foregroundColor(.primary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, Spacing.pillHorizontal)
+                        .padding(.vertical, Spacing.pillVertical)
                         .background(Color(.systemGray6).opacity(0.5))
                         .cornerRadius(12)
 
                         // Tag pill
-                        HStack(spacing: 4) {
+                        HStack(spacing: Spacing.xxs) {
                             Image(systemName: "tag")
                                 .font(.system(size: 10))
                             Text(account.tag)
                                 .font(.system(size: 13, weight: .medium))
                         }
                         .foregroundColor(.primary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, Spacing.pillHorizontal)
+                        .padding(.vertical, Spacing.pillVertical)
                         .background(Color(.systemGray6).opacity(0.5))
                         .cornerRadius(12)
                     }
@@ -73,12 +73,12 @@ struct AccountDetailView: View {
                 Divider()
 
                 // Account Details Section
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: Spacing.md) {
                     Text("Деталі")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
 
-                    VStack(spacing: 10) {
+                    VStack(spacing: Spacing.md) {
                         DetailRow(label: "Валюта", value: account.currency.localizedName)
 
                         if let lastDate = account.lastTransactionDate {
@@ -110,13 +110,13 @@ struct AccountDetailView: View {
                 Divider()
 
                 // Transaction History Section
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: Spacing.md) {
                     Text("Останні транзакції")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
 
                     if accountTransactions.isEmpty {
-                        VStack(spacing: 8) {
+                        VStack(spacing: Spacing.sm) {
                             Image(systemName: "tray")
                                 .font(.largeTitle)
                                 .foregroundColor(.secondary)
@@ -170,7 +170,7 @@ struct AccountDetailView: View {
                     .cornerRadius(8)
                 }
             }
-            .padding(16)
+            .padding(Spacing.paddingBase)
         }
         .navigationTitle("Деталі рахунку")
         .navigationBarTitleDisplayMode(.inline)

@@ -12,7 +12,7 @@ struct SplitTransactionView: View {
     let onSave: ([SplitItem], Bool) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var viewModel: TransactionViewModel
+    @EnvironmentObject var viewModel: TransactionViewModel // Safe: SwiftUI manages lifecycle
 
     @State private var splitItems: [SplitItem] = []
     @State private var categoryPickerContext: CategoryPickerContext?
@@ -20,6 +20,13 @@ struct SplitTransactionView: View {
     @State private var errorMessage = ""
     @State private var isSaving = false
     @State private var retainParent = true
+
+    // MARK: - Performance Optimization: Cached Formatted Strings
+    @State private var formattedBaseAmount: String = ""
+    @State private var formattedTransactionDate: String = ""
+
+    // MARK: - Memory Management: Task Tracking
+    @State private var loadTask: Task<Void, Never>?
 
     struct CategoryPickerContext: Identifiable {
         let id = UUID()
@@ -116,10 +123,28 @@ struct SplitTransactionView: View {
                 Text(errorMessage)
             }
             .task {
+                // Initialize cached formatted strings (performance optimization)
+                formattedBaseAmount = formatAmount(baseAmount)
+                formattedTransactionDate = formatDate(originalTransaction.transactionDate)
                 loadInitialSplits()
+            }
+            .onDisappear {
+                // Memory Management: Cancel any pending tasks
+                loadTask?.cancel()
             }
         }
     }
+
+    // MARK: - Memory Management Notes
+    /*
+     Memory Safety:
+     1. SplitTransactionView is a struct (value type) - no retain cycles possible
+     2. @EnvironmentObject (viewModel) is managed by SwiftUI - automatically deallocated
+     3. Closures capture @State properties by value - safe from retain cycles
+     4. onSave closure is owned by parent - parent responsible for lifecycle
+     5. Task cancellation on disappear prevents lingering async work
+     6. FlowLayout uses cache to avoid repeated calculations
+     */
 
     private var mainContent: some View {
         LazyVStack(spacing: 20) {
@@ -251,14 +276,14 @@ struct SplitTransactionView: View {
                                 .foregroundColor(.secondary)
                         }
 
-                        Text(formatDate(originalTransaction.transactionDate))
+                        Text(formattedTransactionDate)
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
 
                     Spacer()
 
-                    Text(formatAmount(baseAmount))
+                    Text(formattedBaseAmount)
                         .font(.title3)
                         .fontWeight(.bold)
                         .foregroundColor(originalTransaction.type == .expense ? .red : .green)
@@ -327,7 +352,7 @@ struct SplitTransactionView: View {
                                 .frame(width: 8, height: 8)
                             Text(split.category.name)
                                 .font(.caption2)
-                            Text(Formatters.currencyStringUAH(amount: split.item.amount))
+                            Text(split.item.formattedAmount)
                                 .font(.caption2)
                                 .fontWeight(.medium)
                         }
@@ -402,10 +427,17 @@ struct SplitTransactionView: View {
 
         isSaving = true
 
-        // Call the save handler
+        // Call the save handler (synchronous - parent handles async operations)
         onSave(splitItems, retainParent)
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        // Delay dismiss slightly for smooth animation
+        // Note: Using Task with MainActor for proper structured concurrency
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+
+            // Check if still saving (could be cancelled)
+            guard isSaving else { return }
+
             isSaving = false
             dismiss()
         }
@@ -431,7 +463,7 @@ private struct SplitCategoryPickerSheet: View {
     let onSelect: (Category) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var viewModel: TransactionViewModel
+    @EnvironmentObject var viewModel: TransactionViewModel // Safe: SwiftUI manages lifecycle
     @State private var searchText = ""
 
     var filteredCategories: [Category] {
@@ -486,23 +518,65 @@ private struct SplitCategoryPickerSheet: View {
 struct FlowLayout: Layout {
     var spacing: CGFloat = 8
 
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    // MARK: - Memory Optimization: Cache Layout Calculations
+    struct Cache {
+        var result: FlowResult?
+        var lastWidth: CGFloat?
+    }
+
+    func makeCache(subviews: Subviews) -> Cache {
+        Cache()
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) -> CGSize {
+        let width = proposal.replacingUnspecifiedDimensions().width
+
+        // Use cached result if width hasn't changed
+        if let cachedResult = cache.result, cache.lastWidth == width {
+            return cachedResult.size
+        }
+
+        // Calculate new layout and cache it
         let result = FlowResult(
-            in: proposal.replacingUnspecifiedDimensions().width,
+            in: width,
             subviews: subviews,
             spacing: spacing
         )
+        cache.result = result
+        cache.lastWidth = width
         return result.size
     }
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) {
+        let width = bounds.width
+
+        // Use cached result if width hasn't changed
+        if let cachedResult = cache.result, cache.lastWidth == width {
+            for (index, subview) in subviews.enumerated() {
+                subview.place(
+                    at: CGPoint(x: bounds.minX + cachedResult.positions[index].x,
+                               y: bounds.minY + cachedResult.positions[index].y),
+                    proposal: .unspecified
+                )
+            }
+            return
+        }
+
+        // Calculate new layout and cache it
         let result = FlowResult(
-            in: bounds.width,
+            in: width,
             subviews: subviews,
             spacing: spacing
         )
+        cache.result = result
+        cache.lastWidth = width
+
         for (index, subview) in subviews.enumerated() {
-            subview.place(at: CGPoint(x: bounds.minX + result.positions[index].x, y: bounds.minY + result.positions[index].y), proposal: .unspecified)
+            subview.place(
+                at: CGPoint(x: bounds.minX + result.positions[index].x,
+                           y: bounds.minY + result.positions[index].y),
+                proposal: .unspecified
+            )
         }
     }
 

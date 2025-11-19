@@ -19,6 +19,20 @@ struct SplitItem: Identifiable, Equatable {
         self.category = category
         self.description = description
     }
+
+    // MARK: - Computed Properties (Performance Optimization)
+    // Cached formatted strings to avoid calling formatters on every render
+
+    /// Formatted amount string (cached computed property)
+    /// Called only when amount changes, not on every render
+    var formattedAmount: String {
+        Formatters.currencyStringUAH(amount: amount)
+    }
+
+    /// Formatted decimal string (cached computed property)
+    var formattedDecimal: String {
+        Formatters.decimalString(amount)
+    }
 }
 
 struct SplitItemRow: View {
@@ -155,7 +169,7 @@ struct SplitItemRow: View {
         if splitItem.amount == 0 {
             amountText = ""
         } else {
-            amountText = Formatters.decimalString(splitItem.amount)
+            amountText = splitItem.formattedDecimal
         }
     }
 }

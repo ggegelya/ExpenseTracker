@@ -20,11 +20,11 @@ struct AccountsView: View {
         NavigationStack {
             ZStack(alignment: .bottom) {
                 ScrollView {
-                    VStack(spacing: 16) {
+                    VStack(spacing: Spacing.listRowSpacing) {
                         // Accounts list
                         if viewModel.accounts.isEmpty {
                             // Empty state
-                            VStack(spacing: 16) {
+                            VStack(spacing: Spacing.lg) {
                                 Spacer()
                                     .frame(height: 60)
 
@@ -107,10 +107,10 @@ struct AccountsView: View {
 
                             // Spacer for footer
                             Spacer()
-                                .frame(height: 80)
+                                .frame(height: Spacing.footer)
                         }
                     }
-                    .padding(16)
+                    .padding(Spacing.paddingBase)
                 }
 
                 // Total balance footer (subtle)
@@ -118,7 +118,7 @@ struct AccountsView: View {
                     VStack(spacing: 0) {
                         Divider()
 
-                        VStack(spacing: 8) {
+                        VStack(spacing: Spacing.sm) {
                             HStack {
                                 Text("Загальний баланс")
                                     .font(.system(size: 13))
@@ -146,8 +146,8 @@ struct AccountsView: View {
                                 }
                             }
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
+                        .padding(.horizontal, Spacing.paddingBase)
+                        .padding(.vertical, Spacing.base)
                         .background(Color(.systemBackground))
                     }
                 }
