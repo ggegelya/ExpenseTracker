@@ -18,127 +18,137 @@ struct AccountsView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(viewModel.accounts) { account in
-                    NavigationLink {
-                        AccountDetailView(account: account)
-                    } label: {
-                        AccountRow(account: account)
-                    }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button(role: .destructive) {
-                            accountToDelete = account
-                            showDeleteConfirmation = true
-                        } label: {
-                            Label("Видалити", systemImage: "trash")
-                        }
-                    }
-                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                        Button {
-                            showEditSheet(for: account)
-                        } label: {
-                            Label("Редагувати", systemImage: "pencil")
-                        }
-                        .tint(.blue)
+            ZStack(alignment: .bottom) {
+                ScrollView {
+                    VStack(spacing: 16) {
+                        // Accounts list
+                        if viewModel.accounts.isEmpty {
+                            // Empty state
+                            VStack(spacing: 16) {
+                                Spacer()
+                                    .frame(height: 60)
 
-                        if !account.isDefault {
-                            Button {
-                                Task {
-                                    await viewModel.setAsDefault(account)
+                                Image(systemName: "creditcard")
+                                    .font(.system(size: 60))
+                                    .foregroundColor(.secondary)
+
+                                Text("Немає рахунків")
+                                    .font(.headline)
+                                    .foregroundColor(.secondary)
+
+                                Text("Створіть свій перший рахунок")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+
+                                Button {
+                                    showAddAccount = true
+                                } label: {
+                                    Text("Створити рахунок")
+                                        .fontWeight(.semibold)
                                 }
-                            } label: {
-                                Label("За замовчуванням", systemImage: "star")
+                                .buttonStyle(.borderedProminent)
                             }
-                            .tint(.orange)
+                            .frame(maxWidth: .infinity)
+                        } else {
+                            ForEach(viewModel.accounts) { account in
+                                NavigationLink {
+                                    AccountDetailView(account: account)
+                                } label: {
+                                    AccountRow(account: account)
+                                }
+                                .buttonStyle(.plain)
+                                .contextMenu {
+                                    Button {
+                                        showEditSheet(for: account)
+                                    } label: {
+                                        Label("Редагувати", systemImage: "pencil")
+                                    }
+
+                                    if !account.isDefault {
+                                        Button {
+                                            Task {
+                                                await viewModel.setAsDefault(account)
+                                            }
+                                        } label: {
+                                            Label("Встановити за замовчуванням", systemImage: "star")
+                                        }
+                                    }
+
+                                    Divider()
+
+                                    Button(role: .destructive) {
+                                        accountToDelete = account
+                                        showDeleteConfirmation = true
+                                    } label: {
+                                        Label("Видалити", systemImage: "trash")
+                                    }
+                                }
+                            }
+
+                            // Delete error
+                            if let error = deleteError {
+                                HStack {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .foregroundColor(.red)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Помилка видалення")
+                                            .font(.caption)
+                                            .fontWeight(.semibold)
+                                            .foregroundColor(.red)
+                                        Text(error)
+                                            .font(.caption)
+                                            .foregroundColor(.red)
+                                    }
+                                }
+                                .padding(12)
+                                .background(Color.red.opacity(0.1))
+                                .cornerRadius(8)
+                            }
+
+                            // Spacer for footer
+                            Spacer()
+                                .frame(height: 80)
                         }
                     }
+                    .padding(16)
                 }
 
-                // Total balance
+                // Total balance footer (subtle)
                 if !viewModel.accounts.isEmpty {
-                    Section {
-                        VStack(spacing: 12) {
+                    VStack(spacing: 0) {
+                        Divider()
+
+                        VStack(spacing: 8) {
                             HStack {
                                 Text("Загальний баланс")
-                                    .font(.headline)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.secondary)
                                 Spacer()
                                 Text(formatAmount(totalBalance))
-                                    .font(.title3)
-                                    .fontWeight(.bold)
+                                    .font(.system(size: 15, weight: .semibold))
                                     .foregroundColor(totalBalance >= 0 ? .green : .red)
                             }
 
-                            // Balance breakdown by currency
+                            // Balance breakdown by currency (if multiple)
                             if hasMultipleCurrencies {
-                                Divider()
-
-                                VStack(spacing: 8) {
-                                    ForEach(Currency.allCases) { currency in
-                                        if let balance = balanceByCurrency[currency] {
-                                            HStack {
-                                                Text(currency.localizedName)
-                                                    .font(.caption)
-                                                    .foregroundColor(.secondary)
-                                                Spacer()
-                                                Text(formatAmount(balance, currency: currency))
-                                                    .font(.caption)
-                                                    .fontWeight(.medium)
-                                            }
+                                ForEach(Currency.allCases) { currency in
+                                    if let balance = balanceByCurrency[currency], balance != 0 {
+                                        HStack {
+                                            Text(currency.localizedName)
+                                                .font(.system(size: 11))
+                                                .foregroundColor(.secondary)
+                                            Spacer()
+                                            Text(formatAmount(balance, currency: currency))
+                                                .font(.system(size: 12))
+                                                .foregroundColor(.secondary)
                                         }
                                     }
                                 }
                             }
                         }
-                        .padding(.vertical, 8)
-                    }
-                }
-
-                // Empty state
-                if viewModel.accounts.isEmpty {
-                    Section {
-                        VStack(spacing: 16) {
-                            Image(systemName: "creditcard")
-                                .font(.system(size: 60))
-                                .foregroundColor(.secondary)
-
-                            Text("Немає рахунків")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-
-                            Text("Створіть свій перший рахунок")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-
-                            Button {
-                                showAddAccount = true
-                            } label: {
-                                Text("Створити рахунок")
-                                    .fontWeight(.semibold)
-                            }
-                            .buttonStyle(.borderedProminent)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 40)
-                    }
-                    .listRowBackground(Color.clear)
-                }
-
-                // Delete error
-                if let error = deleteError {
-                    Section {
-                        HStack {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.red)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Помилка видалення")
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.red)
-                                Text(error)
-                                    .font(.caption)
-                                    .foregroundColor(.red)
-                            }
-                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(Color(.systemBackground))
                     }
                 }
             }
@@ -170,9 +180,6 @@ struct AccountsView: View {
                 if let account = accountToDelete {
                     Text("Ви впевнені, що хочете видалити рахунок \"\(account.name)\"?\n\nЦю дію не можна скасувати.")
                 }
-            }
-            .refreshable {
-                await viewModel.loadAccounts()
             }
         }
     }

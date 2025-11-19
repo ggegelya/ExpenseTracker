@@ -109,51 +109,6 @@ struct AccountDetailView: View {
 
                 Divider()
 
-                // Quick Actions Section
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Швидкі дії")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-
-                    VStack(spacing: 8) {
-                        Button {
-                            // TODO: Add income to this account
-                        } label: {
-                            HStack {
-                                Label("Додати дохід", systemImage: "arrow.down.circle.fill")
-                                    .foregroundColor(.green)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(12)
-                            .background(Color(.systemGray6))
-                            .cornerRadius(8)
-                        }
-                        .buttonStyle(.plain)
-
-                        Button {
-                            // TODO: Add expense from this account
-                        } label: {
-                            HStack {
-                                Label("Додати витрату", systemImage: "arrow.up.circle.fill")
-                                    .foregroundColor(.red)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(12)
-                            .background(Color(.systemGray6))
-                            .cornerRadius(8)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-
-                Divider()
-
                 // Transaction History Section
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Останні транзакції")

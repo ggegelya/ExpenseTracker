@@ -13,55 +13,40 @@ struct AccountRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Account type icon with color
-            ZStack {
-                Circle()
-                    .fill(accountTypeColor.opacity(0.15))
-                    .frame(width: 44, height: 44)
-
-                Image(systemName: account.accountType.icon)
-                    .font(.system(size: 18))
-                    .foregroundColor(accountTypeColor)
-            }
+            // Account type icon - smaller and cleaner
+            Image(systemName: account.accountType.icon)
+                .font(.system(size: 16))
+                .foregroundColor(accountTypeColor)
+                .frame(width: 32, height: 32)
+                .background(accountTypeColor.opacity(0.1))
+                .clipShape(Circle())
 
             // Account info
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(account.name)
-                        .font(.headline)
+                        .font(.system(size: 15))
+                        .fontWeight(.medium)
 
                     if account.isDefault {
                         Image(systemName: "star.fill")
                             .foregroundColor(.orange)
-                            .font(.caption2)
+                            .font(.system(size: 10))
                     }
                 }
 
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Text(account.tag)
-                        .font(.caption)
+                        .font(.system(size: 13))
                         .foregroundColor(.secondary)
 
                     Text("•")
-                        .font(.caption2)
+                        .font(.system(size: 10))
                         .foregroundColor(.secondary)
 
                     Text(account.accountType.localizedName)
-                        .font(.caption)
+                        .font(.system(size: 13))
                         .foregroundColor(.secondary)
-                }
-
-                // Last transaction date
-                if let lastDate = account.lastTransactionDate {
-                    HStack(spacing: 4) {
-                        Image(systemName: "clock")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-
-                        Text(timeAgo(from: lastDate))
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
                 }
             }
 
@@ -70,17 +55,19 @@ struct AccountRow: View {
             // Balance
             VStack(alignment: .trailing, spacing: 2) {
                 Text(account.formattedBalance())
-                    .font(.headline)
+                    .font(.system(size: 16, weight: .medium))
                     .foregroundColor(balanceColor)
 
                 if account.currency != .uah {
                     Text(account.currency.rawValue)
-                        .font(.caption2)
+                        .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 }
             }
         }
-        .padding(.vertical, 8)
+        .padding(12)
+        .background(Color(.systemGray6))
+        .cornerRadius(8)
     }
 
     // MARK: - Computed Properties
@@ -104,34 +91,4 @@ struct AccountRow: View {
         }
     }
 
-    // MARK: - Helper Methods
-
-    private func timeAgo(from date: Date) -> String {
-        let calendar = Calendar.current
-        let now = Date()
-
-        if calendar.isDateInToday(date) {
-            return "Сьогодні"
-        } else if calendar.isDateInYesterday(date) {
-            return "Вчора"
-        } else if let days = calendar.dateComponents([.day], from: date, to: now).day {
-            if days < 7 {
-                return "\(days) дн. тому"
-            } else if days < 30 {
-                let weeks = days / 7
-                return "\(weeks) тиж. тому"
-            } else {
-                return Self.dayMonthFormatter.string(from: date)
-            }
-        }
-
-        return ""
-    }
-
-    private static let dayMonthFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "d MMM"
-        formatter.locale = Locale(identifier: "uk_UA")
-        return formatter
-    }()
 }
