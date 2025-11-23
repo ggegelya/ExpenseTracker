@@ -362,15 +362,33 @@ final class ExportService: ExportServiceProtocol {
     }
     
     func exportToCSV(transactions: [Transaction]) async throws -> URL {
-        let fileName = "transactions_\(Date().ISO8601Format()).csv"
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
-        
+        // Create a unique, filesystem-safe filename with high precision timestamp and UUID
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        isoFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+        let timestamp = isoFormatter.string(from: Date()) // e.g., 2025-11-22T22:00:05.123Z
+
+        // Sanitize characters that can be problematic in filenames on some systems
+        let safeTimestamp = timestamp
+            .replacingOccurrences(of: ":", with: "-")
+            .replacingOccurrences(of: ".", with: "-")
+
+        let uniqueSuffix = UUID().uuidString
+        let fileName = "transactions_\(safeTimestamp)_\(uniqueSuffix).csv"
+
+        // Write to a dedicated subdirectory in the temporary directory to avoid conflicts
+        let tempDir = FileManager.default.temporaryDirectory
+        let exportDir = tempDir.appendingPathComponent("exports", isDirectory: true)
+        try? FileManager.default.createDirectory(at: exportDir, withIntermediateDirectories: true)
+
+        let fileURL = exportDir.appendingPathComponent(fileName)
+
         var csvText = "Date,Type,Amount,Category,Description,Account\n"
-        
+
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .short
         dateFormatter.timeStyle = .none
-        
+
         for transaction in transactions {
             let date = dateFormatter.string(from: transaction.transactionDate)
             let type = transaction.type.rawValue
@@ -378,12 +396,12 @@ final class ExportService: ExportServiceProtocol {
             let category = transaction.category?.name ?? ""
             let description = transaction.description.replacingOccurrences(of: ",", with: ";")
             let account = transaction.fromAccount?.name ?? transaction.toAccount?.name ?? ""
-            
+
             csvText += "\(date),\(type),\(amount),\(category),\(description),\(account)\n"
         }
-        
-        try csvText.write(to: tempURL, atomically: true, encoding: .utf8)
-        return tempURL
+
+        try csvText.write(to: fileURL, atomically: true, encoding: .utf8)
+        return fileURL
     }
     
     func exportToGoogleSheets(transactions: [Transaction]) async throws {
@@ -411,3 +429,4 @@ extension DependencyContainer {
         return container
     }
 }
+

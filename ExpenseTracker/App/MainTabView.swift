@@ -92,7 +92,7 @@ struct MainTabView: View {
         }
 
     }
-       
+
     /// Handles changes in the app's scene phase to manage pending transactions monitoring.
     /// - Parameter phase: The new scene phase of the app.
     @MainActor

@@ -167,9 +167,19 @@ struct QuickEntryView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, keyboardHeight)
             }
+            .accessibilityIdentifier("QuickEntryView")
             .navigationTitle("Додати транзакцію")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        viewModel.clearEntry()
+                    } label: {
+                        Text("Очистити")
+                    }
+                    .accessibilityIdentifier("ClearButton")
+                }
+
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("Готово") {
@@ -386,6 +396,7 @@ struct AmountInputSection: View {
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
+                .accessibilityIdentifier("TypeToggle")
                 .buttonStyle(.plain)
                 .rotationEffect(.degrees(toggleRotation))
                 .scaleEffect(toggleScale)
@@ -396,6 +407,7 @@ struct AmountInputSection: View {
                     .multilineTextAlignment(.center)
                     .focused($isAmountFocused)
                     .tint(.blue)
+                    .accessibilityIdentifier("AmountField")
                     .onChange(of: amount) { _, newValue in
                         // Format input to max 2 decimal places
                         if let dotIndex = newValue.lastIndex(of: ".") {
@@ -437,6 +449,7 @@ struct AmountInputSection: View {
                     .background(Color(.systemGray6).opacity(0.5))
                     .cornerRadius(12)
                 }
+                .accessibilityIdentifier("DatePicker")
                 .buttonStyle(.plain)
                 .scaleEffect(datePillPressed ? 0.95 : 1.0)
 
@@ -466,6 +479,7 @@ struct AmountInputSection: View {
                         .background(Color(.systemGray6).opacity(0.5))
                         .cornerRadius(12)
                     }
+                    .accessibilityIdentifier("AccountSelector")
                     .buttonStyle(.plain)
                     .scaleEffect(accountPillPressed ? 0.95 : 1.0)
                 }
@@ -559,6 +573,7 @@ struct DescriptionSection: View {
                     .tint(.blue)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
+                    .accessibilityIdentifier("DescriptionField")
                     .onSubmit {
                         isDescriptionFocused = false
                     }
@@ -577,23 +592,22 @@ struct DescriptionSection: View {
                 Divider()
             }
 
-            // Always show category picker button when description is 3+ chars
-            if description.count >= 3 {
-                Button {
-                    onShowCategoryPicker()
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(selectedCategory == nil ? "Обрати категорію" : "Змінити категорію")
-                            .font(.system(size: 14))
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: 12))
-                    }
-                    .foregroundColor(.blue)
+            // Category picker button
+            Button {
+                onShowCategoryPicker()
+            } label: {
+                HStack(spacing: 4) {
+                    Text(selectedCategory == nil ? "Обрати категорію" : "Змінити категорію")
+                        .font(.system(size: 14))
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 12))
                 }
-                .buttonStyle(.plain)
-                .padding(.horizontal, 16)
-                .padding(.top, 4)
+                .foregroundColor(.blue)
             }
+            .accessibilityIdentifier("CategoryPicker")
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
         }
     }
 }
@@ -637,6 +651,7 @@ struct AddTransactionButton: View {
                 y: 2
             )
         }
+        .accessibilityIdentifier("SaveButton")
         .disabled(!isValid || isLoading)
         .scaleEffect(isPressed ? 0.98 : 1.0)
         .scaleEffect(scale)
@@ -1148,6 +1163,7 @@ struct CategoryGridItem: View {
             )
             .cornerRadius(12)
         }
+        .accessibilityIdentifier("Category_\(category.name)")
         .buttonStyle(.plain)
     }
 }

@@ -32,24 +32,45 @@
 		9C0CEADF2E4E7BA400C06181 /* ExpenseTrackerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ExpenseTrackerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9C0CEAE92E4E7BA400C06181 /* ExpenseTrackerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ExpenseTrackerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9C0CEB172E53738F00C06181 /* ClockKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ClockKit.framework; path = System/Library/Frameworks/ClockKit.framework; sourceTree = SDKROOT; };
+		9CF387C02ED259B2008546C8 /* ExpenseTracker.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = file; path = ExpenseTracker.xctestplan; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
 		9C8860E92E64FA1B00610050 /* Exceptions for "ExpenseTracker" folder in "ExpenseTracker" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Tests/IntegrationTests/TransactionFlowIntegrationTests.swift,
+				Tests/PerformanceTests/RepositoryPerformanceTests.swift,
 				Tests/UITests/ExpenseTrackerUITests.swift,
 				Tests/UITests/ExpenseTrackerUITestsLaunchTests.swift,
+				Tests/UITests/QuickEntryUITests.swift,
+				Tests/UITests/TransactionListUITests.swift,
+				Tests/UnitTests/AccountsViewModelTests.swift,
+				Tests/UnitTests/AnalyticsServiceTests.swift,
+				Tests/UnitTests/CategorizationServiceTests.swift,
 				Tests/UnitTests/ExpenseTrackerTests.swift,
+				Tests/UnitTests/ExportServiceTests.swift,
+				Tests/UnitTests/LocalizationTests.swift,
+				Tests/UnitTests/PendingTransactionsViewModelTests.swift,
 				Tests/UnitTests/RepositoryTests.swift,
+				Tests/UnitTests/TransactionViewModelTests.swift,
 			);
 			target = 9C0CEACC2E4E7BA300C06181 /* ExpenseTracker */;
 		};
 		9C8860EA2E64FA1B00610050 /* Exceptions for "ExpenseTracker" folder in "ExpenseTrackerTests" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Tests/IntegrationTests/TransactionFlowIntegrationTests.swift,
+				Tests/PerformanceTests/RepositoryPerformanceTests.swift,
+				Tests/UnitTests/AccountsViewModelTests.swift,
+				Tests/UnitTests/AnalyticsServiceTests.swift,
+				Tests/UnitTests/CategorizationServiceTests.swift,
 				Tests/UnitTests/ExpenseTrackerTests.swift,
+				Tests/UnitTests/ExportServiceTests.swift,
+				Tests/UnitTests/LocalizationTests.swift,
+				Tests/UnitTests/PendingTransactionsViewModelTests.swift,
 				Tests/UnitTests/RepositoryTests.swift,
+				Tests/UnitTests/TransactionViewModelTests.swift,
 			);
 			target = 9C0CEADE2E4E7BA400C06181 /* ExpenseTrackerTests */;
 		};
@@ -58,6 +79,8 @@
 			membershipExceptions = (
 				Tests/UITests/ExpenseTrackerUITests.swift,
 				Tests/UITests/ExpenseTrackerUITestsLaunchTests.swift,
+				Tests/UITests/QuickEntryUITests.swift,
+				Tests/UITests/TransactionListUITests.swift,
 			);
 			target = 9C0CEAE82E4E7BA400C06181 /* ExpenseTrackerUITests */;
 		};
@@ -105,6 +128,7 @@
 		9C0CEAC42E4E7BA300C06181 = {
 			isa = PBXGroup;
 			children = (
+				9CF387C02ED259B2008546C8 /* ExpenseTracker.xctestplan */,
 				9C0CEACF2E4E7BA300C06181 /* ExpenseTracker */,
 				9C0CEB162E53738F00C06181 /* Frameworks */,
 				9C0CEACE2E4E7BA300C06181 /* Products */,
@@ -436,6 +460,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -464,6 +489,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -485,7 +511,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = L28WMJW85X;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.heorhii.hehelia.ExpenseTrackerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -504,7 +530,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = L28WMJW85X;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.heorhii.hehelia.ExpenseTrackerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";

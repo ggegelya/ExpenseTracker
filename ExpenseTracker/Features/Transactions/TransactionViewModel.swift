@@ -184,7 +184,6 @@ final class TransactionViewModel: ObservableObject {
     var isValidEntry: Bool {
         amountDecimal != nil &&
         amountDecimal! > 0 &&
-        !entryDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         selectedAccount != nil
     }
     
@@ -575,7 +574,7 @@ final class TransactionViewModel: ObservableObject {
     
     func formatAmount(_ amount: Decimal) -> String {
         Formatters.currencyStringUAH(amount: amount,
-                                     minFractionDigits: 0,
+                                     minFractionDigits: 2,
                                      maxFractionDigits: 2)
     }
     

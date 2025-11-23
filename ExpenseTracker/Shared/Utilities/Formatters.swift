@@ -47,7 +47,9 @@ enum Formatters {
                                           symbol: symbol,
                                           minFractionDigits: minFractionDigits,
                                           maxFractionDigits: maxFractionDigits)
-        return formatter.string(from: NSDecimalNumber(decimal: amount)) ?? "\(symbol)0"
+        let formatted = formatter.string(from: NSDecimalNumber(decimal: amount)) ?? "\(symbol)0"
+        // Replace non-breaking space (U+00A0) with regular space (U+0020) for consistency
+        return formatted.replacingOccurrences(of: "\u{00A0}", with: " ")
     }
 
     static func decimalString(_ value: Decimal,
@@ -107,6 +109,7 @@ enum Formatters {
         formatter.numberStyle = .currency
         formatter.currencyCode = currencyCode
         formatter.currencySymbol = symbol
+        formatter.locale = Locale(identifier: "uk_UA")
         formatter.minimumFractionDigits = minFractionDigits
         formatter.maximumFractionDigits = maxFractionDigits
 

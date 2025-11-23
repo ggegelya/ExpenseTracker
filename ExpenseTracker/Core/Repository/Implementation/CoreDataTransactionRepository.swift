@@ -134,9 +134,20 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
                 throw RepositoryError.entityNotFound
             }
             
-            // Reverse balances before deletion
+            // If this is a split parent, reverse and delete all children first
+            if let children = entity.splitTransactions as? Set<TransactionEntity>, !children.isEmpty {
+                for child in children {
+                    // Reverse child balances
+                    try self.updateAccountBalances(for: child, isReversal: true, in: context)
+                    // Delete child entity
+                    context.delete(child)
+                }
+            }
+            
+            // Reverse balances for the entity itself before deletion
             try self.updateAccountBalances(for: entity, isReversal: true, in: context)
             
+            // Delete the entity (parent or single transaction)
             context.delete(entity)
             try context.save()
         }

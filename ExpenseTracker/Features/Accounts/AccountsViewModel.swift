@@ -141,7 +141,7 @@ final class AccountsViewModel: ObservableObject {
     // Helper to check if tag is unique
     func isTagUnique(_ tag: String, excludingAccountId: UUID? = nil) -> Bool {
         !accounts.contains { account in
-            account.tag == tag && account.id != excludingAccountId
+            account.tag.lowercased() == tag.lowercased() && account.id != excludingAccountId
         }
     }
 }

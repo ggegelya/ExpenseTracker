@@ -1,0 +1,25 @@
+{
+  "configurations" : [
+    {
+      "id" : "C4FC243A-B2FD-4A0B-BC90-6942ECC4A198",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "performanceAntipatternCheckerEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:ExpenseTracker.xcodeproj",
+        "identifier" : "9C0CEADE2E4E7BA400C06181",
+        "name" : "ExpenseTrackerTests"
+      }
+    }
+  ],
+  "version" : 1
+}

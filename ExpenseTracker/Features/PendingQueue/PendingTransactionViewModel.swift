@@ -127,28 +127,35 @@ final class PendingTransactionsViewModel: ObservableObject {
         do {
             try await repository.processPendingTransaction(pending.id, as: transaction)
 
-            // Learn from the categorization if it was corrected
+            // Track analytics for transaction creation
+            analyticsService.trackEvent(.transactionAdded(
+                amount: transaction.amount,
+                category: transaction.category?.id.uuidString
+            ))
+
+            // Learn from the categorization if requested
             if shouldLearn,
-               let merchantName = pending.merchantName,
-               finalCategory.id != pending.suggestedCategory?.id {
+               let merchantName = pending.merchantName {
                 await categorizationService.learnFromCorrection(
                     description: pending.descriptionText,
                     merchantName: pending.merchantName,
                     correctCategory: finalCategory
                 )
 
-                // Show learning notification
-                learningNotification = LearningNotification(
-                    merchantName: merchantName,
-                    categoryName: finalCategory.name
-                )
-                showLearningToast = true
+                // Show learning notification only if category was corrected
+                if finalCategory.id != pending.suggestedCategory?.id {
+                    learningNotification = LearningNotification(
+                        merchantName: merchantName,
+                        categoryName: finalCategory.name
+                    )
+                    showLearningToast = true
 
-                // Auto-hide after 3 seconds
-                Task {
-                    try? await Task.sleep(for: .seconds(3))
-                    await MainActor.run {
-                        showLearningToast = false
+                    // Auto-hide after 3 seconds
+                    Task {
+                        try? await Task.sleep(for: .seconds(3))
+                        await MainActor.run {
+                            showLearningToast = false
+                        }
                     }
                 }
             }
