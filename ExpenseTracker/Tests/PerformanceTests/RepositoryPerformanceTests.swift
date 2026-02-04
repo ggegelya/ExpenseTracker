@@ -8,6 +8,7 @@ import Testing
 import CoreData
 @testable import ExpenseTracker
 
+@MainActor
 @Suite("Repository Performance Tests", .serialized)
 struct RepositoryPerformanceTests {
     var repository: CoreDataTransactionRepository
@@ -15,13 +16,9 @@ struct RepositoryPerformanceTests {
 
     init() async throws {
         // Create in-memory Core Data stack for testing without capturing self
-        let controller: PersistenceController = await MainActor.run {
-            PersistenceController(inMemory: true)
-        }
+        let controller = PersistenceController(inMemory: true)
         // Initialize repository with test container
-        let repo: CoreDataTransactionRepository = await MainActor.run {
-            CoreDataTransactionRepository(persistenceController: controller)
-        }
+        let repo = CoreDataTransactionRepository(persistenceController: controller)
         // Assign to stored properties after both are created
         self.persistenceController = controller
         self.repository = repo

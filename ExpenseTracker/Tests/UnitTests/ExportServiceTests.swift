@@ -21,8 +21,7 @@ struct ExportServiceTests {
 
     // MARK: - CSV Export Tests
 
-    // TODO: Re-enable when mock data field expectations are aligned with CSV export format
-    @Test("Export to CSV creates valid CSV file", .disabled("Mock data field format mismatch"))
+    @Test("Export to CSV creates valid CSV file")
     func exportToCSVCreatesValidFile() async throws {
         // Given
         let account = MockAccount.makeDefault()
@@ -42,8 +41,7 @@ struct ExportServiceTests {
         try? FileManager.default.removeItem(at: fileURL)
     }
 
-    // TODO: Re-enable when mock data field expectations are aligned with CSV export format
-    @Test("Export to CSV includes all transaction fields", .disabled("Mock data field format mismatch"))
+    @Test("Export to CSV includes all transaction fields")
     func exportToCSVIncludesAllFields() async throws {
         // Given
         let account = MockAccount.makeDefault()
@@ -93,9 +91,8 @@ struct ExportServiceTests {
         let fileURL = try await sut.exportToCSV(transactions: [transaction])
         let csvContent = try String(contentsOf: fileURL, encoding: .utf8)
 
-        // Then - commas in description should be replaced with semicolons
-        #expect(csvContent.contains("Test; with; commas"))
-        #expect(!csvContent.contains("Test, with, commas") || csvContent.components(separatedBy: "Test, with, commas").count == 1)
+        // Then - commas in description should be quoted per RFC 4180
+        #expect(csvContent.contains("\"Test, with, commas\""))
 
         // Cleanup
         try? FileManager.default.removeItem(at: fileURL)
@@ -127,8 +124,7 @@ struct ExportServiceTests {
         try? FileManager.default.removeItem(at: fileURL)
     }
 
-    // TODO: Re-enable when mock data field expectations are aligned with CSV export format
-    @Test("Export to CSV formats amounts correctly", .disabled("Mock data field format mismatch"))
+    @Test("Export to CSV formats amounts correctly")
     func exportToCSVFormatsAmountsCorrectly() async throws {
         // Given
         let account = MockAccount.makeDefault()
@@ -152,8 +148,7 @@ struct ExportServiceTests {
         try? FileManager.default.removeItem(at: fileURL)
     }
 
-    // TODO: Re-enable when CSV format is finalized
-    @Test("Export to CSV handles empty transaction list", .disabled("CSV format validation needs review"))
+    @Test("Export to CSV handles empty transaction list")
     func exportToCSVHandlesEmptyList() async throws {
         // When
         let fileURL = try await sut.exportToCSV(transactions: [])
@@ -168,8 +163,7 @@ struct ExportServiceTests {
         try? FileManager.default.removeItem(at: fileURL)
     }
 
-    // TODO: Re-enable when mock data field expectations are aligned with CSV export format
-    @Test("Export to CSV includes income transactions correctly", .disabled("Mock data field format mismatch"))
+    @Test("Export to CSV includes income transactions correctly")
     func exportToCSVIncludesIncome() async throws {
         // Given
         let account = MockAccount.makeDefault()
@@ -194,8 +188,7 @@ struct ExportServiceTests {
         try? FileManager.default.removeItem(at: fileURL)
     }
 
-    // TODO: Re-enable when mock data field expectations are aligned with CSV export format
-    @Test("Export to CSV includes transfer transactions correctly", .disabled("Mock data field format mismatch"))
+    @Test("Export to CSV includes transfer transactions correctly")
     func exportToCSVIncludesTransfers() async throws {
         // Given
         let fromAccount = MockAccount.makeDefault()
@@ -219,8 +212,7 @@ struct ExportServiceTests {
         try? FileManager.default.removeItem(at: fileURL)
     }
 
-    // TODO: Re-enable when mock data field expectations are aligned with CSV export format
-    @Test("Export file can be read back and parsed", .disabled("Mock data field format mismatch"))
+    @Test("Export file can be read back and parsed")
     func exportFileCanBeReadBackAndParsed() async throws {
         // Given
         let account = MockAccount.makeDefault()
@@ -250,8 +242,7 @@ struct ExportServiceTests {
         try? FileManager.default.removeItem(at: fileURL)
     }
 
-    // TODO: Re-enable when timestamp precision issue is resolved (filenames may be identical if generated too quickly)
-    @Test("Export to CSV creates unique filenames", .disabled("Timestamp precision issue in rapid succession"))
+    @Test("Export to CSV creates unique filenames")
     func exportToCSVCreatesUniqueFilenames() async throws {
         // Given
         let transactions = [MockTransaction.makeExpense()]
@@ -415,8 +406,7 @@ struct ExportServiceTests {
         try? FileManager.default.removeItem(at: fileURL)
     }
 
-    // TODO: Re-enable when mock data field expectations are aligned with CSV export format
-    @Test("CSV export handles all transaction types", .disabled("Mock data field format mismatch"))
+    @Test("CSV export handles all transaction types")
     func csvExportHandlesAllTransactionTypes() async throws {
         // Given
         let account = MockAccount.makeDefault()
@@ -439,4 +429,3 @@ struct ExportServiceTests {
         try? FileManager.default.removeItem(at: fileURL)
     }
 }
-

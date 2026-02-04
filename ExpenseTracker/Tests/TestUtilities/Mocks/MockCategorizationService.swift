@@ -9,6 +9,7 @@ import Foundation
 
 /// Mock implementation of CategorizationServiceProtocol for testing
 /// Provides predictable categorization suggestions and tracks learning calls
+@MainActor
 final class MockCategorizationService: CategorizationServiceProtocol {
 
     // MARK: - Call Tracking

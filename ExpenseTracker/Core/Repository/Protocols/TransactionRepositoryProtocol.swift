@@ -9,6 +9,7 @@ import Foundation
 import CoreData
 import Combine
 
+@MainActor
 protocol TransactionRepositoryProtocol: AnyObject {
     // Transaction Operations
     func createTransaction(_ transaction: Transaction) async throws -> Transaction
@@ -41,12 +42,11 @@ protocol TransactionRepositoryProtocol: AnyObject {
     func getAllCategories() async throws -> [Category]
     
     // Batch Operations
-    func performBatch(_ operation: @escaping (NSManagedObjectContext) throws -> Void) async throws
+    func performBatch(_ operation: @escaping @Sendable (NSManagedObjectContext) throws -> Void) async throws
     
     // Observers
     var transactionsPublisher: AnyPublisher<[Transaction], Never> { get }
     var accountsPublisher: AnyPublisher<[Account], Never> { get }
     var categoriesPublisher: AnyPublisher<[Category], Never> { get }
 }
-
 

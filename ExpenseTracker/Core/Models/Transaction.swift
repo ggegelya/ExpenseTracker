@@ -15,6 +15,7 @@ struct Transaction : Codable, Identifiable {
     var amount: Decimal
     let category: Category?
     var description: String
+    var merchantName: String?
     let fromAccount: Account?
     let toAccount: Account?
     var parentTransactionId: UUID?
@@ -28,6 +29,7 @@ struct Transaction : Codable, Identifiable {
         amount: Decimal,
         category: Category? = nil,
         description: String,
+        merchantName: String? = nil,
         fromAccount: Account? = nil,
         toAccount: Account? = nil,
         parentTransactionId: UUID? = nil,
@@ -40,6 +42,7 @@ struct Transaction : Codable, Identifiable {
         self.amount = amount
         self.category = category
         self.description = description
+        self.merchantName = merchantName
         self.fromAccount = fromAccount
         self.toAccount = toAccount
         self.parentTransactionId = parentTransactionId

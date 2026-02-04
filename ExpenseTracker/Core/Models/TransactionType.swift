@@ -9,15 +9,43 @@
 import Foundation
 
 enum TransactionType: String, CaseIterable, Codable {
-    case expense = "Expense"
-    case income = "Income"
-    case transferOut = "Transfer-Out"
-    case transferIn = "Transfer-In"
+    case expense = "expense"
+    case income = "income"
+    case transferOut = "transferOut"
+    case transferIn = "transferIn"
+
+    init?(rawValue: String) {
+        switch rawValue.lowercased() {
+        case "expense":
+            self = .expense
+        case "income":
+            self = .income
+        case "transferout", "transfer-out":
+            self = .transferOut
+        case "transferin", "transfer-in":
+            self = .transferIn
+        default:
+            return nil
+        }
+    }
     
     var symbol: String {
         switch self {
             case .expense, .transferOut: return "-"
             case .income, .transferIn: return "+"
+        }
+    }
+
+    var localizedName: String {
+        switch self {
+        case .expense:
+            return "Витрата"
+        case .income:
+            return "Дохід"
+        case .transferOut:
+            return "Переказ (вихід)"
+        case .transferIn:
+            return "Переказ (вхід)"
         }
     }
     

@@ -243,91 +243,258 @@ struct AnalyticsServiceTests {
         #expect(event1 != event3)
     }
 
-    // MARK: - Business Analytics Tests (Placeholders)
-    // Note: These features are not yet implemented in the current AnalyticsService
+    // MARK: - Business Analytics Tests
 
-    @Test("Calculate spending by category returns correct totals - PLACEHOLDER")
-    func calculateSpendingByCategoryPlaceholder() async throws {
-        // TODO: Implement when business analytics are added to AnalyticsService
-        // This test is a placeholder for future implementation
-        #expect(true)
+    @Test("Calculate spending by category returns correct totals")
+    func calculateSpendingByCategory() async throws {
+        // Given
+        let groceries = MockCategory.makeGroceries()
+        let taxi = MockCategory.makeTaxi()
+        let account = MockAccount.makeDefault()
+        let transactions = [
+            MockTransaction.makeExpense(amount: 100, category: groceries, account: account),
+            MockTransaction.makeExpense(amount: 50, category: groceries, account: account),
+            MockTransaction.makeExpense(amount: 30, category: taxi, account: account),
+            MockTransaction.makeIncome(amount: 200, account: account)
+        ]
+
+        // When
+        let results = sut.spendingByCategory(transactions: transactions)
+
+        // Then
+        let groceriesResult = results.first { $0.category.id == groceries.id }
+        let taxiResult = results.first { $0.category.id == taxi.id }
+
+        #expect(results.count == 2)
+        #expect(DecimalComparison.areEqual(groceriesResult?.total ?? 0, 150))
+        #expect(groceriesResult?.transactionCount == 2)
+        #expect(DecimalComparison.areEqual(taxiResult?.total ?? 0, 30))
+        #expect(taxiResult?.transactionCount == 1)
+        #expect(abs((groceriesResult?.percentage ?? 0) - 83.333) < 0.5)
     }
 
-    @Test("Calculate spending trends handles empty data - PLACEHOLDER")
-    func calculateSpendingTrendsEmptyDataPlaceholder() async throws {
-        // TODO: Implement when analytics calculations are added
-        // Expected behavior: Should handle empty transaction list gracefully
-        #expect(true)
+    @Test("Calculate spending trends handles empty data")
+    func calculateSpendingTrendsEmptyData() async throws {
+        // When
+        let results = sut.spendingTrends(transactions: [])
+
+        // Then
+        #expect(results.isEmpty)
     }
 
-    @Test("Calculate monthly comparison works across year boundaries - PLACEHOLDER")
-    func calculateMonthlyComparisonPlaceholder() async throws {
-        // TODO: Implement when monthly comparison feature is added
-        // Expected behavior: Compare December 2024 vs January 2025 correctly
-        #expect(true)
+    @Test("Calculate monthly comparison works across year boundaries")
+    func calculateMonthlyComparison() async throws {
+        // Given
+        let decExpense = MockTransaction.makeExpense(
+            amount: 100,
+            date: DateGenerator.date(year: 2024, month: 12, day: 15)
+        )
+        let decIncome = MockTransaction.makeIncome(
+            amount: 300,
+            date: DateGenerator.date(year: 2024, month: 12, day: 20)
+        )
+        let janExpense = MockTransaction.makeExpense(
+            amount: 200,
+            date: DateGenerator.date(year: 2025, month: 1, day: 10)
+        )
+        let janIncome = MockTransaction.makeIncome(
+            amount: 500,
+            date: DateGenerator.date(year: 2025, month: 1, day: 12)
+        )
+
+        let transactions = [decExpense, decIncome, janExpense, janIncome]
+
+        // When
+        let comparison = sut.monthlyComparison(
+            transactions: transactions,
+            referenceDate: DateGenerator.date(year: 2025, month: 1, day: 20)
+        )
+
+        // Then
+        #expect(DecimalComparison.areEqual(comparison.currentExpenses, 200))
+        #expect(DecimalComparison.areEqual(comparison.currentIncome, 500))
+        #expect(DecimalComparison.areEqual(comparison.previousExpenses, 100))
+        #expect(DecimalComparison.areEqual(comparison.previousIncome, 300))
     }
 
-    @Test("Top merchants calculation returns correct order - PLACEHOLDER")
-    func topMerchantsCalculationPlaceholder() async throws {
-        // TODO: Implement when merchant analytics are added
-        // Expected behavior: Return merchants sorted by total spending
-        #expect(true)
+    @Test("Top merchants calculation returns correct order")
+    func topMerchantsCalculation() async throws {
+        // Given
+        let transactions = [
+            MockTransaction.makeExpense(amount: 100, merchantName: "Silpo"),
+            MockTransaction.makeExpense(amount: 50, merchantName: "Silpo"),
+            MockTransaction.makeExpense(amount: 80, merchantName: "Uber"),
+            MockTransaction.makeExpense(amount: 20, merchantName: "АТБ")
+        ]
+
+        // When
+        let results = sut.topMerchants(transactions: transactions, limit: 2)
+
+        // Then
+        #expect(results.count == 2)
+        #expect(results[0].merchant == "Silpo")
+        #expect(DecimalComparison.areEqual(results[0].total, 150))
+        #expect(results[1].merchant == "Uber")
+        #expect(DecimalComparison.areEqual(results[1].total, 80))
     }
 
-    @Test("Analytics respects date range filters - PLACEHOLDER")
-    func analyticsRespectsDateRangeFiltersPlaceholder() async throws {
-        // TODO: Implement when date filtering is added to analytics
-        // Expected behavior: Only include transactions within specified date range
-        #expect(true)
+    @Test("Analytics respects date range filters")
+    func analyticsRespectsDateRangeFilters() async throws {
+        // Given
+        let janDate = DateGenerator.date(year: 2025, month: 1, day: 5)
+        let febDate = DateGenerator.date(year: 2025, month: 2, day: 5)
+        let groceries = MockCategory.makeGroceries()
+
+        let transactions = [
+            MockTransaction.makeExpense(amount: 100, category: groceries, date: janDate),
+            MockTransaction.makeExpense(amount: 200, category: groceries, date: febDate)
+        ]
+
+        let januaryRange = janDate...DateGenerator.date(year: 2025, month: 1, day: 31)
+
+        // When
+        let results = sut.spendingByCategory(transactions: transactions, dateRange: januaryRange)
+
+        // Then
+        #expect(results.count == 1)
+        #expect(DecimalComparison.areEqual(results[0].total, 100))
     }
 
-    @Test("Calculate category breakdown with percentages - PLACEHOLDER")
-    func calculateCategoryBreakdownPlaceholder() async throws {
-        // TODO: Implement when category breakdown feature is added
-        // Expected behavior: Return spending by category with percentages
-        #expect(true)
+    @Test("Calculate category breakdown with percentages")
+    func calculateCategoryBreakdown() async throws {
+        // Given
+        let groceries = MockCategory.makeGroceries()
+        let taxi = MockCategory.makeTaxi()
+        let transactions = [
+            MockTransaction.makeExpense(amount: 75, category: groceries),
+            MockTransaction.makeExpense(amount: 25, category: taxi)
+        ]
+
+        // When
+        let results = sut.spendingByCategory(transactions: transactions)
+
+        // Then
+        let groceriesResult = results.first { $0.category.id == groceries.id }
+        let taxiResult = results.first { $0.category.id == taxi.id }
+        #expect(abs((groceriesResult?.percentage ?? 0) - 75) < 0.1)
+        #expect(abs((taxiResult?.percentage ?? 0) - 25) < 0.1)
     }
 
-    @Test("Calculate average transaction amount - PLACEHOLDER")
-    func calculateAverageTransactionAmountPlaceholder() async throws {
-        // TODO: Implement when average calculations are added
-        // Expected behavior: Calculate mean transaction amount correctly
-        #expect(true)
+    @Test("Calculate average transaction amount")
+    func calculateAverageTransactionAmount() async throws {
+        // Given
+        let transactions = [
+            MockTransaction.makeExpense(amount: 100),
+            MockTransaction.makeExpense(amount: 200),
+            MockTransaction.makeIncome(amount: 300)
+        ]
+
+        // When
+        let average = sut.averageTransactionAmount(transactions: transactions)
+
+        // Then
+        #expect(DecimalComparison.areEqual(average, 200))
     }
 
-    @Test("Identify spending anomalies - PLACEHOLDER")
-    func identifySpendingAnomaliesPlaceholder() async throws {
-        // TODO: Implement when anomaly detection is added
-        // Expected behavior: Flag unusually large or unusual transactions
-        #expect(true)
+    @Test("Identify spending anomalies")
+    func identifySpendingAnomalies() async throws {
+        // Given
+        let transactions = [
+            MockTransaction.makeExpense(amount: 10),
+            MockTransaction.makeExpense(amount: 12),
+            MockTransaction.makeExpense(amount: 11),
+            MockTransaction.makeExpense(amount: 60)
+        ]
+
+        // When
+        let anomalies = sut.identifySpendingAnomalies(transactions: transactions, sigmaThreshold: 1.0)
+
+        // Then
+        #expect(anomalies.count == 1)
+        #expect(DecimalComparison.areEqual(anomalies[0].amount, 60))
     }
 
-    @Test("Generate spending forecast - PLACEHOLDER")
-    func generateSpendingForecastPlaceholder() async throws {
-        // TODO: Implement when forecasting feature is added
-        // Expected behavior: Predict future spending based on historical data
-        #expect(true)
+    @Test("Generate spending forecast")
+    func generateSpendingForecast() async throws {
+        // Given
+        let day1 = DateGenerator.daysAgo(2)
+        let day2 = DateGenerator.daysAgo(1)
+        let day3 = DateGenerator.today()
+        let transactions = [
+            MockTransaction.makeExpense(amount: 10, date: day1),
+            MockTransaction.makeExpense(amount: 20, date: day2),
+            MockTransaction.makeExpense(amount: 30, date: day3)
+        ]
+        let range = day1...day3
+
+        // When
+        let forecast = sut.generateSpendingForecast(transactions: transactions, days: 5, dateRange: range)
+
+        // Then
+        #expect(forecast.count == 5)
+        for entry in forecast {
+            #expect(DecimalComparison.areEqual(entry.total, 20))
+        }
     }
 
-    @Test("Calculate savings rate - PLACEHOLDER")
-    func calculateSavingsRatePlaceholder() async throws {
-        // TODO: Implement when savings calculations are added
-        // Expected behavior: (Income - Expenses) / Income
-        #expect(true)
+    @Test("Calculate savings rate")
+    func calculateSavingsRate() async throws {
+        // Given
+        let transactions = [
+            MockTransaction.makeIncome(amount: 1000),
+            MockTransaction.makeExpense(amount: 400)
+        ]
+
+        // When
+        let rate = sut.savingsRate(transactions: transactions)
+
+        // Then
+        #expect(abs(rate - 0.6) < 0.01)
     }
 
-    @Test("Track budget performance - PLACEHOLDER")
-    func trackBudgetPerformancePlaceholder() async throws {
-        // TODO: Implement when budget tracking is added
-        // Expected behavior: Compare actual vs budgeted spending by category
-        #expect(true)
+    @Test("Track budget performance")
+    func trackBudgetPerformance() async throws {
+        // Given
+        let groceries = MockCategory.makeGroceries()
+        let taxi = MockCategory.makeTaxi()
+        let transactions = [
+            MockTransaction.makeExpense(amount: 150, category: groceries),
+            MockTransaction.makeExpense(amount: 120, category: taxi)
+        ]
+        let budgets: [UUID: Decimal] = [
+            groceries.id: 200,
+            taxi.id: 100
+        ]
+
+        // When
+        let results = sut.budgetPerformance(transactions: transactions, budgets: budgets)
+
+        // Then
+        let groceriesResult = results.first { $0.categoryId == groceries.id }
+        let taxiResult = results.first { $0.categoryId == taxi.id }
+        #expect(DecimalComparison.areEqual(groceriesResult?.spent ?? 0, 150))
+        #expect(abs((groceriesResult?.percentage ?? 0) - 75) < 0.1)
+        #expect(DecimalComparison.areEqual(taxiResult?.spent ?? 0, 120))
+        #expect(abs((taxiResult?.percentage ?? 0) - 120) < 0.1)
     }
 
-    @Test("Calculate expense velocity - PLACEHOLDER")
-    func calculateExpenseVelocityPlaceholder() async throws {
-        // TODO: Implement when velocity metrics are added
-        // Expected behavior: Rate of spending over time periods
-        #expect(true)
+    @Test("Calculate expense velocity")
+    func calculateExpenseVelocity() async throws {
+        // Given
+        let day1 = DateGenerator.date(year: 2025, month: 1, day: 1)
+        let day2 = DateGenerator.date(year: 2025, month: 1, day: 2)
+        let day3 = DateGenerator.date(year: 2025, month: 1, day: 3)
+        let transactions = [
+            MockTransaction.makeExpense(amount: 100, date: day1),
+            MockTransaction.makeExpense(amount: 100, date: day2),
+            MockTransaction.makeExpense(amount: 100, date: day3)
+        ]
+
+        // When
+        let velocity = sut.expenseVelocity(transactions: transactions)
+
+        // Then
+        #expect(DecimalComparison.areEqual(velocity, 100))
     }
 
     // MARK: - Performance Tests

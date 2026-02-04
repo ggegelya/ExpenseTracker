@@ -9,6 +9,7 @@ import Testing
 import CoreData
 @testable import ExpenseTracker
 
+@MainActor
 @Suite("Repository Tests", .serialized)
 struct RepositoryTests {
    var sut: CoreDataTransactionRepository

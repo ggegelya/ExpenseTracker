@@ -10,10 +10,10 @@ import Foundation
 enum Formatters {
     private static let lock = NSLock()
 
-    private static var currencyCache: [CurrencyFormatterKey: NumberFormatter] = [:]
-    private static var decimalCache: [DecimalFormatterKey: NumberFormatter] = [:]
-    private static var percentCache: [PercentFormatterKey: NumberFormatter] = [:]
-    private static var dateCache: [DateFormatterKey: DateFormatter] = [:]
+    private static nonisolated(unsafe) var currencyCache: [CurrencyFormatterKey: NumberFormatter] = [:]
+    private static nonisolated(unsafe) var decimalCache: [DecimalFormatterKey: NumberFormatter] = [:]
+    private static nonisolated(unsafe) var percentCache: [PercentFormatterKey: NumberFormatter] = [:]
+    private static nonisolated(unsafe) var dateCache: [DateFormatterKey: DateFormatter] = [:]
 
     // MARK: - Public API
 

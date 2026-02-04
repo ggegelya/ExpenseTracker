@@ -8,13 +8,14 @@
 import Testing
 @testable import ExpenseTracker
 
+@MainActor
 @Suite("Categorization Service Tests")
 struct CategorizationServiceTests {
     var sut: CategorizationService
     var mockRepository: MockTransactionRepository
 
     init() async throws {
-        mockRepository = await MockTransactionRepository(
+        mockRepository = MockTransactionRepository(
             categories: MockCategory.makeDefaultCategories()
         )
         sut = CategorizationService(repository: mockRepository)
@@ -62,8 +63,7 @@ struct CategorizationServiceTests {
         #expect(result.confidence == 0.85)
     }
 
-    // TODO: Re-enable when підписки category is added to MockCategory.makeDefaultCategories()
-    @Test("Suggest category for Netflix returns підписки with high confidence", .disabled("Missing підписки category in mock data"))
+    @Test("Suggest category for Netflix returns підписки with high confidence")
     func suggestCategoryForNetflix() async throws {
         // When
         let result = await sut.suggestCategory(for: "Netflix subscription", merchantName: "Netflix")
@@ -119,8 +119,7 @@ struct CategorizationServiceTests {
         #expect(result.confidence == 0.85)
     }
 
-    // TODO: Re-enable when підписки category is added to MockCategory.makeDefaultCategories()
-    @Test("Suggest category matches on merchant name pattern", .disabled("Missing підписки category in mock data"))
+    @Test("Suggest category matches on merchant name pattern")
     func suggestCategoryMatchesOnMerchantName() async throws {
         // When
         let silpoResult = await sut.suggestCategory(for: "Purchase", merchantName: "Silpo")
@@ -173,8 +172,7 @@ struct CategorizationServiceTests {
         #expect(atbResult.category?.name == "продукти")
     }
 
-    // TODO: Re-enable when аптека category is added to MockCategory.makeDefaultCategories()
-    @Test("Pharmacy patterns recognized correctly", .disabled("Missing аптека category in mock data"))
+    @Test("Pharmacy patterns recognized correctly")
     func pharmacyPatternsRecognized() async throws {
         // When
         let apteka1 = await sut.suggestCategory(for: "Аптека 911", merchantName: nil)
@@ -198,8 +196,7 @@ struct CategorizationServiceTests {
         #expect(kfcResult.category?.name == "кафе")
     }
 
-    // TODO: Re-enable when комунальні category is added to MockCategory.makeDefaultCategories()
-    @Test("Utilities patterns recognized for Ukrainian providers", .disabled("Missing комунальні category in mock data"))
+    @Test("Utilities patterns recognized for Ukrainian providers")
     func utilitiesPatternsForUkrainianProviders() async throws {
         // When
         let kyivenergoResult = await sut.suggestCategory(for: "Payment to Київенерго", merchantName: nil)
@@ -207,9 +204,9 @@ struct CategorizationServiceTests {
         let vodafoneResult = await sut.suggestCategory(for: "Mobile payment", merchantName: "Vodafone")
 
         // Then
-        #expect(kyivenergoResult.category?.name == "комунальні")
-        #expect(kyivstarResult.category?.name == "комунальні")
-        #expect(vodafoneResult.category?.name == "комунальні")
+        #expect(kyivenergoResult.category?.name == "комуналка")
+        #expect(kyivstarResult.category?.name == "комуналка")
+        #expect(vodafoneResult.category?.name == "комуналка")
     }
 
     // MARK: - Learning Tests

@@ -58,7 +58,7 @@ enum AppError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .invalidAmount:
-            return "Невірна сума транзакції"
+            return "Сума обов'язково має бути вказана"
         case .insufficientFunds:
             return "Недостатньо коштів на рахунку"
         case .networkUnavailable:
@@ -149,4 +149,3 @@ extension AppError {
         }
     }
 }
-

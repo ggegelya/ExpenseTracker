@@ -410,7 +410,7 @@ final class MockTransactionRepository: TransactionRepositoryProtocol {
 
     // MARK: - Batch Operations
 
-    func performBatch(_ operation: @escaping (NSManagedObjectContext) throws -> Void) async throws {
+    func performBatch(_ operation: @escaping @Sendable (NSManagedObjectContext) throws -> Void) async throws {
         recordCall(#function)
         try checkForError(method: #function)
 
@@ -449,4 +449,3 @@ final class MockTransactionRepository: TransactionRepositoryProtocol {
         detailedCalls.filter { $0.method == method }
     }
 }
-

@@ -152,15 +152,18 @@ enum MockCategory {
         return [
             Category(id: UUID(), name: "продукти", icon: "cart.fill", colorHex: "#4CAF50"),
             Category(id: UUID(), name: "таксі", icon: "car.fill", colorHex: "#FFC107"),
+            Category(id: UUID(), name: "підписки", icon: "repeat", colorHex: "#9C27B0"),
+            Category(id: UUID(), name: "комуналка", icon: "house.fill", colorHex: "#2196F3"),
+            Category(id: UUID(), name: "аптека", icon: "cross.case.fill", colorHex: "#F44336"),
             Category(id: UUID(), name: "транспорт", icon: "bus.fill", colorHex: "#2196F3"),
             Category(id: UUID(), name: "кафе", icon: "cup.and.saucer.fill", colorHex: "#FF9800"),
             Category(id: UUID(), name: "розваги", icon: "ticket.fill", colorHex: "#E91E63"),
-            Category(id: UUID(), name: "здоров'я", icon: "heart.fill", colorHex: "#F44336"),
             Category(id: UUID(), name: "одяг", icon: "tshirt.fill", colorHex: "#9C27B0"),
-            Category(id: UUID(), name: "дім", icon: "house.fill", colorHex: "#795548"),
-            Category(id: UUID(), name: "комунальні", icon: "bolt.fill", colorHex: "#607D8B"),
-            Category(id: UUID(), name: "зарплата", icon: "dollarsign.circle.fill", colorHex: "#4CAF50"),
-            Category(id: UUID(), name: "подарунок", icon: "gift.fill", colorHex: "#E91E63"),
+            Category(id: UUID(), name: "подарунки", icon: "gift.fill", colorHex: "#FF5722"),
+            Category(id: UUID(), name: "навчання", icon: "book.fill", colorHex: "#3F51B5"),
+            Category(id: UUID(), name: "спорт", icon: "figure.run", colorHex: "#4CAF50"),
+            Category(id: UUID(), name: "краса", icon: "sparkles", colorHex: "#E91E63"),
+            Category(id: UUID(), name: "техніка", icon: "desktopcomputer", colorHex: "#607D8B"),
             Category(id: UUID(), name: "інше", icon: "ellipsis.circle.fill", colorHex: "#9E9E9E")
         ]
     }
@@ -202,7 +205,7 @@ enum MockCategory {
 
     /// Creates a utilities category
     static func makeUtilities() -> Category {
-        Category(id: UUID(), name: "комунальні", icon: "bolt.fill", colorHex: "#607D8B")
+        Category(id: UUID(), name: "комуналка", icon: "house.fill", colorHex: "#2196F3")
     }
 
     /// Creates a custom category
@@ -235,7 +238,8 @@ enum MockTransaction {
         category: Category? = nil,
         account: Account? = nil,
         description: String = "Test Expense",
-        date: Date = DateGenerator.today()
+        date: Date = DateGenerator.today(),
+        merchantName: String? = nil
     ) -> Transaction {
         Transaction(
             id: UUID(),
@@ -245,6 +249,7 @@ enum MockTransaction {
             amount: amount,
             category: category ?? MockCategory.makeGroceries(),
             description: description,
+            merchantName: merchantName,
             fromAccount: account ?? MockAccount.makeDefault(),
             toAccount: nil,
             parentTransactionId: nil,
@@ -258,7 +263,8 @@ enum MockTransaction {
         category: Category? = nil,
         account: Account? = nil,
         description: String = "Зарплата",
-        date: Date = DateGenerator.today()
+        date: Date = DateGenerator.today(),
+        merchantName: String? = nil
     ) -> Transaction {
         Transaction(
             id: UUID(),
@@ -268,6 +274,7 @@ enum MockTransaction {
             amount: amount,
             category: category ?? MockCategory.makeSalary(),
             description: description,
+            merchantName: merchantName,
             fromAccount: nil,
             toAccount: account ?? MockAccount.makeDefault(),
             parentTransactionId: nil,
@@ -280,7 +287,8 @@ enum MockTransaction {
         amount: Decimal = 1000.00,
         fromAccount: Account? = nil,
         toAccount: Account? = nil,
-        date: Date = DateGenerator.today()
+        date: Date = DateGenerator.today(),
+        merchantName: String? = nil
     ) -> Transaction {
         Transaction(
             id: UUID(),
@@ -290,6 +298,7 @@ enum MockTransaction {
             amount: amount,
             category: nil,
             description: "Переказ",
+            merchantName: merchantName,
             fromAccount: fromAccount ?? MockAccount.makeDefault(),
             toAccount: toAccount ?? MockAccount.makeSecondary(),
             parentTransactionId: nil,

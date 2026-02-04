@@ -35,7 +35,7 @@ func createTestPersistentContainer(modelName: String = "ExpenseTracker") async t
     }
 
     container.viewContext.automaticallyMergesChangesFromParent = true
-    container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+    container.viewContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
 
     return container
 }
@@ -210,7 +210,7 @@ enum AsyncTestUtilities {
     static func awaitPublisher<P: Publisher>(
         _ publisher: P,
         timeout: TimeInterval = 5
-    ) async throws -> P.Output {
+    ) async throws -> P.Output where P.Output: Sendable {
         try await withCheckedThrowingContinuation { continuation in
             var cancellable: AnyCancellable?
             var timedOut = false
@@ -250,7 +250,7 @@ enum AsyncTestUtilities {
     static func collectPublisher<P: Publisher>(
         _ publisher: P,
         timeout: TimeInterval = 5
-    ) async throws -> [P.Output] {
+    ) async throws -> [P.Output] where P.Output: Sendable {
         try await withCheckedThrowingContinuation { continuation in
             var cancellable: AnyCancellable?
             var timedOut = false
@@ -312,7 +312,7 @@ enum AsyncTestUtilities {
     /// Executes a block on the main actor and returns the result
     /// - Parameter block: The block to execute
     /// - Returns: The result of the block
-    static func onMainActor<T>(_ block: @MainActor @Sendable () -> T) async -> T {
+    static func onMainActor<T: Sendable>(_ block: @MainActor @Sendable () -> T) async -> T {
         await MainActor.run(body: block)
     }
 }

@@ -25,6 +25,10 @@ enum PersistenceError: Error {
     }
 }
 
+extension Notification.Name {
+    static let persistentStoreLoadFailed = Notification.Name("PersistenceController.persistentStoreLoadFailed")
+}
+
 
 
 struct PersistenceController {
@@ -70,11 +74,8 @@ struct PersistenceController {
             // Replace this implementation with code to handle the error appropriately.
             // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
             let nsError = error as NSError
-#if DEBUG
-            fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-#else
+            assertionFailure("Unresolved error \(nsError), \(nsError.userInfo)")
             print("Unresolved error \(nsError), \(nsError.localizedDescription)")
-#endif
         }
         return result
     }()
@@ -110,22 +111,22 @@ struct PersistenceController {
                  * The store could not be migrated to the current model version.
                  Check the error message to determine what the actual problem was.
                  */
-                // In production, handle this gracefully
-#if DEBUG
-                fatalError("Core Data failed to load: \(error)")
-#else
-                // Log to analytics service
+                assertionFailure("Core Data failed to load: \(error)")
                 print("Core Data error: \(error)")
-                // Show user-friendly error and offer recovery options
-#endif
+                NotificationCenter.default.post(
+                    name: .persistentStoreLoadFailed,
+                    object: nil,
+                    userInfo: [
+                        "error": error,
+                        "storeURL": storeDescription.url as Any
+                    ]
+                )
             }
         })
         container.viewContext.automaticallyMergesChangesFromParent = true
         
         // Configure for performance
         container.viewContext.shouldDeleteInaccessibleFaults = true
-        container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        container.viewContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyStoreTrumpMergePolicyType)
     }
 }
-
-
