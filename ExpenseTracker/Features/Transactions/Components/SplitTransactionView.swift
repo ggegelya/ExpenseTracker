@@ -186,10 +186,11 @@ struct SplitTransactionView: View {
                         .clipShape(Capsule())
                 }
 
-                ForEach($splitItems) { $item in
+                ForEach(Array($splitItems.enumerated()), id: \.element.id) { index, $item in
                     SplitItemRow(
                         splitItem: $item,
                                 totalAmount: baseAmount,
+                        index: index,
                         onDelete: {
                             withAnimation {
                                 let id = item.id
@@ -229,6 +230,7 @@ struct SplitTransactionView: View {
                     .foregroundColor(.blue)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
+                .accessibilityIdentifier("AddSplitComponent")
             }
             .padding(.horizontal)
 
@@ -393,6 +395,7 @@ struct SplitTransactionView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             .disabled(!isValid || isSaving)
+            .accessibilityIdentifier("SaveButton")
         }
         .padding(.horizontal)
         .padding(.bottom)
@@ -498,6 +501,7 @@ private struct SplitCategoryPickerSheet: View {
                             }
                         }
                     }
+                    .accessibilityIdentifier("Category_\(category.name)")
                 }
             }
             .navigationTitle("Оберіть категорію")

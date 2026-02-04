@@ -198,6 +198,35 @@ struct TransactionViewModelTests {
         #expect(sut.selectedCategory == nil)
     }
 
+    // MARK: - Recent Categories Tests
+
+    @Test("Recent categories are derived from most recent transactions")
+    func recentCategoriesBasedOnTransactions() async throws {
+        // Given
+        let account = MockAccount.makeDefault()
+        let groceries = MockCategory.makeGroceries()
+        let taxi = MockCategory.makeTaxi()
+        let cafe = MockCategory.makeCafe()
+
+        mockRepository.accounts = [account]
+        mockRepository.categories = [groceries, taxi, cafe]
+        mockRepository.transactions = [
+            MockTransaction.makeExpense(amount: 10, category: groceries, account: account, date: DateGenerator.daysAgo(3)),
+            MockTransaction.makeExpense(amount: 20, category: taxi, account: account, date: DateGenerator.daysAgo(2)),
+            MockTransaction.makeExpense(amount: 30, category: cafe, account: account, date: DateGenerator.daysAgo(1)),
+            MockTransaction.makeExpense(amount: 40, category: groceries, account: account, date: DateGenerator.today())
+        ]
+
+        // When
+        await sut.loadData()
+
+        // Then
+        #expect(sut.recentCategories.count == 3)
+        #expect(sut.recentCategories.first?.id == groceries.id)
+        #expect(sut.recentCategories[1].id == cafe.id)
+        #expect(sut.recentCategories[2].id == taxi.id)
+    }
+
     // MARK: - Filter Tests
 
     @Test("Filter by category updates filtered transactions")
@@ -270,6 +299,7 @@ struct TransactionViewModelTests {
 
         // When
         sut.searchText = "молока"
+        await AsyncTestUtilities.wait(seconds: 0.2)
 
         // Then
         #expect(sut.filteredTransactions.count == 1)
@@ -297,6 +327,7 @@ struct TransactionViewModelTests {
         // When - apply multiple filters
         sut.filterCategory = groceries
         sut.searchText = "Молоко"
+        await AsyncTestUtilities.wait(seconds: 0.2)
 
         // Then
         #expect(sut.filteredTransactions.count == 1)
@@ -429,6 +460,7 @@ struct TransactionViewModelTests {
 
         // When
         await sut.deleteTransaction(transaction)
+        await AsyncTestUtilities.wait(seconds: 0.2)
 
         // Then
         #expect(mockRepository.wasCalled("deleteTransaction(_:)"))
@@ -457,6 +489,7 @@ struct TransactionViewModelTests {
 
         // When
         await sut.bulkDeleteSelectedTransactions()
+        await AsyncTestUtilities.wait(seconds: 0.2)
 
         // Then
         #expect(mockRepository.callCount(for: "deleteTransaction(_:)") == 2)
@@ -535,4 +568,3 @@ struct TransactionViewModelTests {
         #expect(sut.hasActiveFilters)
     }
 }
-

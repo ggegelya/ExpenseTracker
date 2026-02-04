@@ -6,6 +6,7 @@
 
 import SwiftUI
 
+@MainActor
 @main
 struct ExpenseTrackerApp: App {
     let persistenceController = PersistenceController.shared

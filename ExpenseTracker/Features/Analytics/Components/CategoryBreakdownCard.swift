@@ -65,6 +65,7 @@ struct CategoryBreakdownCard: View {
                         .foregroundColor(.secondary)
                 }
                 .frame(height: 200)
+                .accessibilityIdentifier("ExpenseChart")
             } else {
                 // Pie chart
                 Chart(viewModel.categoryBreakdown.prefix(8)) { item in
@@ -77,6 +78,7 @@ struct CategoryBreakdownCard: View {
                     .foregroundStyle(Color(hex: item.category.colorHex))
                 }
                 .frame(height: 200)
+                .accessibilityIdentifier("ExpenseChart")
 
                 // Top 5 list
                 VStack(spacing: 12) {

@@ -183,7 +183,7 @@ struct BatchProcessingView: View {
         VStack(spacing: 12) {
             // Accept Button
             Button {
-                Task {
+                Task { @MainActor in
                     await acceptAndContinue(pending)
                 }
             } label: {
@@ -224,7 +224,7 @@ struct BatchProcessingView: View {
 
                 // Dismiss Button
                 Button {
-                    Task {
+                    Task { @MainActor in
                         await dismissAndContinue(pending)
                     }
                 } label: {

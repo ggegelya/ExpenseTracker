@@ -107,6 +107,9 @@ final class AnalyticsViewModel: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
 
+    // MARK: - Cached Filtered Results
+    @Published private(set) var filteredTransactions: [Transaction] = []
+
     // MARK: - Computed Properties
 
     var dateRange: ClosedRange<Date> {
@@ -114,10 +117,6 @@ final class AnalyticsViewModel: ObservableObject {
             return customStartDate...customEndDate
         }
         return selectedDateRange.dateRange() ?? (Date()...Date())
-    }
-
-    var filteredTransactions: [Transaction] {
-        transactions.filter { dateRange.contains($0.transactionDate) }
     }
 
     var flattenedFilteredTransactions: [Transaction] {
@@ -215,10 +214,12 @@ final class AnalyticsViewModel: ObservableObject {
 
         guard totalExpenses > 0 else { return [] }
 
+        let uncategorizedId = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+        let uncategorizedCategory = Category(id: uncategorizedId, name: "Без категорії", icon: "questionmark.circle", colorHex: "#9E9E9E")
         var categoryTotals: [UUID: (category: Category, amount: Decimal, count: Int)] = [:]
 
         for transaction in expenses {
-            guard let category = transaction.category else { continue }
+            let category = transaction.category ?? uncategorizedCategory
 
             if let existing = categoryTotals[category.id] {
                 categoryTotals[category.id] = (
@@ -252,7 +253,8 @@ final class AnalyticsViewModel: ObservableObject {
         var merchantTotals: [String: (amount: Decimal, count: Int)] = [:]
 
         for transaction in expenses {
-            let merchant = transaction.description.trimmingCharacters(in: .whitespacesAndNewlines)
+            let merchant = (transaction.merchantName ?? transaction.description)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             guard !merchant.isEmpty else { continue }
 
             if let existing = merchantTotals[merchant] {
@@ -296,13 +298,17 @@ final class AnalyticsViewModel: ObservableObject {
         // Fill in missing days with zero
         let start = calendar.startOfDay(for: dateRange.lowerBound)
         let end = calendar.startOfDay(for: dateRange.upperBound)
+        guard start <= end else { return [] }
         var currentDate = start
+        var iterations = 0
 
-        while currentDate <= end {
+        while currentDate <= end, iterations < 366 {
             if dailyTotals[currentDate] == nil {
                 dailyTotals[currentDate] = 0
             }
-            currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate) ?? end
+            guard let nextDate = calendar.date(byAdding: .day, value: 1, to: currentDate) else { break }
+            currentDate = nextDate
+            iterations += 1
         }
 
         return dailyTotals.map { date, amount in
@@ -321,7 +327,7 @@ final class AnalyticsViewModel: ObservableObject {
     init(repository: TransactionRepositoryProtocol) {
         self.repository = repository
         setupSubscriptions()
-        Task {
+        Task { @MainActor in
             await loadData()
         }
     }
@@ -342,6 +348,23 @@ final class AnalyticsViewModel: ObservableObject {
                 self?.categories = categories
             }
             .store(in: &cancellables)
+
+        // Filter pipeline: recalculate filteredTransactions when inputs change
+        Publishers.MergeMany([
+            $transactions.map { _ in () }.eraseToAnyPublisher(),
+            $selectedDateRange.map { _ in () }.eraseToAnyPublisher(),
+            $customStartDate.map { _ in () }.eraseToAnyPublisher(),
+            $customEndDate.map { _ in () }.eraseToAnyPublisher()
+        ])
+        .debounce(for: .milliseconds(50), scheduler: RunLoop.main)
+        .sink { [weak self] _ in
+            self?.updateFilteredTransactions()
+        }
+        .store(in: &cancellables)
+    }
+
+    private func updateFilteredTransactions() {
+        filteredTransactions = transactions.filter { dateRange.contains($0.transactionDate) }
     }
 
     // MARK: - Data Loading
@@ -351,10 +374,8 @@ final class AnalyticsViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            async let transactions = repository.getAllTransactions()
-            async let categories = repository.getAllCategories()
-
-            let (loadedTransactions, loadedCategories) = try await (transactions, categories)
+            let loadedTransactions = try await repository.getAllTransactions()
+            let loadedCategories = try await repository.getAllCategories()
 
             self.transactions = loadedTransactions
             self.categories = loadedCategories
@@ -389,4 +410,3 @@ final class AnalyticsViewModel: ObservableObject {
         return formatter.string(from: NSNumber(value: value / 100)) ?? "0%"
     }
 }
-

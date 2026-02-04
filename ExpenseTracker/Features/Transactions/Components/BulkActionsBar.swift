@@ -75,7 +75,7 @@ struct BulkActionsBar: View {
         .alert("Видалити транзакції?", isPresented: $showDeleteConfirmation) {
             Button("Скасувати", role: .cancel) {}
             Button("Видалити", role: .destructive) {
-                Task {
+                Task { @MainActor in
                     await viewModel.bulkDeleteSelectedTransactions()
                 }
             }
@@ -100,7 +100,7 @@ struct CategoryPickerSheet: View {
                 } else {
                     ForEach(viewModel.categories) { category in
                         Button {
-                            Task {
+                            Task { @MainActor in
                                 await viewModel.bulkCategorizeSelectedTransactions(to: category)
                                 dismiss()
                             }

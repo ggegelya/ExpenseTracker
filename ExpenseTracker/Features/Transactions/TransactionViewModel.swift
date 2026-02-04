@@ -35,8 +35,16 @@ final class TransactionViewModel: ObservableObject {
     @Published var showError = false
     
     // Filtering
-    @Published var filterDateRange: ClosedRange<Date>?
-    @Published var filterCategory: Category?
+    @Published var filterDateRange: ClosedRange<Date>? {
+        didSet {
+            updateFilteredTransactions()
+        }
+    }
+    @Published var filterCategory: Category? {
+        didSet {
+            updateFilteredTransactions()
+        }
+    }
     @Published var filterCategories: [Category] = []
     @Published var filterTypes: Set<TransactionType> = []
     @Published var filterAccounts: [Account] = []
@@ -44,6 +52,7 @@ final class TransactionViewModel: ObservableObject {
     @Published var filterMaxAmount: Decimal?
     @Published var searchText: String = ""
     @Published var expandedSplitParentIds: Set<Transaction.ID> = []
+    @Published private(set) var recentCategories: [Category] = []
 
     // Bulk operations
     @Published var selectedTransactionIds: Set<Transaction.ID> = []
@@ -52,114 +61,11 @@ final class TransactionViewModel: ObservableObject {
     @Published var errorHandler: ErrorHandlingService?
     
     private var cancellables = Set<AnyCancellable>()
-    
-    // MARK: - Computed Properties
-    
-    var filteredTransactions: [Transaction] {
-        var result = transactions
+    private var categorySuggestionTask: Task<Void, Never>?
+    private let recentCategoryLimit = 6
 
-        // Apply search filter
-        if !searchText.isEmpty {
-            let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-            result = result.filter { transaction in
-                if transaction.description.localizedCaseInsensitiveContains(query) {
-                    return true
-                }
-                if transaction.category?.name.localizedCaseInsensitiveContains(query) ?? false {
-                    return true
-                }
-                let splits = transaction.effectiveSplits
-                let matchesSplit = splits.contains { split in
-                    if split.description.localizedCaseInsensitiveContains(query) {
-                        return true
-                    }
-                    return split.category?.name.localizedCaseInsensitiveContains(query) ?? false
-                }
-                if matchesSplit {
-                    return true
-                }
-                return false
-            }
-        }
-
-        // Apply category filter (legacy single category)
-        if let category = filterCategory {
-            result = result.filter { transaction in
-                if transaction.category?.id == category.id {
-                    return true
-                }
-                let splits = transaction.effectiveSplits
-                if splits.contains(where: { $0.category?.id == category.id }) {
-                    return true
-                }
-                return false
-            }
-        }
-
-        // Apply multi-category filter
-        if !filterCategories.isEmpty {
-            let categoryIds = Set(filterCategories.map { $0.id })
-            result = result.filter { transaction in
-                if let categoryId = transaction.category?.id,
-                   categoryIds.contains(categoryId) {
-                    return true
-                }
-                let splits = transaction.effectiveSplits
-                if splits.contains(where: { split in
-                    guard let splitCategoryId = split.category?.id else { return false }
-                    return categoryIds.contains(splitCategoryId)
-                }) {
-                    return true
-                }
-                return false
-            }
-        }
-
-        // Apply transaction type filter
-        if !filterTypes.isEmpty {
-            result = result.filter { filterTypes.contains($0.type) }
-        }
-
-        // Apply account filter
-        if !filterAccounts.isEmpty {
-            let accountIds = Set(filterAccounts.map { $0.id })
-            result = result.filter { transaction in
-                if let fromAccountId = transaction.fromAccount?.id, accountIds.contains(fromAccountId) {
-                    return true
-                }
-                if let toAccountId = transaction.toAccount?.id, accountIds.contains(toAccountId) {
-                    return true
-                }
-                if transaction.isSplitParent {
-                    return transaction.effectiveSplits.contains { split in
-                        if let fromAccountId = split.fromAccount?.id, accountIds.contains(fromAccountId) {
-                            return true
-                        }
-                        if let toAccountId = split.toAccount?.id, accountIds.contains(toAccountId) {
-                            return true
-                        }
-                        return false
-                    }
-                }
-                return false
-            }
-        }
-
-        // Apply amount range filter
-        if let minAmount = filterMinAmount {
-            result = result.filter { $0.effectiveAmount >= minAmount }
-        }
-        if let maxAmount = filterMaxAmount {
-            result = result.filter { $0.effectiveAmount <= maxAmount }
-        }
-
-        // Apply date range filter
-        if let dateRange = filterDateRange {
-            result = result.filter { dateRange.contains($0.transactionDate) }
-        }
-
-        return result
-    }
+    // MARK: - Cached Filtered Results
+    @Published private(set) var filteredTransactions: [Transaction] = []
 
     var flattenedFilteredTransactions: [Transaction] {
         filteredTransactions.flatMap { transaction -> [Transaction] in
@@ -182,9 +88,8 @@ final class TransactionViewModel: ObservableObject {
     }
     
     var isValidEntry: Bool {
-        amountDecimal != nil &&
-        amountDecimal! > 0 &&
-        selectedAccount != nil
+        guard let amount = amountDecimal else { return false }
+        return amount > 0 && selectedAccount != nil
     }
     
     var currentMonthTotal: Decimal {
@@ -217,7 +122,7 @@ final class TransactionViewModel: ObservableObject {
         self.analyticsService = analyticsService
         
         setupSubscriptions()
-        Task {
+        Task { @MainActor in
             await loadData()
         }
     }
@@ -232,16 +137,17 @@ final class TransactionViewModel: ObservableObject {
                 self?.transactions = transactions
                 let currentParentIds = Set(transactions.filter { $0.isSplitParent }.map { $0.id })
                 self?.expandedSplitParentIds = self?.expandedSplitParentIds.intersection(currentParentIds) ?? []
+                self?.updateRecentCategories()
             }
             .store(in: &cancellables)
-        
+
         repository.categoriesPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] categories in
                 self?.categories = categories
             }
             .store(in: &cancellables)
-        
+
         repository.accountsPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] accounts in
@@ -252,17 +158,159 @@ final class TransactionViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
-        
-        // Auto-categorization on description change
+
+        // Auto-categorization on description change (Fix #19: cancel previous task)
         $entryDescription
             .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .sink { [weak self] description in
                 guard !description.isEmpty else { return }
-                Task {
+                self?.categorySuggestionTask?.cancel()
+                self?.categorySuggestionTask = Task { @MainActor [weak self] in
                     await self?.suggestCategory(for: description)
                 }
             }
             .store(in: &cancellables)
+
+        // Filter pipeline: recalculate filteredTransactions when any filter input changes
+        let filterPublisher = Publishers.MergeMany([
+            $transactions.map { _ in () }.eraseToAnyPublisher(),
+            $searchText.map { _ in () }.eraseToAnyPublisher(),
+            $filterCategory.map { _ in () }.eraseToAnyPublisher(),
+            $filterCategories.map { _ in () }.eraseToAnyPublisher(),
+            $filterTypes.map { _ in () }.eraseToAnyPublisher(),
+            $filterAccounts.map { _ in () }.eraseToAnyPublisher(),
+            $filterMinAmount.map { _ in () }.eraseToAnyPublisher(),
+            $filterMaxAmount.map { _ in () }.eraseToAnyPublisher(),
+            $filterDateRange.map { _ in () }.eraseToAnyPublisher()
+        ])
+        if TestingConfiguration.isRunningTests {
+            filterPublisher
+                .sink { [weak self] _ in
+                    self?.updateFilteredTransactions()
+                }
+                .store(in: &cancellables)
+        } else {
+            filterPublisher
+                .debounce(for: .milliseconds(50), scheduler: RunLoop.main)
+                .sink { [weak self] _ in
+                    self?.updateFilteredTransactions()
+                }
+                .store(in: &cancellables)
+        }
+    }
+
+    private func updateFilteredTransactions() {
+        var result = transactions
+
+        // Apply search filter
+        if !searchText.isEmpty {
+            let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+            result = result.filter { transaction in
+                if transaction.description.localizedCaseInsensitiveContains(query) {
+                    return true
+                }
+                if transaction.merchantName?.localizedCaseInsensitiveContains(query) == true {
+                    return true
+                }
+                if transaction.category?.name.localizedCaseInsensitiveContains(query) ?? false {
+                    return true
+                }
+                let splits = transaction.effectiveSplits
+                return splits.contains { split in
+                    split.description.localizedCaseInsensitiveContains(query) ||
+                    (split.merchantName?.localizedCaseInsensitiveContains(query) ?? false) ||
+                    (split.category?.name.localizedCaseInsensitiveContains(query) ?? false)
+                }
+            }
+        }
+
+        // Apply category filter (legacy single category)
+        if let category = filterCategory {
+            result = result.filter { transaction in
+                transaction.category?.id == category.id ||
+                transaction.effectiveSplits.contains { $0.category?.id == category.id }
+            }
+        }
+
+        // Apply multi-category filter
+        if !filterCategories.isEmpty {
+            let categoryIds = Set(filterCategories.map { $0.id })
+            result = result.filter { transaction in
+                if let categoryId = transaction.category?.id, categoryIds.contains(categoryId) {
+                    return true
+                }
+                return transaction.effectiveSplits.contains { split in
+                    guard let splitCategoryId = split.category?.id else { return false }
+                    return categoryIds.contains(splitCategoryId)
+                }
+            }
+        }
+
+        // Apply transaction type filter
+        if !filterTypes.isEmpty {
+            result = result.filter { filterTypes.contains($0.type) }
+        }
+
+        // Apply account filter
+        if !filterAccounts.isEmpty {
+            let accountIds = Set(filterAccounts.map { $0.id })
+            result = result.filter { transaction in
+                if let fromAccountId = transaction.fromAccount?.id, accountIds.contains(fromAccountId) {
+                    return true
+                }
+                if let toAccountId = transaction.toAccount?.id, accountIds.contains(toAccountId) {
+                    return true
+                }
+                if transaction.isSplitParent {
+                    return transaction.effectiveSplits.contains { split in
+                        if let fromId = split.fromAccount?.id, accountIds.contains(fromId) { return true }
+                        if let toId = split.toAccount?.id, accountIds.contains(toId) { return true }
+                        return false
+                    }
+                }
+                return false
+            }
+        }
+
+        // Apply amount range filter
+        if let minAmount = filterMinAmount {
+            result = result.filter { $0.effectiveAmount >= minAmount }
+        }
+        if let maxAmount = filterMaxAmount {
+            result = result.filter { $0.effectiveAmount <= maxAmount }
+        }
+
+        // Apply date range filter
+        if let dateRange = filterDateRange {
+            result = result.filter { dateRange.contains($0.transactionDate) }
+        }
+
+        filteredTransactions = result
+    }
+
+    private func updateRecentCategories() {
+        let flattened = transactions.flatMap { transaction -> [Transaction] in
+            if transaction.isSplitParent {
+                return transaction.effectiveSplits
+            }
+            return [transaction]
+        }
+
+        let sortedByRecent = flattened.sorted { $0.transactionDate > $1.transactionDate }
+        var seen = Set<UUID>()
+        var recent: [Category] = []
+
+        for transaction in sortedByRecent {
+            guard let category = transaction.category else { continue }
+            if seen.insert(category.id).inserted {
+                recent.append(category)
+            }
+            if recent.count >= recentCategoryLimit {
+                break
+            }
+        }
+
+        recentCategories = recent
     }
     
     // MARK: - Data Loading
@@ -272,15 +320,15 @@ final class TransactionViewModel: ObservableObject {
         defer { isLoading = false }
         
         do {
-            async let transactions = repository.getAllTransactions()
-            async let categories = repository.getAllCategories()
-            async let accounts = repository.getAllAccounts()
-            
-            let (loadedTransactions, loadedCategories, loadedAccounts) = try await (transactions, categories, accounts)
-            
+            let loadedTransactions = try await repository.getAllTransactions()
+            let loadedCategories = try await repository.getAllCategories()
+            let loadedAccounts = try await repository.getAllAccounts()
+
             self.transactions = loadedTransactions
             self.categories = loadedCategories
             self.accounts = loadedAccounts
+            updateFilteredTransactions()
+            updateRecentCategories()
             
             // Select default account
             self.selectedAccount = loadedAccounts.first { $0.isDefault } ?? loadedAccounts.first
@@ -292,9 +340,16 @@ final class TransactionViewModel: ObservableObject {
     // MARK: - Transaction Operations
     
     func addTransaction() async {
-        guard isValidEntry,
-              let amount = amountDecimal,
-              let account = selectedAccount else { return }
+        error = nil
+        guard let amount = amountDecimal, amount > 0 else {
+            error = AppError.invalidAmount
+            return
+        }
+
+        guard let account = selectedAccount else {
+            error = AppError.accountRequired
+            return
+        }
         
         isLoading = true
         defer { isLoading = false }
@@ -321,9 +376,6 @@ final class TransactionViewModel: ObservableObject {
             errorHandler?.showToast("Транзакцію успішно додано", type: .success)
             // Clear entry form
             clearEntry()
-            
-            // Reload data
-            await loadData()
         } catch {
             handleError(error, context: "Adding transaction") {
                 await self.addTransaction() // Retry action
@@ -338,7 +390,6 @@ final class TransactionViewModel: ObservableObject {
         
         do {
             _ = try await repository.updateTransaction(transaction)
-            await loadData()
         } catch {
             handleError(error, context: "Updating transaction")
         }
@@ -356,7 +407,6 @@ final class TransactionViewModel: ObservableObject {
         do {
             try await repository.deleteTransaction(transaction)
             analyticsService.trackEvent(.transactionDeleted)
-            await loadData()
         } catch {
             handleError(error, context: "Deleting transaction")
         }
@@ -380,7 +430,6 @@ final class TransactionViewModel: ObservableObject {
                 }
             }
             analyticsService.trackEvent(.transactionDeleted)
-            await loadData()
         } catch {
             handleError(error, context: "Deleting transactions")
         }
@@ -427,6 +476,7 @@ final class TransactionViewModel: ObservableObject {
             isBulkEditMode = false
         }
 
+        var deletedCount = 0
         do {
             for transaction in transactionsToDelete {
                 if transaction.isSplitParent {
@@ -439,11 +489,14 @@ final class TransactionViewModel: ObservableObject {
                 } else {
                     try await repository.deleteTransaction(transaction)
                 }
+                deletedCount += 1
             }
             analyticsService.trackEvent(.transactionDeleted)
             errorHandler?.showToast("Видалено \(transactionsToDelete.count) транзакцій", type: .success)
-            await loadData()
         } catch {
+            if deletedCount > 0 {
+                errorHandler?.showToast("Видалено \(deletedCount) з \(transactionsToDelete.count) транзакцій", type: .warning)
+            }
             handleError(error, context: "Bulk deleting transactions")
         }
     }
@@ -476,7 +529,6 @@ final class TransactionViewModel: ObservableObject {
                 _ = try await repository.updateTransaction(updatedTransaction)
             }
             errorHandler?.showToast("Категоризовано \(transactionsToUpdate.count) транзакцій", type: .success)
-            await loadData()
         } catch {
             handleError(error, context: "Bulk categorizing transactions")
         }
@@ -521,7 +573,6 @@ final class TransactionViewModel: ObservableObject {
         do {
             _ = try await repository.createCategory(category)
             analyticsService.trackEvent(.categoryCreated)
-            await loadData()
         } catch {
             handleError(error, context: "Creating category")
         }
@@ -558,18 +609,6 @@ final class TransactionViewModel: ObservableObject {
         )
     }
     
-    // MARK: - Error Handling
-    
-    private func handleError(_ error: Error, context: String) {
-        self.error = error
-        self.showError = true
-        analyticsService.trackError(error, context: context)
-        
-#if DEBUG
-        print("Error in \(context): \(error)")
-#endif
-    }
-    
     // MARK: - Formatting Helpers
     
     func formatAmount(_ amount: Decimal) -> String {
@@ -593,7 +632,7 @@ final class TransactionViewModel: ObservableObject {
 
         if let retryAction = retryAction {
             errorHandler?.showAlert(appError, retryAction: {
-                Task {
+                Task { @MainActor in
                     await retryAction()
                 }
             })
@@ -662,7 +701,6 @@ final class TransactionViewModel: ObservableObject {
                 }
             }
 
-            await loadData()
             if retainParent {
                 expandedSplitParentIds.insert(transaction.id)
             } else {
@@ -743,7 +781,6 @@ final class TransactionViewModel: ObservableObject {
                 try await repository.deleteTransaction(transaction)
             }
 
-            await loadData()
             if retainParent {
                 expandedSplitParentIds.insert(transaction.id)
             } else {
@@ -787,7 +824,6 @@ final class TransactionViewModel: ObservableObject {
 
             _ = try await repository.updateTransaction(regularTransaction)
 
-            await loadData()
             analyticsService.trackEvent(.transactionAdded(amount: totalAmount, category: category.name))
         } catch {
             handleError(error, context: "Converting split to regular transaction")
@@ -816,7 +852,6 @@ final class TransactionViewModel: ObservableObject {
             // Delete parent
             try await repository.deleteTransaction(transaction)
 
-            await loadData()
             analyticsService.trackEvent(.transactionDeleted)
             expandedSplitParentIds.remove(transaction.id)
         } catch {

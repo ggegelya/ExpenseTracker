@@ -38,6 +38,7 @@ struct SplitItem: Identifiable, Equatable {
 struct SplitItemRow: View {
     @Binding var splitItem: SplitItem
     let totalAmount: Decimal
+    let index: Int
     let onDelete: () -> Void
     let onCategorySelect: () -> Void
 
@@ -92,6 +93,7 @@ struct SplitItemRow: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("SplitCategoryPicker_\(index)")
 
                 Spacer()
 
@@ -132,6 +134,7 @@ struct SplitItemRow: View {
                         .onAppear {
                             syncAmountText()
                         }
+                        .accessibilityIdentifier("SplitAmount_\(index)")
 
                     Text("₴")
                         .font(.headline)

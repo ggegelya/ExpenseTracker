@@ -43,6 +43,7 @@ struct AddAccountView: View {
                 Section {
                     TextField("Назва рахунку", text: $name)
                         .focused($focusedField, equals: .name)
+                        .accessibilityIdentifier("AccountNameField")
                         .onChange(of: name) { _, newValue in
                             if newValue.count > 50 {
                                 name = String(newValue.prefix(50))
@@ -66,6 +67,7 @@ struct AddAccountView: View {
                 Section {
                     TextField("Тег", text: $tag)
                         .focused($focusedField, equals: .tag)
+                        .accessibilityIdentifier("AccountTagField")
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                         .onChange(of: tag) { _, newValue in
@@ -170,6 +172,7 @@ struct AddAccountView: View {
                         saveAccount()
                     }
                     .disabled(isLoading || !isFormValid)
+                    .accessibilityIdentifier("SaveButton")
                 }
 
                 ToolbarItemGroup(placement: .keyboard) {
@@ -247,7 +250,7 @@ struct AddAccountView: View {
 
         isLoading = true
 
-        Task {
+        Task { @MainActor in
             if let existingAccount = accountToEdit {
                 // Update existing account
                 let updatedAccount = Account(

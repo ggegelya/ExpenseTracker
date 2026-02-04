@@ -32,6 +32,7 @@ final class PendingTransactionsViewModel: ObservableObject {
 
     private var isActive = false
     private var pollingTask: Task<Void, Never>?
+    private var toastDismissTask: Task<Void, Never>?
 
     struct LearningNotification: Identifiable {
         let id = UUID()
@@ -51,14 +52,14 @@ final class PendingTransactionsViewModel: ObservableObject {
     
     deinit {
         pollingTask?.cancel()
-        
+        toastDismissTask?.cancel()
     }
     
     func startMonitoring() {
         guard !isActive else { return }
         isActive = true
         
-        pollingTask = Task {
+        pollingTask = Task { @MainActor in
             await loadPendingTransactions()
             
             while !Task.isCancelled && isActive {
@@ -120,6 +121,7 @@ final class PendingTransactionsViewModel: ObservableObject {
             amount: pending.amount,
             category: finalCategory,
             description: finalDescription,
+            merchantName: pending.merchantName,
             fromAccount: pending.type == .expense ? pending.account : nil,
             toAccount: pending.type == .income ? pending.account : nil
         )
@@ -150,12 +152,11 @@ final class PendingTransactionsViewModel: ObservableObject {
                     )
                     showLearningToast = true
 
-                    // Auto-hide after 3 seconds
-                    Task {
+                    // Auto-hide after 3 seconds (cancel previous dismiss task)
+                    toastDismissTask?.cancel()
+                    toastDismissTask = Task { @MainActor in
                         try? await Task.sleep(for: .seconds(3))
-                        await MainActor.run {
-                            showLearningToast = false
-                        }
+                        showLearningToast = false
                     }
                 }
             }

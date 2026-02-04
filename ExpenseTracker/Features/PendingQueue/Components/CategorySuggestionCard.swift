@@ -14,7 +14,7 @@ struct CategorySuggestionCard: View {
 
     @State private var showCategoryPicker = false
     @State private var searchText = ""
-    @EnvironmentObject var viewModel: PendingTransactionsViewModel
+    @EnvironmentObject var transactionViewModel: TransactionViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -51,6 +51,7 @@ struct CategorySuggestionCard: View {
                     .background(Color(.systemGray6))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
+                .accessibilityIdentifier("CategoryPicker")
             } else {
                 Button {
                     showCategoryPicker = true
@@ -73,6 +74,7 @@ struct CategorySuggestionCard: View {
                     .background(Color(.systemGray6))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
+                .accessibilityIdentifier("CategoryPicker")
             }
         }
         .sheet(isPresented: $showCategoryPicker) {
@@ -141,7 +143,7 @@ struct CategoryPickerView: View {
     @State private var isLoading = true
     @State private var loadError: Error?
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var viewModel: PendingTransactionsViewModel
+    @EnvironmentObject var transactionViewModel: TransactionViewModel
 
     var filteredCategories: [Category] {
         if searchText.isEmpty {
@@ -170,7 +172,7 @@ struct CategoryPickerView: View {
                             .multilineTextAlignment(.center)
 
                         Button("Спробувати знову") {
-                            Task {
+                            Task { @MainActor in
                                 await loadCategories()
                             }
                         }
@@ -229,7 +231,7 @@ struct CategoryPickerView: View {
                     }
                 }
             }
-            .task {
+            .task { @MainActor in
                 await loadCategories()
             }
         }
@@ -238,20 +240,8 @@ struct CategoryPickerView: View {
     private func loadCategories() async {
         isLoading = true
         loadError = nil
-
-        do {
-            // Try to load from repository (will be available through the ViewModel in production)
-            // For now, using Category.defaults as fallback
-            try await Task.sleep(for: .milliseconds(100)) // Simulate network delay
-            categories = Category.defaults
-
-            // In production, this would be:
-            // categories = try await viewModel.repository.getAllCategories()
-        } catch {
-            loadError = error
-            print("Failed to load categories: \(error)")
-        }
-
+        let loaded = transactionViewModel.categories
+        categories = loaded.isEmpty ? Category.defaults : loaded
         isLoading = false
     }
 }

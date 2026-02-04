@@ -8,7 +8,7 @@
 import SwiftUI
 import UIKit
 
-private final class ColorCache {
+private final class ColorCache: @unchecked Sendable {
     static let shared = ColorCache()
 
     private let cache = NSCache<NSString, UIColor>()

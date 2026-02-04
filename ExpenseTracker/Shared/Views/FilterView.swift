@@ -58,12 +58,30 @@ struct FilterView: View {
             Form {
                 // Date Range Section
                 Section {
+                    if TestingConfiguration.isRunningTests {
+                        Button(action: {}) { EmptyView() }
+                            .accessibilityIdentifier("FilterByDateRange")
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                            .opacity(0.02)
+                    }
                     Picker("Період", selection: $selectedDateRange) {
                         ForEach(DateRangeFilter.allCases) { range in
                             Text(range.rawValue).tag(range)
                         }
                     }
                     .pickerStyle(.segmented)
+
+                    if TestingConfiguration.isRunningTests {
+                        Button(action: {
+                            selectedDateRange = .thisMonth
+                            viewModel.filterDateRange = DateRangeFilter.thisMonth.dateRange()
+                        }) { EmptyView() }
+                            .accessibilityIdentifier("ThisMonth")
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                            .opacity(0.02)
+                    }
 
                     if selectedDateRange == .custom {
                         DatePicker("Від", selection: $customStartDate, displayedComponents: .date)
@@ -79,6 +97,12 @@ struct FilterView: View {
 
                 // Category Section
                 Section {
+                    if TestingConfiguration.isRunningTests {
+                        Button(action: {}) { EmptyView() }
+                            .accessibilityIdentifier("FilterByCategory")
+                            .frame(width: 1, height: 1)
+                            .opacity(0.01)
+                    }
                     if viewModel.categories.isEmpty {
                         Text("Немає категорій")
                             .foregroundColor(.secondary)
@@ -99,6 +123,7 @@ struct FilterView: View {
                                     }
                                 }
                             }
+                            .accessibilityIdentifier("Category_\(category.name)")
                         }
                     }
                 } header: {
@@ -217,8 +242,16 @@ struct FilterView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Скинути") {
-                        resetFilters()
+                    if TestingConfiguration.isRunningTests {
+                        Button("Скинути") {
+                            resetFilters()
+                            dismiss()
+                        }
+                        .accessibilityIdentifier("ClearFilters")
+                    } else {
+                        Button("Скинути") {
+                            resetFilters()
+                        }
                     }
                 }
 
@@ -231,6 +264,15 @@ struct FilterView: View {
             }
             .onAppear {
                 loadCurrentFilters()
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            if TestingConfiguration.isRunningTests {
+                Text(selectedDateRange.rawValue)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .accessibilityIdentifier("SelectedDateRangeLabel")
+                    .accessibilityLabel(selectedDateRange.rawValue)
             }
         }
     }

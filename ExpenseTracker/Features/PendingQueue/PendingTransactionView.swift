@@ -35,7 +35,7 @@ struct PendingTransactionsView: View {
                             ) {
                                 selectedPending = pending
                             } onAccept: {
-                                Task {
+                                Task { @MainActor in
                                     await handleQuickAccept(pending)
                                 }
                             } onDismiss: {
@@ -47,6 +47,7 @@ struct PendingTransactionsView: View {
                     }
                 }
                 .listStyle(.plain)
+                .accessibilityIdentifier("PendingTransactionList")
                 .navigationTitle("Очікують обробки")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -54,7 +55,7 @@ struct PendingTransactionsView: View {
                         ToolbarItem(placement: .navigationBarTrailing) {
                             Menu {
                                 Button {
-                                    Task {
+                                    Task { @MainActor in
                                         await viewModel.processAllPending()
                                     }
                                 } label: {
@@ -167,7 +168,7 @@ struct PendingTransactionsView: View {
         }
 
         // Auto-hide toast and perform dismiss
-        Task {
+        Task { @MainActor in
             try? await Task.sleep(for: .seconds(4))
             if dismissedIds.contains(pending.id) {
                 await performDismiss(pending)
@@ -192,6 +193,4 @@ struct PendingTransactionsView: View {
         lastDismissedPending = nil
     }
 }
-
-
 

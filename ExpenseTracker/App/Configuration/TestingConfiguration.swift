@@ -10,7 +10,8 @@ import Foundation
 enum TestingConfiguration {
     static var isRunningTests: Bool {
         ProcessInfo.processInfo.environment["IS_TESTING"] == "1" ||
-        ProcessInfo.processInfo.arguments.contains("-UITesting")
+        ProcessInfo.processInfo.arguments.contains("-UITesting") ||
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
 
     static var shouldDisableAnimations: Bool {
@@ -24,6 +25,10 @@ enum TestingConfiguration {
 
     static var shouldUseMockData: Bool {
         ProcessInfo.processInfo.environment["MOCK_DATA_ENABLED"] == "1"
+    }
+
+    static var shouldStartEmpty: Bool {
+        ProcessInfo.processInfo.environment["START_EMPTY"] == "1"
     }
 
     static var isCoreDataDebugEnabled: Bool {

@@ -10,6 +10,7 @@ import Foundation
 import CoreData
 
 // MARK: - Dependency Container Protocol
+@MainActor
 protocol DependencyContainerProtocol {
     var persistenceController: PersistenceController { get }
     var transactionRepository: TransactionRepositoryProtocol { get }
@@ -25,6 +26,7 @@ protocol DependencyContainerProtocol {
 }
 
 // MARK: - Production Dependency Container
+@MainActor
 final class DependencyContainer: DependencyContainerProtocol {
     let environment: AppEnvironment
     let persistenceController: PersistenceController
@@ -66,6 +68,14 @@ final class DependencyContainer: DependencyContainerProtocol {
         if environment != .testing {
             Task {
                 await setupInitialDataIfNeeded()
+            }
+        } else if TestingConfiguration.isRunningTests {
+            // Seed predictable data for UI tests
+            Task {
+                await setupInitialDataIfNeeded()
+                if !TestingConfiguration.shouldStartEmpty {
+                    await setupPreviewData()
+                }
             }
         }
     }
@@ -161,6 +171,82 @@ final class DependencyContainer: DependencyContainerProtocol {
     
     private func setupPreviewData() async {
         do {
+            if TestingConfiguration.isRunningTests || TestingConfiguration.shouldUseMockData {
+                let mainAccount = Account(id: UUID(), name: "Монобанк", tag: "#mono", balance: 15000, isDefault: true)
+                let savingsAccount = Account(id: UUID(), name: "Заощадження", tag: "#savings", balance: 50000, isDefault: false)
+
+                _ = try await transactionRepository.createAccount(mainAccount)
+                _ = try await transactionRepository.createAccount(savingsAccount)
+
+                let categories = try await transactionRepository.getAllCategories()
+                let groceries = categories.first { $0.name == "продукти" }
+                let transport = categories.first { $0.name == "транспорт" }
+                let cafe = categories.first { $0.name == "кафе" }
+
+                let calendar = Calendar.current
+                let now = Date()
+
+                let transactions: [Transaction] = [
+                    Transaction(
+                        transactionDate: now,
+                        type: .expense,
+                        amount: 250,
+                        category: groceries,
+                        description: "Сільпо",
+                        fromAccount: mainAccount,
+                        toAccount: nil
+                    ),
+                    Transaction(
+                        transactionDate: calendar.date(byAdding: .day, value: -1, to: now) ?? now,
+                        type: .expense,
+                        amount: 80,
+                        category: transport,
+                        description: "Метро",
+                        fromAccount: mainAccount,
+                        toAccount: nil
+                    ),
+                    Transaction(
+                        transactionDate: calendar.date(byAdding: .day, value: -2, to: now) ?? now,
+                        type: .expense,
+                        amount: 120,
+                        category: cafe,
+                        description: "Aroma Kava",
+                        fromAccount: mainAccount,
+                        toAccount: nil
+                    ),
+                    Transaction(
+                        transactionDate: calendar.date(byAdding: .day, value: -3, to: now) ?? now,
+                        type: .income,
+                        amount: 2000,
+                        category: nil,
+                        description: "Зарплата",
+                        fromAccount: nil,
+                        toAccount: mainAccount
+                    )
+                ]
+
+                for transaction in transactions {
+                    _ = try await transactionRepository.createTransaction(transaction)
+                }
+
+                let pending = PendingTransaction(
+                    id: UUID(),
+                    bankTransactionId: "MONO000001",
+                    amount: 150,
+                    descriptionText: "Термінал Сільпо",
+                    merchantName: "SILPO MARKET",
+                    transactionDate: now,
+                    type: .expense,
+                    account: mainAccount,
+                    suggestedCategory: groceries,
+                    confidence: 0.85,
+                    importedAt: now,
+                    status: .pending
+                )
+                _ = try await transactionRepository.createPendingTransaction(pending)
+                return
+            }
+
             // Create accounts
             let mainAccount = Account(id: UUID(), name: "Монобанк", tag: "#mono", balance: 15000, isDefault: true)
             let savingsAccount = Account(id: UUID(), name: "Заощадження", tag: "#savings", balance: 50000, isDefault: false)
@@ -256,177 +342,75 @@ final class DependencyContainer: DependencyContainerProtocol {
     }
 }
 
-// MARK: - Categorization Service
-
-protocol CategorizationServiceProtocol {
-    func suggestCategory(for description: String, merchantName: String?) async -> (category: Category?, confidence: Float)
-    func learnFromCorrection(description: String, merchantName: String?, correctCategory: Category) async
-}
-
-final class CategorizationService: CategorizationServiceProtocol {
-    private let repository: TransactionRepositoryProtocol
-    
-    // Merchant patterns for Ukrainian market
-    private let merchantPatterns: [String: String] = [
-        // Продукти
-        "сільпо": "продукти", "silpo": "продукти",
-        "атб": "продукти", "atb": "продукти",
-        "фора": "продукти", "fora": "продукти",
-        "метро": "продукти", "metro": "продукти",
-        "novus": "продукти", "новус": "продукти",
-        "ашан": "продукти", "auchan": "продукти",
-        "варус": "продукти", "varus": "продукти",
-        
-        // Таксі
-        "uber": "таксі", "убер": "таксі",
-        "bolt": "таксі", "болт": "таксі",
-        "uklon": "таксі", "уклон": "таксі",
-        
-        // Підписки
-        "netflix": "підписки", "spotify": "підписки",
-        "youtube": "підписки", "apple": "підписки",
-        "google": "підписки", "adobe": "підписки",
-        
-        // Аптеки
-        "аптека": "аптека", "pharmacy": "аптека",
-        "911": "аптека", "д.с.": "аптека",
-        "подорожник": "аптека",
-        
-        // Кафе і ресторани
-        "aroma": "кафе", "starbucks": "кафе",
-        "mcdonald": "кафе", "kfc": "кафе",
-        "pizza": "кафе", "sushi": "кафе",
-        
-        // Комуналка
-        "київенерго": "комуналка", "водоканал": "комуналка",
-        "київгаз": "комуналка", "kyivstar": "комуналка",
-        "vodafone": "комуналка", "lifecell": "комуналка"
-    ]
-    
-    init(repository: TransactionRepositoryProtocol) {
-        self.repository = repository
-    }
-    
-    func suggestCategory(for description: String, merchantName: String?) async -> (category: Category?, confidence: Float) {
-        let lowercasedDescription = description.lowercased()
-        let lowercasedMerchant = merchantName?.lowercased() ?? ""
-        
-        // Try to find category by patterns
-        for (pattern, categoryName) in merchantPatterns {
-            if lowercasedDescription.contains(pattern) || lowercasedMerchant.contains(pattern) {
-                do {
-                    let categories = try await repository.getAllCategories()
-                    if let category = categories.first(where: { $0.name == categoryName }) {
-                        return (category, 0.85)
-                    }
-                } catch {
-                    print("Failed to get categories: \(error)")
-                }
-            }
-        }
-        
-        // Default to "інше" with low confidence
-        do {
-            let categories = try await repository.getAllCategories()
-            if let defaultCategory = categories.first(where: { $0.name == "інше" }) {
-                return (defaultCategory, 0.3)
-            }
-        } catch {
-            print("Failed to get default category: \(error)")
-        }
-        
-        return (nil, 0.0)
-    }
-    
-    func learnFromCorrection(description: String, merchantName: String?, correctCategory: Category) async {
-        // In a production app, this would update a Core ML model or
-        // save the correction to improve future suggestions
-        // For now, just log it
-        print("Learning: '\(description)' -> \(correctCategory.name)")
-    }
-}
-
-// MARK: - Analytics Service
-// MARK: - Export Service
-
-protocol ExportServiceProtocol {
-    func exportToCSV(transactions: [Transaction]) async throws -> URL
-    func exportToGoogleSheets(transactions: [Transaction]) async throws
-}
-
-final class ExportService: ExportServiceProtocol {
-    private let repository: TransactionRepositoryProtocol
-    
-    init(repository: TransactionRepositoryProtocol) {
-        self.repository = repository
-    }
-    
-    func exportToCSV(transactions: [Transaction]) async throws -> URL {
-        // Create a unique, filesystem-safe filename with high precision timestamp and UUID
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        isoFormatter.timeZone = TimeZone(secondsFromGMT: 0)
-        let timestamp = isoFormatter.string(from: Date()) // e.g., 2025-11-22T22:00:05.123Z
-
-        // Sanitize characters that can be problematic in filenames on some systems
-        let safeTimestamp = timestamp
-            .replacingOccurrences(of: ":", with: "-")
-            .replacingOccurrences(of: ".", with: "-")
-
-        let uniqueSuffix = UUID().uuidString
-        let fileName = "transactions_\(safeTimestamp)_\(uniqueSuffix).csv"
-
-        // Write to a dedicated subdirectory in the temporary directory to avoid conflicts
-        let tempDir = FileManager.default.temporaryDirectory
-        let exportDir = tempDir.appendingPathComponent("exports", isDirectory: true)
-        try? FileManager.default.createDirectory(at: exportDir, withIntermediateDirectories: true)
-
-        let fileURL = exportDir.appendingPathComponent(fileName)
-
-        var csvText = "Date,Type,Amount,Category,Description,Account\n"
-
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateStyle = .short
-        dateFormatter.timeStyle = .none
-
-        for transaction in transactions {
-            let date = dateFormatter.string(from: transaction.transactionDate)
-            let type = transaction.type.rawValue
-            let amount = "\(transaction.amount)"
-            let category = transaction.category?.name ?? ""
-            let description = transaction.description.replacingOccurrences(of: ",", with: ";")
-            let account = transaction.fromAccount?.name ?? transaction.toAccount?.name ?? ""
-
-            csvText += "\(date),\(type),\(amount),\(category),\(description),\(account)\n"
-        }
-
-        try csvText.write(to: fileURL, atomically: true, encoding: .utf8)
-        return fileURL
-    }
-    
-    func exportToGoogleSheets(transactions: [Transaction]) async throws {
-        // This would integrate with the existing Google Apps Script webhook
-        // For now, just a placeholder
-        print("Exporting \(transactions.count) transactions to Google Sheets")
-    }
-}
-
 extension DependencyContainer {
     static func makeForTesting() -> DependencyContainer {
         return DependencyContainer(environment: .testing)
     }
     
-    /// Synchronously creates a preview DependencyContainer and blocks until preview data is fully set up.
-    /// This ensures that Core Data relationships are ready and available for SwiftUI previews.
+    /// Creates a preview DependencyContainer with synchronously seeded data on viewContext.
+    /// No async/semaphore needed — preview data is inserted directly.
     static func makeForPreviews() -> DependencyContainer {
         let container = DependencyContainer(environment: .preview)
-        let semaphore = DispatchSemaphore(value: 0)
-        Task {
-            await container.setupPreviewData()
-            semaphore.signal()
-        }
-        semaphore.wait()
+        container.seedPreviewDataSync()
         return container
     }
-}
 
+    private func seedPreviewDataSync() {
+        let viewContext = persistenceController.container.viewContext
+
+        // Create accounts
+        let mainAccount = AccountEntity(context: viewContext)
+        mainAccount.id = UUID()
+        mainAccount.name = "Монобанк"
+        mainAccount.tag = "#mono"
+        mainAccount.balance = NSDecimalNumber(decimal: 15000)
+        mainAccount.isDefault = true
+        mainAccount.createdAt = Date()
+
+        let savingsAccount = AccountEntity(context: viewContext)
+        savingsAccount.id = UUID()
+        savingsAccount.name = "Заощадження"
+        savingsAccount.tag = "#savings"
+        savingsAccount.balance = NSDecimalNumber(decimal: 50000)
+        savingsAccount.isDefault = false
+        savingsAccount.createdAt = Date()
+
+        // Create categories
+        let categoryData: [(String, String, String)] = [
+            ("продукти", "cart.fill", "#4CAF50"),
+            ("таксі", "car.fill", "#FFC107"),
+            ("кафе", "cup.and.saucer.fill", "#FF9800"),
+            ("інше", "ellipsis.circle.fill", "#9E9E9E")
+        ]
+
+        var categoryEntities: [CategoryEntity] = []
+        for (index, (name, icon, color)) in categoryData.enumerated() {
+            let entity = CategoryEntity(context: viewContext)
+            entity.id = UUID()
+            entity.name = name
+            entity.icon = icon
+            entity.colorHex = color
+            entity.isSystem = true
+            entity.sortOrder = Int32(index)
+            categoryEntities.append(entity)
+        }
+
+        // Create sample transactions
+        let calendar = Calendar.current
+        let now = Date()
+        for dayOffset in 0..<5 {
+            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: now) else { continue }
+            let transaction = TransactionEntity(context: viewContext)
+            transaction.id = UUID()
+            transaction.timestamp = date
+            transaction.transactionDate = date
+            transaction.type = TransactionType.expense.rawValue
+            transaction.amount = NSDecimalNumber(decimal: Decimal(Double.random(in: 50...500)))
+            transaction.descriptionText = "Покупка \(dayOffset + 1)"
+            transaction.category = categoryEntities[dayOffset % categoryEntities.count]
+            transaction.fromAccount = mainAccount
+        }
+
+        try? viewContext.save()
+    }
+}

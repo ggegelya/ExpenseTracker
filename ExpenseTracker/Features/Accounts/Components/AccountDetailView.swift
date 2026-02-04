@@ -132,8 +132,8 @@ struct AccountDetailView: View {
                             }
 
                             if accountTransactions.count > 5 {
-                                Button {
-                                    // TODO: Show all transactions for this account
+                                NavigationLink {
+                                    AccountTransactionsView(account: account)
                                 } label: {
                                     HStack {
                                         Text("Показати всі (\(accountTransactions.count))")
@@ -185,7 +185,7 @@ struct AccountDetailView: View {
 
                     if !account.isDefault {
                         Button {
-                            Task {
+                            Task { @MainActor in
                                 await viewModel.setAsDefault(account)
                             }
                         } label: {
@@ -243,15 +243,16 @@ struct AccountDetailView: View {
 
     private var accountTransactions: [Transaction] {
         transactionViewModel.transactions.filter { transaction in
-            transaction.fromAccount?.id == account.id ||
-            transaction.toAccount?.id == account.id
+            (transaction.fromAccount?.id == account.id ||
+            transaction.toAccount?.id == account.id) &&
+            transaction.parentTransactionId == nil
         }.sorted { $0.transactionDate > $1.transactionDate }
     }
 
     // MARK: - Methods
 
     private func deleteAccount() {
-        Task {
+        Task { @MainActor in
             do {
                 try await viewModel.deleteAccount(account)
                 dismiss()
@@ -327,5 +328,32 @@ struct SimplifiedTransactionRow: View {
         .padding(12)
         .background(Color(.systemGray6))
         .cornerRadius(8)
+    }
+}
+
+struct AccountTransactionsView: View {
+    let account: Account
+    @EnvironmentObject var transactionViewModel: TransactionViewModel
+
+    var body: some View {
+        List {
+            ForEach(accountTransactions) { transaction in
+                NavigationLink {
+                    TransactionDetailView(transaction: transaction)
+                } label: {
+                    TransactionRow(transaction: transaction)
+                }
+            }
+        }
+        .navigationTitle("Транзакції")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var accountTransactions: [Transaction] {
+        transactionViewModel.transactions.filter { transaction in
+            (transaction.fromAccount?.id == account.id ||
+            transaction.toAccount?.id == account.id) &&
+            transaction.parentTransactionId == nil
+        }.sorted { $0.transactionDate > $1.transactionDate }
     }
 }

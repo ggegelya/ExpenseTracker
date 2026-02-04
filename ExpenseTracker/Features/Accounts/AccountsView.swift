@@ -12,6 +12,7 @@ struct AccountsView: View {
     @EnvironmentObject var viewModel: AccountsViewModel
     @EnvironmentObject var transactionViewModel: TransactionViewModel
     @State private var showAddAccount = false
+    @State private var accountToEdit: Account?
     @State private var accountToDelete: Account?
     @State private var showDeleteConfirmation = false
     @State private var deleteError: String?
@@ -66,7 +67,7 @@ struct AccountsView: View {
 
                                     if !account.isDefault {
                                         Button {
-                                            Task {
+                                            Task { @MainActor in
                                                 await viewModel.setAsDefault(account)
                                             }
                                         } label: {
@@ -161,10 +162,14 @@ struct AccountsView: View {
                     } label: {
                         Label("Додати рахунок", systemImage: "plus")
                     }
+                    .accessibilityIdentifier("AddAccountButton")
                 }
             }
             .sheet(isPresented: $showAddAccount) {
                 AddAccountView()
+            }
+            .sheet(item: $accountToEdit) { account in
+                AddAccountView(accountToEdit: account)
             }
             .alert("Видалити рахунок?", isPresented: $showDeleteConfirmation) {
                 Button("Скасувати", role: .cancel) {
@@ -209,11 +214,11 @@ struct AccountsView: View {
     // MARK: - Methods
 
     private func showEditSheet(for account: Account) {
-        // TODO: Implement edit sheet
+        accountToEdit = account
     }
 
     private func deleteAccount(_ account: Account) {
-        Task {
+        Task { @MainActor in
             do {
                 try await viewModel.deleteAccount(account)
                 accountToDelete = nil
@@ -231,7 +236,4 @@ struct AccountsView: View {
                                   maxFractionDigits: 2)
     }
 }
-
-
-
 

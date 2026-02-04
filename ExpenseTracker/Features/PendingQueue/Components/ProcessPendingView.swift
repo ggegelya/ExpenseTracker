@@ -191,7 +191,7 @@ struct ProcessPendingView: View {
     private var actionButtons: some View {
         VStack(spacing: 12) {
             Button {
-                Task {
+                Task { @MainActor in
                     await acceptTransaction()
                 }
             } label: {
@@ -212,9 +212,10 @@ struct ProcessPendingView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             .disabled(selectedCategory == nil || isProcessing)
+            .accessibilityIdentifier("ConfirmButton")
 
             Button {
-                Task {
+                Task { @MainActor in
                     await dismissTransaction()
                 }
             } label: {

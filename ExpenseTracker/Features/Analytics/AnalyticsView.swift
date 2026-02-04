@@ -46,6 +46,7 @@ struct AnalyticsView: View {
                 }
                 .padding()
             }
+            .accessibilityIdentifier("AnalyticsView")
             .navigationTitle("Аналітика")
             .navigationBarTitleDisplayMode(.inline)
             .refreshable {

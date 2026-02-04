@@ -32,7 +32,7 @@ final class AccountsViewModel: ObservableObject {
             }
             .store(in: &cancellables)
         
-        Task {
+        Task { @MainActor in
             await loadAccounts()
         }
     }
@@ -50,14 +50,6 @@ final class AccountsViewModel: ObservableObject {
     }
     
     func createAccount(name: String, tag: String, initialBalance: Decimal = 0, accountType: AccountType = .card, currency: Currency = .uah, setAsDefault: Bool = false) async {
-        // If setting as default, unset other defaults first
-        if setAsDefault {
-            for var account in accounts where account.isDefault {
-                account.isDefault = false
-                await updateAccount(account, silent: true)
-            }
-        }
-
         let account = Account(
             id: UUID(),
             name: name,
@@ -78,21 +70,6 @@ final class AccountsViewModel: ObservableObject {
     }
     
     func updateAccount(_ account: Account, silent: Bool = false) async {
-        // If setting as default, unset other defaults first
-        if account.isDefault {
-            for var otherAccount in accounts where otherAccount.isDefault && otherAccount.id != account.id {
-                otherAccount.isDefault = false
-                do {
-                    _ = try await repository.updateAccount(otherAccount)
-                } catch {
-                    if !silent {
-                        self.error = error
-                        analyticsService.trackError(error, context: "Unsetting default account")
-                    }
-                }
-            }
-        }
-
         do {
             _ = try await repository.updateAccount(account)
             if !silent {
@@ -107,24 +84,24 @@ final class AccountsViewModel: ObservableObject {
     }
 
     func deleteAccount(_ account: Account) async throws {
-        // Check if account has transactions
-        let transactions = try await repository.getAllTransactions()
-        let hasTransactions = transactions.contains { transaction in
-            transaction.fromAccount?.id == account.id || transaction.toAccount?.id == account.id
-        }
-
-        if hasTransactions {
-            throw AccountError.hasTransactions
-        }
-
-        // Don't allow deleting the last account
-        if accounts.count <= 1 {
-            throw AccountError.cannotDeleteLastAccount
-        }
-
         do {
+            let transactions = try await repository.getAllTransactions()
+            if transactions.contains(where: { $0.fromAccount?.id == account.id || $0.toAccount?.id == account.id }) {
+                self.error = AccountError.hasTransactions
+                throw AccountError.hasTransactions
+            }
+            // Don't allow deleting the last account
+            if accounts.count <= 1 {
+                throw AccountError.cannotDeleteLastAccount
+            }
             try await repository.deleteAccount(account)
-            await loadAccounts()
+        } catch let error as RepositoryError {
+            if case .conflictDetected = error {
+                throw AccountError.hasTransactions
+            }
+            self.error = error
+            analyticsService.trackError(error, context: "Deleting account")
+            throw error
         } catch {
             self.error = error
             analyticsService.trackError(error, context: "Deleting account")

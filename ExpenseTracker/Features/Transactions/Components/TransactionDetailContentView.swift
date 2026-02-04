@@ -23,6 +23,7 @@ struct TransactionDetailContentView: View {
                             .foregroundColor(transaction.type == .expense ? .red : .green)
                         Text(formatAmount(transaction.amount))
                             .font(.system(size: 52, weight: .ultraLight, design: .rounded))
+                            .accessibilityLabel("Сума \(formatAmount(transaction.amount))")
                     }
                     .frame(maxWidth: .infinity)
 
@@ -193,9 +194,10 @@ struct TransactionDetailContentView: View {
                                 Text(transaction.timestamp, style: .time)
                                     .font(.caption)
                                     .foregroundColor(.secondary)
-                            }
-                        }
-                    }
+            }
+        }
+        .accessibilityIdentifier("TransactionDetailView")
+    }
                 }
             }
             .padding(Spacing.paddingBase)

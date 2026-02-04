@@ -30,9 +30,10 @@ struct EmptyStateView: View {
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("EmptyStateView")
     }
 }
 
 
 // Placeholder views - implement these based on your needs
-
