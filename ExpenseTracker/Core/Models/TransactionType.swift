@@ -39,13 +39,13 @@ enum TransactionType: String, CaseIterable, Codable {
     var localizedName: String {
         switch self {
         case .expense:
-            return "Витрата"
+            return String(localized: "transactionType.expense")
         case .income:
-            return "Дохід"
+            return String(localized: "transactionType.income")
         case .transferOut:
-            return "Переказ (вихід)"
+            return String(localized: "transactionType.transferOut")
         case .transferIn:
-            return "Переказ (вхід)"
+            return String(localized: "transactionType.transferIn")
         }
     }
     

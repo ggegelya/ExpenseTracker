@@ -66,31 +66,31 @@ struct ProcessPendingView: View {
                 }
                 .padding(.vertical)
             }
-            .navigationTitle("Обробити транзакцію")
+            .navigationTitle(String(localized: "pending.processTransaction"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Закрити") {
+                    Button(String(localized: "common.close")) {
                         dismiss()
                     }
                     .disabled(isProcessing)
                 }
             }
-            .alert("Помилка", isPresented: $showError) {
+            .alert(String(localized: "error.title"), isPresented: $showError) {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(errorMessage)
             }
-            .alert("Запам'ятати вибір?", isPresented: $showLearningPrompt) {
-                Button("Так") {
+            .alert(String(localized: "pending.rememberChoice"), isPresented: $showLearningPrompt) {
+                Button(String(localized: "common.yes")) {
                     // Learning will happen during processing
                 }
-                Button("Ні", role: .cancel) { }
+                Button(String(localized: "common.no"), role: .cancel) { }
             } message: {
                 if let merchant = pending.merchantName {
-                    Text("Запам'ятати, що '\(merchant)' належить до категорії '\(selectedCategory?.name.capitalized ?? "")'?")
+                    Text(String(localized: "pending.rememberMerchantCategory \(merchant) \(selectedCategory?.displayName ?? "")"))
                 } else {
-                    Text("Запам'ятати цей вибір для схожих транзакцій?")
+                    Text(String(localized: "pending.rememberSimilar"))
                 }
             }
             .task {
@@ -120,28 +120,28 @@ struct ProcessPendingView: View {
     // MARK: - Details Section
     private var detailsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Деталі")
+            Text(String(localized: "common.details"))
                 .font(.headline)
 
             VStack(spacing: 12) {
                 if let merchant = pending.merchantName {
-                    PendingDetailRow(icon: "building.2", label: "Торгівець", value: merchant)
+                    PendingDetailRow(icon: "building.2", label: String(localized: "pending.merchant"), value: merchant)
                 }
 
                 PendingDetailRow(
                     icon: "creditcard",
-                    label: "Рахунок",
+                    label: String(localized: "common.account"),
                     value: pending.account.name
                 )
 
                 PendingDetailRow(
                     icon: "arrow.left.arrow.right",
-                    label: "Тип",
-                    value: pending.type == .expense ? "Витрата" : "Надходження"
+                    label: String(localized: "edit.type"),
+                    value: pending.type == .expense ? String(localized: "transactionType.expense") : String(localized: "transactionType.income")
                 )
 
                 if let bankId = pending.bankTransactionId {
-                    PendingDetailRow(icon: "number", label: "ID транзакції", value: bankId)
+                    PendingDetailRow(icon: "number", label: String(localized: "pending.transactionId"), value: bankId)
                         .font(.caption)
                 }
             }
@@ -155,10 +155,10 @@ struct ProcessPendingView: View {
     // MARK: - Description Section
     private var descriptionSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Опис")
+            Text(String(localized: "common.description"))
                 .font(.headline)
 
-            TextField("Введіть опис", text: $editedDescription, axis: .vertical)
+            TextField(String(localized: "edit.enterDescription"), text: $editedDescription, axis: .vertical)
                 .textFieldStyle(.plain)
                 .padding()
                 .background(Color(.systemGray6))
@@ -174,7 +174,7 @@ struct ProcessPendingView: View {
             HStack {
                 Image(systemName: "clock.arrow.circlepath")
                     .foregroundColor(.blue)
-                Text("Схожі транзакції")
+                Text(String(localized: "pending.similarTransactions"))
                     .font(.headline)
             }
 
@@ -201,7 +201,7 @@ struct ProcessPendingView: View {
                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     } else {
                         Image(systemName: "checkmark.circle.fill")
-                        Text("Прийняти")
+                        Text(String(localized: "pending.accept"))
                             .fontWeight(.semibold)
                     }
                 }
@@ -221,7 +221,7 @@ struct ProcessPendingView: View {
             } label: {
                 HStack {
                     Image(systemName: "xmark.circle")
-                    Text("Відхилити")
+                    Text(String(localized: "pending.dismiss"))
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
@@ -238,7 +238,7 @@ struct ProcessPendingView: View {
     // MARK: - Actions
     private func acceptTransaction() async {
         guard let category = selectedCategory else {
-            errorMessage = "Будь ласка, оберіть категорію"
+            errorMessage = String(localized: "validation.selectCategory")
             showError = true
             return
         }
@@ -266,15 +266,15 @@ struct ProcessPendingView: View {
         } catch let error as ProcessingError {
             switch error {
             case .alreadyProcessed:
-                errorMessage = "Ця транзакція вже була оброблена"
+                errorMessage = String(localized: "error.alreadyProcessed")
             case .networkFailure:
-                errorMessage = "Помилка мережі. Перевірте з'єднання та спробуйте знову"
+                errorMessage = String(localized: "error.networkRetry")
             case .validationFailed(let reason):
-                errorMessage = "Помилка валідації: \(reason)"
+                errorMessage = "\(String(localized: "error.validation")): \(reason)"
             }
             showError = true
         } catch {
-            errorMessage = "Не вдалося обробити транзакцію: \(error.localizedDescription)"
+            errorMessage = "\(String(localized: "error.processFailed")): \(error.localizedDescription)"
             showError = true
         }
     }
@@ -297,15 +297,15 @@ struct ProcessPendingView: View {
         } catch let error as ProcessingError {
             switch error {
             case .alreadyProcessed:
-                errorMessage = "Ця транзакція вже була оброблена"
+                errorMessage = String(localized: "error.alreadyProcessed")
             case .networkFailure:
-                errorMessage = "Помилка мережі. Перевірте з'єднання та спробуйте знову"
+                errorMessage = String(localized: "error.networkRetry")
             case .validationFailed(let reason):
-                errorMessage = "Помилка валідації: \(reason)"
+                errorMessage = "\(String(localized: "error.validation")): \(reason)"
             }
             showError = true
         } catch {
-            errorMessage = "Не вдалося відхилити транзакцію: \(error.localizedDescription)"
+            errorMessage = "\(String(localized: "error.dismissFailed")): \(error.localizedDescription)"
             showError = true
         }
     }
@@ -404,11 +404,11 @@ enum ProcessingError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .alreadyProcessed:
-            return "Transaction has already been processed"
+            return String(localized: "error.alreadyProcessed")
         case .networkFailure:
-            return "Network connection failed"
+            return String(localized: "error.networkRetry")
         case .validationFailed(let reason):
-            return "Validation failed: \(reason)"
+            return "\(String(localized: "error.validation")): \(reason)"
         }
     }
 }

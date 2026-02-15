@@ -9,38 +9,40 @@
 import Foundation
 import CoreData
 import Combine
+import os
+
+private let repositoryLogger = Logger(subsystem: "com.expensetracker", category: "Repository")
 
 @MainActor
 final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
     private let persistenceController: PersistenceController
     private let context: NSManagedObjectContext
-    private let backgroundContext: NSManagedObjectContext
-    
+
     // Publishers
     private let transactionsSubject = CurrentValueSubject<[Transaction], Never>([])
     private let accountsSubject = CurrentValueSubject<[Account], Never>([])
     private let categoriesSubject = CurrentValueSubject<[Category], Never>([])
 
     private let shouldForcePublisherRefresh: Bool
-    
+
     var transactionsPublisher: AnyPublisher<[Transaction], Never> {
         transactionsSubject.eraseToAnyPublisher()
     }
-    
+
     var accountsPublisher: AnyPublisher<[Account], Never> {
         accountsSubject.eraseToAnyPublisher()
     }
-    
+
     var categoriesPublisher: AnyPublisher<[Category], Never> {
         categoriesSubject.eraseToAnyPublisher()
     }
-    
+
     private var cancellables = Set<AnyCancellable>()
-    
+    private var isLoadingData = false
+
     init(persistenceController: PersistenceController = .shared) {
         self.persistenceController = persistenceController
         self.context = persistenceController.container.viewContext
-        self.backgroundContext = persistenceController.container.newBackgroundContext()
         self.shouldForcePublisherRefresh =
         ProcessInfo.processInfo.environment["IS_TESTING"] == "1" ||
         ProcessInfo.processInfo.environment["MOCK_DATA_ENABLED"] == "1" ||
@@ -50,6 +52,11 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
         Task {
             await loadInitialData()
         }
+    }
+
+    /// Creates a fresh background context for each operation (thread safety)
+    private func makeBackgroundContext() -> NSManagedObjectContext {
+        persistenceController.container.newBackgroundContext()
     }
 
     private func setupObservers() {
@@ -65,18 +72,25 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
     }
     
     private func loadInitialData() async {
+        guard !isLoadingData else { return }
+        isLoadingData = true
+        defer { isLoadingData = false }
+
+        // Load each independently so one failure doesn't block the others
         do {
-            async let transactions = getAllTransactions()
-            async let accounts = getAllAccounts()
-            async let categories = getAllCategories()
-            
-            let (loadedTransactions, loadedAccounts, loadedCategories) = try await (transactions, accounts, categories)
-            
-            transactionsSubject.send(loadedTransactions)
-            accountsSubject.send(loadedAccounts)
-            categoriesSubject.send(loadedCategories)
+            transactionsSubject.send(try await getAllTransactions())
         } catch {
-            print("Failed to load initial data: \(error)")
+            repositoryLogger.error("Failed to load transactions: \(error.localizedDescription)")
+        }
+        do {
+            accountsSubject.send(try await getAllAccounts())
+        } catch {
+            repositoryLogger.error("Failed to load accounts: \(error.localizedDescription)")
+        }
+        do {
+            categoriesSubject.send(try await getAllCategories())
+        } catch {
+            repositoryLogger.error("Failed to load categories: \(error.localizedDescription)")
         }
     }
 
@@ -213,6 +227,7 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
                         category: Category?) async throws -> [Transaction] {
         try await performOnViewContext { context in
             let request: NSFetchRequest<TransactionEntity> = TransactionEntity.fetchRequest()
+            request.fetchBatchSize = 50
             var predicates: [NSPredicate] = [NSPredicate(format: "parentTransaction == NIL")]
 
             if let account = account {
@@ -275,11 +290,13 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
             // Set account relationship
             if let accountEntity = try self.fetchAccountEntity(by: pending.account.id, in: context) {
                 entity.account = accountEntity
+            } else {
+                repositoryLogger.warning("Account entity not found for pending transaction \(pending.id) — account relationship will be nil")
             }
             
-            // Set suggested category
+            // Set suggested category relationship
             if let suggestedCategory = pending.suggestedCategory {
-                entity.suggestedCategoryId = suggestedCategory.id
+                entity.suggestedCategory = try self.fetchCategoryEntity(by: suggestedCategory.id, in: context)
             }
             
             try context.save()
@@ -303,7 +320,8 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
             }
 
             request.sortDescriptors = [NSSortDescriptor(keyPath: \PendingTransactionEntity.transactionDate, ascending: false)]
-            request.relationshipKeyPathsForPrefetching = ["account"]
+            request.relationshipKeyPathsForPrefetching = ["account", "suggestedCategory"]
+            request.fetchBatchSize = 50
 
             let entities = try context.fetch(request)
             return entities.compactMap { self.convertToPendingTransactionSync($0, in: context) }
@@ -361,24 +379,26 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
     
     func createAccount(_ account: Account) async throws -> Account {
         let created = try await performBackgroundTask { context in
-            let entity = AccountEntity(context: context)
-            entity.id = account.id
-            entity.name = account.name
-            entity.tag = account.tag
-            entity.balance = NSDecimalNumber(decimal: account.balance)
-            entity.isDefault = account.isDefault
-            entity.createdAt = Date()
-            
-            // If this is set as default, unset other defaults
+            // If this is set as default, unset other defaults first
             if account.isDefault {
                 let request: NSFetchRequest<AccountEntity> = AccountEntity.fetchRequest()
                 request.predicate = NSPredicate(format: "isDefault == true")
                 let existingDefaults = try context.fetch(request)
                 existingDefaults.forEach { $0.isDefault = false }
             }
-            
+
+            let entity = AccountEntity(context: context)
+            entity.id = account.id
+            entity.name = account.name
+            entity.tag = account.tag
+            entity.balance = NSDecimalNumber(decimal: account.balance)
+            entity.isDefault = account.isDefault
+            entity.type = account.accountType.rawValue
+            entity.currency = account.currency.rawValue
+            entity.createdAt = Date()
+
             try context.save()
-            return account
+            return Self.convertToAccount(entity)
         }
         await refreshPublishersIfNeeded()
         return created
@@ -389,26 +409,28 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
             let request: NSFetchRequest<AccountEntity> = AccountEntity.fetchRequest()
             request.predicate = NSPredicate(format: "id == %@", account.id as CVarArg)
             request.fetchLimit = 1
-            
+
             guard let entity = try context.fetch(request).first else {
                 throw RepositoryError.entityNotFound
             }
-            
+
             entity.name = account.name
             entity.tag = account.tag
             entity.balance = NSDecimalNumber(decimal: account.balance)
-            
+            entity.type = account.accountType.rawValue
+            entity.currency = account.currency.rawValue
+
             if account.isDefault && !entity.isDefault {
-                // Unset other defaults
+                // Setting as default — unset other defaults
                 let defaultRequest: NSFetchRequest<AccountEntity> = AccountEntity.fetchRequest()
-                defaultRequest.predicate = NSPredicate(format: "isDefault == true")
+                defaultRequest.predicate = NSPredicate(format: "isDefault == true AND id != %@", account.id as CVarArg)
                 let existingDefaults = try context.fetch(defaultRequest)
                 existingDefaults.forEach { $0.isDefault = false }
-                entity.isDefault = true
             }
-            
+            entity.isDefault = account.isDefault
+
             try context.save()
-            return account
+            return Self.convertToAccount(entity)
         }
         await refreshPublishersIfNeeded()
         return updated
@@ -419,22 +441,23 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
             let request: NSFetchRequest<AccountEntity> = AccountEntity.fetchRequest()
             request.predicate = NSPredicate(format: "id == %@", account.id as CVarArg)
             request.fetchLimit = 1
-            
+
             guard let entity = try context.fetch(request).first else {
                 throw RepositoryError.entityNotFound
             }
-            
+
             // Check if account has transactions
             let hasExpenses = (entity.expenseTransactions?.count ?? 0) > 0
             let hasIncome = (entity.incomeTransactions?.count ?? 0) > 0
-            
+
             if hasExpenses || hasIncome {
-                throw RepositoryError.conflictDetected("Рахунок має транзакції")
+                throw RepositoryError.conflictDetected(String(localized: "error.account.hasTransactions"))
             }
-            
+
             context.delete(entity)
             try context.save()
         }
+        await refreshPublishersIfNeeded()
     }
     
     func getAllAccounts() async throws -> [Account] {
@@ -444,21 +467,11 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
                 NSSortDescriptor(keyPath: \AccountEntity.isDefault, ascending: false),
                 NSSortDescriptor(keyPath: \AccountEntity.name, ascending: true)
             ]
-            request.relationshipKeyPathsForPrefetching = ["expenseTransactions", "incomeTransactions"]
-
             let entities = try context.fetch(request)
-            return entities.map { entity in
-                Account(
-                    id: entity.id ?? UUID(),
-                    name: entity.name ?? "",
-                    tag: entity.tag ?? "",
-                    balance: entity.balance?.decimalValue ?? 0,
-                    isDefault: entity.isDefault
-                )
-            }
+            return entities.map { Self.convertToAccount($0) }
         }
     }
-    
+
     func getDefaultAccount() async throws -> Account? {
         try await performOnViewContext { context in
             let request: NSFetchRequest<AccountEntity> = AccountEntity.fetchRequest()
@@ -469,13 +482,7 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
                 return nil
             }
 
-            return Account(
-                id: entity.id ?? UUID(),
-                name: entity.name ?? "",
-                tag: entity.tag ?? "",
-                balance: entity.balance?.decimalValue ?? 0,
-                isDefault: entity.isDefault
-            )
+            return Self.convertToAccount(entity)
         }
     }
     
@@ -490,30 +497,30 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
             entity.colorHex = category.colorHex
             entity.isSystem = false
             entity.sortOrder = Int32(try context.count(for: CategoryEntity.fetchRequest()))
-            
+
             try context.save()
-            return category
+            return Self.convertToCategory(entity)
         }
         await refreshPublishersIfNeeded()
         return created
     }
-    
+
     func updateCategory(_ category: Category) async throws -> Category {
         let updated = try await performBackgroundTask { context in
             let request: NSFetchRequest<CategoryEntity> = CategoryEntity.fetchRequest()
             request.predicate = NSPredicate(format: "id == %@", category.id as CVarArg)
             request.fetchLimit = 1
-            
+
             guard let entity = try context.fetch(request).first else {
                 throw RepositoryError.entityNotFound
             }
-            
+
             entity.name = category.name
             entity.icon = category.icon
             entity.colorHex = category.colorHex
-            
+
             try context.save()
-            return category
+            return Self.convertToCategory(entity)
         }
         await refreshPublishersIfNeeded()
         return updated
@@ -531,7 +538,7 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
             
             // Check if category has transactions
             if (entity.transactions?.count ?? 0) > 0 {
-                throw RepositoryError.conflictDetected("Категорія має транзакції")
+                throw RepositoryError.conflictDetected(String(localized: "error.category.hasTransactions"))
             }
             
             context.delete(entity)
@@ -547,17 +554,8 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
                 NSSortDescriptor(keyPath: \CategoryEntity.sortOrder, ascending: true),
                 NSSortDescriptor(keyPath: \CategoryEntity.name, ascending: true)
             ]
-            request.relationshipKeyPathsForPrefetching = ["transactions"]
-
             let entities = try context.fetch(request)
-            return entities.map { entity in
-                Category(
-                    id: entity.id ?? UUID(),
-                    name: entity.name ?? "",
-                    icon: entity.icon ?? "circle",
-                    colorHex: entity.colorHex ?? "#000000"
-                )
-            }
+            return entities.map { Self.convertToCategory($0) }
         }
     }
     
@@ -579,7 +577,7 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
     // MARK: - Private Helpers
     
     private func performBackgroundTask<T>(_ block: @escaping @Sendable (NSManagedObjectContext) throws -> T) async throws -> T {
-        let context = backgroundContext
+        let context = makeBackgroundContext()
         return try await withCheckedThrowingContinuation { continuation in
             context.perform {
                 do {
@@ -695,44 +693,16 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
               let transactionType = TransactionType(rawValue: type),
               let amount = entity.amount?.decimalValue,
               let description = entity.descriptionText else {
-            throw RepositoryError.invalidData("Невірні дані транзакції")
+            throw RepositoryError.invalidData(String(localized: "error.invalidTransactionData"))
         }
-        
-        var category: Category? = nil
-        if let categoryEntity = entity.category {
-            category = Category(
-                id: categoryEntity.id ?? UUID(),
-                name: categoryEntity.name ?? "",
-                icon: categoryEntity.icon ?? "circle",
-                colorHex: categoryEntity.colorHex ?? "#000000"
-            )
-        }
-        
-        var fromAccount: Account? = nil
-        if let accountEntity = entity.fromAccount {
-            fromAccount = Account(
-                id: accountEntity.id ?? UUID(),
-                name: accountEntity.name ?? "",
-                tag: accountEntity.tag ?? "",
-                balance: accountEntity.balance?.decimalValue ?? 0,
-                isDefault: accountEntity.isDefault
-            )
-        }
-        
-        var toAccount: Account? = nil
-        if let accountEntity = entity.toAccount {
-            toAccount = Account(
-                id: accountEntity.id ?? UUID(),
-                name: accountEntity.name ?? "",
-                tag: accountEntity.tag ?? "",
-                balance: accountEntity.balance?.decimalValue ?? 0,
-                isDefault: accountEntity.isDefault
-            )
-        }
-        
+
+        let category = entity.category.map { Self.convertToCategory($0) }
+        let fromAccount = entity.fromAccount.map { Self.convertToAccount($0) }
+        let toAccount = entity.toAccount.map { Self.convertToAccount($0) }
+
         var splitTransactions: [Transaction]? = nil
         let shouldIncludeSplits = includeSplits && entity.parentTransaction == nil
-        
+
         if shouldIncludeSplits,
            let childEntities = entity.splitTransactions as? Set<TransactionEntity>,
            !childEntities.isEmpty {
@@ -744,12 +714,12 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
                 }
                 return lhsDate < rhsDate
             }
-            
+
             splitTransactions = try sortedChildren.map {
                 try convertToTransaction($0, includeSplits: false, in: context)
             }
         }
-        
+
         return Transaction(
             id: id,
             timestamp: entity.timestamp ?? Date(),
@@ -778,18 +748,8 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
             return nil
         }
 
-        let account = Account(
-            id: accountEntity.id ?? UUID(),
-            name: accountEntity.name ?? "",
-            tag: accountEntity.tag ?? "",
-            balance: accountEntity.balance?.decimalValue ?? 0,
-            isDefault: accountEntity.isDefault
-        )
-
-        var suggestedCategory: Category? = nil
-        if let suggestedId = entity.suggestedCategoryId {
-            suggestedCategory = fetchCategorySync(by: suggestedId, in: context)
-        }
+        let account = Self.convertToAccount(accountEntity)
+        let suggestedCategory = entity.suggestedCategory.map { Self.convertToCategory($0) }
 
         return PendingTransaction(
             id: id,
@@ -807,15 +767,27 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
         )
     }
 
-    private nonisolated func fetchCategorySync(by id: UUID, in context: NSManagedObjectContext) -> Category? {
-        let request: NSFetchRequest<CategoryEntity> = CategoryEntity.fetchRequest()
-        request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
-        request.fetchLimit = 1
+    // MARK: - Entity Conversion Helpers
 
-        guard let entity = try? context.fetch(request).first else {
-            return nil
+    private nonisolated static func convertToAccount(_ entity: AccountEntity) -> Account {
+        if entity.id == nil {
+            repositoryLogger.warning("AccountEntity has nil id — fabricating UUID. This may indicate data corruption.")
         }
+        return Account(
+            id: entity.id ?? UUID(),
+            name: entity.name ?? "",
+            tag: entity.tag ?? "",
+            balance: entity.balance?.decimalValue ?? 0,
+            isDefault: entity.isDefault,
+            accountType: AccountType(rawValue: entity.type ?? "") ?? .card,
+            currency: Currency(rawValue: entity.currency ?? "") ?? .uah
+        )
+    }
 
+    private nonisolated static func convertToCategory(_ entity: CategoryEntity) -> Category {
+        if entity.id == nil {
+            repositoryLogger.warning("CategoryEntity has nil id — fabricating UUID. This may indicate data corruption.")
+        }
         return Category(
             id: entity.id ?? UUID(),
             name: entity.name ?? "",

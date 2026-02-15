@@ -9,7 +9,6 @@ import SwiftUI
 @MainActor
 @main
 struct ExpenseTrackerApp: App {
-    let persistenceController = PersistenceController.shared
     let container: DependencyContainer
 
     @StateObject private var transactionViewModel: TransactionViewModel

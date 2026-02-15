@@ -68,7 +68,7 @@ struct SplitItemRow: View {
                                 .clipShape(Circle())
 
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(category.name.capitalized)
+                                Text(category.displayName)
                                     .font(.subheadline)
                                     .fontWeight(.medium)
                                     .foregroundColor(.primary)
@@ -86,7 +86,7 @@ struct SplitItemRow: View {
                                 .background(Color.orange.opacity(0.2))
                                 .clipShape(Circle())
 
-                            Text("Оберіть категорію")
+                            Text(String(localized: "common.selectCategory"))
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
@@ -151,7 +151,7 @@ struct SplitItemRow: View {
             }
 
             // Description Input
-            TextField("Опис (опціонально)", text: $splitItem.description)
+            TextField(String(localized: "edit.descriptionOptional"), text: $splitItem.description)
                 .font(.caption)
                 .textFieldStyle(.plain)
                 .padding(8)

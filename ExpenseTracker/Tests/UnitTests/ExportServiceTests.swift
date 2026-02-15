@@ -12,11 +12,9 @@ import Foundation
 @Suite("Export Service Tests", .serialized)
 struct ExportServiceTests {
     var sut: ExportService
-    var mockRepository: MockTransactionRepository
 
     init() async throws {
-        mockRepository = await MockTransactionRepository()
-        sut = ExportService(repository: mockRepository)
+        sut = ExportService()
     }
 
     // MARK: - CSV Export Tests
@@ -67,7 +65,9 @@ struct ExportServiceTests {
 
         // Verify transaction data is present
         #expect(csvContent.contains("150.5"))
-        #expect(csvContent.contains("продукти"))
+        // Category uses displayName (localized)
+        let expectedCategoryName = MockCategory.makeGroceries().displayName
+        #expect(csvContent.contains(expectedCategoryName))
         #expect(csvContent.contains("Groceries at Silpo"))
         #expect(csvContent.contains("Готівка"))
 
@@ -312,7 +312,7 @@ struct ExportServiceTests {
 
         // Then - Ukrainian text should be readable
         #expect(csvContent.contains("Продукти в Сільпо"))
-        #expect(csvContent.contains("продукти"))
+        #expect(csvContent.contains(MockCategory.makeGroceries().displayName))
         #expect(csvContent.contains("Готівка"))
 
         // Cleanup

@@ -150,62 +150,62 @@ enum MockCategory {
     /// Returns all default Ukrainian categories
     static func makeDefaultCategories() -> [Category] {
         return [
-            Category(id: UUID(), name: "продукти", icon: "cart.fill", colorHex: "#4CAF50"),
-            Category(id: UUID(), name: "таксі", icon: "car.fill", colorHex: "#FFC107"),
-            Category(id: UUID(), name: "підписки", icon: "repeat", colorHex: "#9C27B0"),
-            Category(id: UUID(), name: "комуналка", icon: "house.fill", colorHex: "#2196F3"),
-            Category(id: UUID(), name: "аптека", icon: "cross.case.fill", colorHex: "#F44336"),
-            Category(id: UUID(), name: "транспорт", icon: "bus.fill", colorHex: "#2196F3"),
-            Category(id: UUID(), name: "кафе", icon: "cup.and.saucer.fill", colorHex: "#FF9800"),
-            Category(id: UUID(), name: "розваги", icon: "ticket.fill", colorHex: "#E91E63"),
-            Category(id: UUID(), name: "одяг", icon: "tshirt.fill", colorHex: "#9C27B0"),
-            Category(id: UUID(), name: "подарунки", icon: "gift.fill", colorHex: "#FF5722"),
-            Category(id: UUID(), name: "навчання", icon: "book.fill", colorHex: "#3F51B5"),
-            Category(id: UUID(), name: "спорт", icon: "figure.run", colorHex: "#4CAF50"),
-            Category(id: UUID(), name: "краса", icon: "sparkles", colorHex: "#E91E63"),
-            Category(id: UUID(), name: "техніка", icon: "desktopcomputer", colorHex: "#607D8B"),
-            Category(id: UUID(), name: "інше", icon: "ellipsis.circle.fill", colorHex: "#9E9E9E")
+            Category(id: UUID(), name: "groceries", icon: "cart.fill", colorHex: "#4CAF50"),
+            Category(id: UUID(), name: "taxi", icon: "car.fill", colorHex: "#FFC107"),
+            Category(id: UUID(), name: "subscriptions", icon: "repeat", colorHex: "#9C27B0"),
+            Category(id: UUID(), name: "utilities", icon: "house.fill", colorHex: "#2196F3"),
+            Category(id: UUID(), name: "pharmacy", icon: "cross.case.fill", colorHex: "#F44336"),
+            Category(id: UUID(), name: "transport", icon: "bus.fill", colorHex: "#2196F3"),
+            Category(id: UUID(), name: "cafe", icon: "cup.and.saucer.fill", colorHex: "#FF9800"),
+            Category(id: UUID(), name: "entertainment", icon: "ticket.fill", colorHex: "#E91E63"),
+            Category(id: UUID(), name: "clothing", icon: "tshirt.fill", colorHex: "#9C27B0"),
+            Category(id: UUID(), name: "gifts", icon: "gift.fill", colorHex: "#FF5722"),
+            Category(id: UUID(), name: "education", icon: "book.fill", colorHex: "#3F51B5"),
+            Category(id: UUID(), name: "sports", icon: "figure.run", colorHex: "#4CAF50"),
+            Category(id: UUID(), name: "beauty", icon: "sparkles", colorHex: "#E91E63"),
+            Category(id: UUID(), name: "electronics", icon: "desktopcomputer", colorHex: "#607D8B"),
+            Category(id: UUID(), name: "other", icon: "ellipsis.circle.fill", colorHex: "#9E9E9E")
         ]
     }
 
     /// Creates a groceries category
     static func makeGroceries() -> Category {
-        Category(id: UUID(), name: "продукти", icon: "cart.fill", colorHex: "#4CAF50")
+        Category(id: UUID(), name: "groceries", icon: "cart.fill", colorHex: "#4CAF50")
     }
 
     /// Creates a taxi category
     static func makeTaxi() -> Category {
-        Category(id: UUID(), name: "таксі", icon: "car.fill", colorHex: "#FFC107")
+        Category(id: UUID(), name: "taxi", icon: "car.fill", colorHex: "#FFC107")
     }
 
     /// Creates a transport category
     static func makeTransport() -> Category {
-        Category(id: UUID(), name: "транспорт", icon: "bus.fill", colorHex: "#2196F3")
+        Category(id: UUID(), name: "transport", icon: "bus.fill", colorHex: "#2196F3")
     }
 
     /// Creates a cafe category
     static func makeCafe() -> Category {
-        Category(id: UUID(), name: "кафе", icon: "cup.and.saucer.fill", colorHex: "#FF9800")
+        Category(id: UUID(), name: "cafe", icon: "cup.and.saucer.fill", colorHex: "#FF9800")
     }
 
     /// Creates an entertainment category
     static func makeEntertainment() -> Category {
-        Category(id: UUID(), name: "розваги", icon: "ticket.fill", colorHex: "#E91E63")
+        Category(id: UUID(), name: "entertainment", icon: "ticket.fill", colorHex: "#E91E63")
     }
 
     /// Creates a health category
     static func makeHealth() -> Category {
-        Category(id: UUID(), name: "здоров'я", icon: "heart.fill", colorHex: "#F44336")
+        Category(id: UUID(), name: "health", icon: "heart.fill", colorHex: "#F44336")
     }
 
     /// Creates a salary category (income)
     static func makeSalary() -> Category {
-        Category(id: UUID(), name: "зарплата", icon: "dollarsign.circle.fill", colorHex: "#4CAF50")
+        Category(id: UUID(), name: "salary", icon: "dollarsign.circle.fill", colorHex: "#4CAF50")
     }
 
     /// Creates a utilities category
     static func makeUtilities() -> Category {
-        Category(id: UUID(), name: "комуналка", icon: "house.fill", colorHex: "#2196F3")
+        Category(id: UUID(), name: "utilities", icon: "house.fill", colorHex: "#2196F3")
     }
 
     /// Creates a custom category

@@ -7,20 +7,23 @@
 
 import CoreData
 import CloudKit
+import os
 
-enum PersistenceError: Error {
+private let persistenceLogger = Logger(subsystem: "com.expensetracker", category: "Persistence")
+
+enum PersistenceError: LocalizedError {
     case migrationFailed(String)
     case saveConflict
     case invalidContext
-    
+
     var errorDescription: String? {
         switch self {
         case .migrationFailed(let reason):
-            return "Migration failed: \(reason)"
+            return "\(String(localized: "error.repo.migrationRequired")): \(reason)"
         case .saveConflict:
-            return "Save conflict ocurred. Please retry."
+            return String(localized: "error.repo.saveConflict")
         case .invalidContext:
-            return "Invalid data context"
+            return String(localized: "error.repo.contextUnavailable")
         }
     }
 }
@@ -42,7 +45,7 @@ struct PersistenceController {
         // Create sample category
         let foodCategory = CategoryEntity(context: viewContext)
         foodCategory.id = UUID()
-        foodCategory.name = "продукти"
+        foodCategory.name = "groceries"
         foodCategory.icon = "cart.fill"
         foodCategory.colorHex = "#4CAF50"
         foodCategory.isSystem = true
@@ -75,7 +78,7 @@ struct PersistenceController {
             // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
             let nsError = error as NSError
             assertionFailure("Unresolved error \(nsError), \(nsError.userInfo)")
-            print("Unresolved error \(nsError), \(nsError.localizedDescription)")
+            persistenceLogger.error("Preview save error: \(nsError.localizedDescription)")
         }
         return result
     }()
@@ -112,7 +115,7 @@ struct PersistenceController {
                  Check the error message to determine what the actual problem was.
                  */
                 assertionFailure("Core Data failed to load: \(error)")
-                print("Core Data error: \(error)")
+                persistenceLogger.error("Core Data failed to load: \(error.localizedDescription)")
                 NotificationCenter.default.post(
                     name: .persistentStoreLoadFailed,
                     object: nil,

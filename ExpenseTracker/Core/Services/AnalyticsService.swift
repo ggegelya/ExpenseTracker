@@ -6,6 +6,9 @@
 //
 
 import Foundation
+import os
+
+private let analyticsLogger = Logger(subsystem: "com.expensetracker", category: "Analytics")
 
 protocol AnalyticsServiceProtocol {
     func trackEvent(_ event: AnalyticsEvent)
@@ -24,15 +27,13 @@ final class AnalyticsService: AnalyticsServiceProtocol {
     func trackEvent(_ event: AnalyticsEvent) {
         // In production, send to analytics service
         #if DEBUG
-        print("Analytics: \(event)")
+        analyticsLogger.debug("Event: \(String(describing: event))")
         #endif
     }
-    
+
     func trackError(_ error: Error, context: String?) {
         // In production, send to error tracking service
-        #if DEBUG
-        print("Error tracked: \(error) - Context: \(context ?? "none")")
-        #endif
+        analyticsLogger.error("Error: \(error.localizedDescription) — Context: \(context ?? "none")")
     }
 
     // MARK: - Business Analytics
@@ -78,7 +79,7 @@ final class AnalyticsService: AnalyticsServiceProtocol {
         let flattened = flatten(transactions: filtered)
 
         let uncategorizedId = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
-        let uncategorizedCategory = Category(id: uncategorizedId, name: "Без категорії", icon: "questionmark.circle", colorHex: "#9E9E9E")
+        let uncategorizedCategory = Category(id: uncategorizedId, name: "uncategorized", icon: "questionmark.circle", colorHex: "#9E9E9E")
 
         var totals: [UUID: (category: Category, total: Decimal, count: Int)] = [:]
         for transaction in flattened {

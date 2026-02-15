@@ -9,11 +9,19 @@ import SwiftUI
 import Charts
 
 enum TrendPeriod: String, CaseIterable, Identifiable {
-    case week7 = "7 днів"
-    case days30 = "30 днів"
-    case days90 = "90 днів"
+    case week7 = "7days"
+    case days30 = "30days"
+    case days90 = "90days"
 
     var id: String { rawValue }
+
+    var localizedName: String {
+        switch self {
+        case .week7: return String(localized: "trend.7days")
+        case .days30: return String(localized: "trend.30days")
+        case .days90: return String(localized: "trend.90days")
+        }
+    }
 
     var days: Int {
         switch self {
@@ -34,14 +42,14 @@ struct SpendingTrendsCard: View {
             // Header with period selector
             VStack(spacing: 12) {
                 HStack {
-                    Text("Тренд витрат")
+                    Text(String(localized: "analytics.spendingTrend"))
                         .font(.headline)
                     Spacer()
                 }
 
-                Picker("Період", selection: $selectedPeriod) {
+                Picker(String(localized: "filter.period"), selection: $selectedPeriod) {
                     ForEach(TrendPeriod.allCases) { period in
-                        Text(period.rawValue).tag(period)
+                        Text(period.localizedName).tag(period)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -53,7 +61,7 @@ struct SpendingTrendsCard: View {
                     Image(systemName: "chart.xyaxis.line")
                         .font(.system(size: 48))
                         .foregroundColor(.secondary)
-                    Text("Немає даних за цей період")
+                    Text(String(localized: "analytics.noDataForPeriod"))
                         .font(.headline)
                         .foregroundColor(.secondary)
                 }
@@ -64,15 +72,15 @@ struct SpendingTrendsCard: View {
                     // Daily spending line
                     ForEach(filteredDailySpending) { item in
                         LineMark(
-                            x: .value("День", item.date, unit: .day),
-                            y: .value("Витрати", Double(truncating: NSDecimalNumber(decimal: item.amount)))
+                            x: .value(String(localized: "chart.day"), item.date, unit: .day),
+                            y: .value(String(localized: "chart.expenses"), Double(truncating: NSDecimalNumber(decimal: item.amount)))
                         )
                         .foregroundStyle(Color.red.gradient)
                         .interpolationMethod(.catmullRom)
 
                         AreaMark(
-                            x: .value("День", item.date, unit: .day),
-                            y: .value("Витрати", Double(truncating: NSDecimalNumber(decimal: item.amount)))
+                            x: .value(String(localized: "chart.day"), item.date, unit: .day),
+                            y: .value(String(localized: "chart.expenses"), Double(truncating: NSDecimalNumber(decimal: item.amount)))
                         )
                         .foregroundStyle(Color.red.opacity(0.1).gradient)
                         .interpolationMethod(.catmullRom)
@@ -80,11 +88,11 @@ struct SpendingTrendsCard: View {
 
                     // Average line
                     if let average = averageSpending, average > 0 {
-                        RuleMark(y: .value("Середнє", Double(truncating: NSDecimalNumber(decimal: average))))
+                        RuleMark(y: .value(String(localized: "chart.average"), Double(truncating: NSDecimalNumber(decimal: average))))
                             .foregroundStyle(Color.orange.opacity(0.6))
                             .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
                             .annotation(position: .top, alignment: .trailing) {
-                                Text("Середнє: \(viewModel.formatAmount(average))")
+                                Text("\(String(localized: "analytics.average")): \(viewModel.formatAmount(average))")
                                     .font(.caption2)
                                     .foregroundColor(.orange)
                                     .padding(.horizontal, 6)
@@ -96,7 +104,7 @@ struct SpendingTrendsCard: View {
 
                     // Selection
                     if let selectedDay = selectedDay {
-                        RuleMark(x: .value("День", selectedDay.date, unit: .day))
+                        RuleMark(x: .value(String(localized: "chart.day"), selectedDay.date, unit: .day))
                             .foregroundStyle(Color.accentColor.opacity(0.3))
                             .lineStyle(StrokeStyle(lineWidth: 2))
                             .annotation(position: .top) {
@@ -143,14 +151,14 @@ struct SpendingTrendsCard: View {
                 // Stats
                 HStack(spacing: 16) {
                     StatBox(
-                        title: "Найвищі",
+                        title: String(localized: "analytics.highest"),
                         value: viewModel.formatAmount(maxSpending),
                         date: maxSpendingDate,
                         color: .red
                     )
 
                     StatBox(
-                        title: "Найнижчі",
+                        title: String(localized: "analytics.lowest"),
                         value: viewModel.formatAmount(minSpending),
                         date: minSpendingDate,
                         color: .green

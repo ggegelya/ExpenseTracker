@@ -14,10 +14,11 @@ final class PendingTransactionsViewModel: ObservableObject {
     private let repository: TransactionRepositoryProtocol
     private let categorizationService: CategorizationServiceProtocol
     private let analyticsService: AnalyticsServiceProtocol
+    private let errorHandler: ErrorHandlingServiceProtocol
 
     @Published var pendingTransactions: [PendingTransaction] = []
     @Published var isLoading = false
-    @Published var error: Error?
+    @Published var error: AppError?
     @Published var processingIds: Set<UUID> = []
     @Published var learningNotification: LearningNotification?
     @Published var showLearningToast = false
@@ -42,10 +43,12 @@ final class PendingTransactionsViewModel: ObservableObject {
     
     init(repository: TransactionRepositoryProtocol,
          categorizationService: CategorizationServiceProtocol,
-         analyticsService: AnalyticsServiceProtocol) {
+         analyticsService: AnalyticsServiceProtocol,
+         errorHandler: ErrorHandlingServiceProtocol) {
         self.repository = repository
         self.categorizationService = categorizationService
         self.analyticsService = analyticsService
+        self.errorHandler = errorHandler
         
         startMonitoring()
     }
@@ -59,14 +62,13 @@ final class PendingTransactionsViewModel: ObservableObject {
         guard !isActive else { return }
         isActive = true
         
-        pollingTask = Task { @MainActor in
-            await loadPendingTransactions()
-            
-            while !Task.isCancelled && isActive {
+        pollingTask = Task { @MainActor [weak self] in
+            await self?.loadPendingTransactions()
+
+            while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(120))
-                if !Task.isCancelled && isActive {
-                    await loadPendingTransactions()
-                }
+                guard let self, !Task.isCancelled, self.isActive else { break }
+                await self.loadPendingTransactions()
             }
         }
     }
@@ -95,8 +97,7 @@ final class PendingTransactionsViewModel: ObservableObject {
         do {
             pendingTransactions = try await repository.getPendingTransactions(for: account)
         } catch {
-            self.error = error
-            analyticsService.trackError(error, context: "Loading pending transactions")
+            self.error = errorHandler.handleAny(error, context: "Loading pending transactions")
         }
     }
     
@@ -111,7 +112,7 @@ final class PendingTransactionsViewModel: ObservableObject {
         let finalDescription = description ?? pending.descriptionText
 
         guard let finalCategory = finalCategory else {
-            self.error = RepositoryError.invalidData("Category is required")
+            self.error = .categoryRequired
             return
         }
 
@@ -148,42 +149,44 @@ final class PendingTransactionsViewModel: ObservableObject {
                 if finalCategory.id != pending.suggestedCategory?.id {
                     learningNotification = LearningNotification(
                         merchantName: merchantName,
-                        categoryName: finalCategory.name
+                        categoryName: finalCategory.displayName
                     )
                     showLearningToast = true
 
                     // Auto-hide after 3 seconds (cancel previous dismiss task)
                     toastDismissTask?.cancel()
-                    toastDismissTask = Task { @MainActor in
+                    toastDismissTask = Task { @MainActor [weak self] in
                         try? await Task.sleep(for: .seconds(3))
-                        showLearningToast = false
+                        self?.showLearningToast = false
                     }
                 }
             }
 
             await loadPendingTransactions()
         } catch {
-            self.error = error
-            analyticsService.trackError(error, context: "Processing pending transaction")
+            self.error = errorHandler.handleAny(error, context: "Processing pending transaction")
         }
     }
-    
+
     func dismissPendingTransaction(_ pending: PendingTransaction) async {
         processingIds.insert(pending.id)
         defer { processingIds.remove(pending.id) }
-        
+
         do {
             try await repository.dismissPendingTransaction(pending.id)
             await loadPendingTransactions()
         } catch {
-            self.error = error
-            analyticsService.trackError(error, context: "Dismissing pending transaction")
+            self.error = errorHandler.handleAny(error, context: "Dismissing pending transaction")
         }
     }
-    
+
     func processAllPending() async {
-        for pending in pendingTransactions {
+        // Snapshot IDs to avoid iterating a mutating list
+        let idsToProcess = pendingTransactions.map { $0.id }
+        for id in idsToProcess {
+            guard let pending = pendingTransactions.first(where: { $0.id == id }) else { continue }
             await processPendingTransaction(pending)
         }
     }
+
 }

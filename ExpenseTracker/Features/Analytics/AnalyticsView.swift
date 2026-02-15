@@ -11,9 +11,7 @@ import SwiftUI
 struct AnalyticsView: View {
     @StateObject private var analyticsViewModel: AnalyticsViewModel
     @EnvironmentObject var transactionViewModel: TransactionViewModel
-    @State private var showDateRangePicker = false
     @State private var showCustomDatePicker = false
-    @State private var selectedCategoryFilter: ((Category) -> Void)? = nil
 
     init(container: DependencyContainer) {
         _analyticsViewModel = StateObject(wrappedValue: container.makeAnalyticsViewModel())
@@ -32,10 +30,9 @@ struct AnalyticsView: View {
                     // Category breakdown
                     CategoryBreakdownCard(
                         viewModel: analyticsViewModel,
-                        onCategoryTap: .constant({ category in
-                            // Navigate to transactions filtered by category
+                        onCategoryTap: { category in
                             transactionViewModel.filterCategories = [category]
-                        })
+                        }
                     )
 
                     // Spending trends
@@ -47,7 +44,7 @@ struct AnalyticsView: View {
                 .padding()
             }
             .accessibilityIdentifier("AnalyticsView")
-            .navigationTitle("Аналітика")
+            .navigationTitle(String(localized: "tab.analytics"))
             .navigationBarTitleDisplayMode(.inline)
             .refreshable {
                 await analyticsViewModel.loadData()
@@ -68,7 +65,7 @@ struct DateRangeSelectorView: View {
     var body: some View {
         VStack(spacing: 12) {
             HStack {
-                Text("Період")
+                Text(String(localized: "filter.period"))
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 Spacer()
@@ -78,7 +75,7 @@ struct DateRangeSelectorView: View {
                 HStack(spacing: 12) {
                     ForEach(AnalyticsDateRange.allCases) { range in
                         DateRangeChip(
-                            title: range.rawValue,
+                            title: range.localizedName,
                             isSelected: viewModel.selectedDateRange == range,
                             action: {
                                 if range == .custom {
@@ -136,28 +133,28 @@ struct CustomDateRangePicker: View {
         NavigationStack {
             Form {
                 Section {
-                    DatePicker("Від", selection: $startDate, displayedComponents: .date)
-                    DatePicker("До", selection: $endDate, displayedComponents: .date)
+                    DatePicker(String(localized: "common.from"), selection: $startDate, displayedComponents: .date)
+                    DatePicker(String(localized: "common.to"), selection: $endDate, displayedComponents: .date)
                 } header: {
-                    Text("Оберіть період")
+                    Text(String(localized: "analytics.selectPeriod"))
                 } footer: {
                     if startDate > endDate {
-                        Text("Початкова дата має бути раніше кінцевої")
+                        Text(String(localized: "analytics.invalidDateRange"))
                             .foregroundColor(.red)
                     }
                 }
             }
-            .navigationTitle("Власний період")
+            .navigationTitle(String(localized: "analytics.custom"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Скасувати") {
+                    Button(String(localized: "common.cancel")) {
                         dismiss()
                     }
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Застосувати") {
+                    Button(String(localized: "common.apply")) {
                         viewModel.customStartDate = startDate
                         viewModel.customEndDate = endDate
                         viewModel.selectedDateRange = .custom

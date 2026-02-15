@@ -40,14 +40,14 @@ struct TransactionRow : View {
                         HStack(spacing: 2) {
                             Image(systemName: category.icon)
                                 .font(.caption2)
-                            Text("#\(category.name)")
+                            Text("#\(category.displayName)")
                         }
                         .font(.caption)
                         .foregroundColor(.secondary)
                     }
 
                     if transaction.isSplitParent, let splitCount = transaction.splitTransactions?.count {
-                        Text("\(splitCount) розділів")
+                        Text(String(localized: "split.count \(splitCount)"))
                             .font(.caption2)
                             .foregroundColor(.blue)
                             .padding(.horizontal, 6)

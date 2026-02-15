@@ -17,14 +17,14 @@ struct TopMerchantsCard: View {
         VStack(spacing: 16) {
             // Header
             HStack {
-                Text("Топ продавці")
+                Text(String(localized: "analytics.topMerchants"))
                     .font(.headline)
                 Spacer()
                 if !viewModel.topMerchants.isEmpty {
                     Button {
                         showAllMerchants = true
                     } label: {
-                        Text("Всі")
+                        Text(String(localized: "common.all"))
                             .font(.caption)
                             .foregroundColor(.accentColor)
                     }
@@ -37,10 +37,10 @@ struct TopMerchantsCard: View {
                     Image(systemName: "storefront")
                         .font(.system(size: 48))
                         .foregroundColor(.secondary)
-                    Text("Немає даних")
+                    Text(String(localized: "analytics.noData"))
                         .font(.headline)
                         .foregroundColor(.secondary)
-                    Text("Додайте транзакції для аналізу")
+                    Text(String(localized: "analytics.addTransactionsForAnalysis"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -67,7 +67,7 @@ struct TopMerchantsCard: View {
                         showAllMerchants = true
                     } label: {
                         HStack {
-                            Text("Показати ще \(viewModel.topMerchants.count - displayLimit)")
+                            Text(String(localized: "common.showMore \(viewModel.topMerchants.count - displayLimit)"))
                                 .font(.subheadline)
                             Spacer()
                             Image(systemName: "chevron.right")
@@ -117,7 +117,7 @@ struct MerchantRow: View {
                     .fontWeight(.medium)
                     .lineLimit(1)
 
-                Text("\(merchant.transactionCount) транзакцій")
+                Text(String(localized: "analytics.transactionCount \(merchant.transactionCount)"))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -161,12 +161,12 @@ struct AllMerchantsSheet: View {
                     )
                 }
             }
-            .navigationTitle("Всі продавці")
+            .navigationTitle(String(localized: "analytics.allMerchants"))
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $searchText, prompt: "Пошук продавців")
+            .searchable(text: $searchText, prompt: String(localized: "search.merchants"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Закрити") {
+                    Button(String(localized: "common.close")) {
                         dismiss()
                     }
                 }

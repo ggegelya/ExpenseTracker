@@ -142,7 +142,7 @@ struct PendingTransactionRow: View {
                         HStack(spacing: 2) {
                             Image(systemName: "sparkles")
                                 .font(.caption2)
-                            Text(category.name.capitalized)
+                            Text(category.displayName)
                                 .font(.caption)
                         }
                         .foregroundColor(.blue)
@@ -181,7 +181,7 @@ struct PendingTransactionRow: View {
             VStack(spacing: 4) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.title2)
-                Text("Прийняти")
+                Text(String(localized: "pending.accept"))
                     .font(.caption)
                     .fontWeight(.medium)
             }
@@ -199,7 +199,7 @@ struct PendingTransactionRow: View {
             VStack(spacing: 4) {
                 Image(systemName: "xmark.circle.fill")
                     .font(.title2)
-                Text("Відхилити")
+                Text(String(localized: "pending.dismiss"))
                     .font(.caption)
                     .fontWeight(.medium)
             }

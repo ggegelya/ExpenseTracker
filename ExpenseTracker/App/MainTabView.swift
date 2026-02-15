@@ -19,11 +19,11 @@ enum AppTab: Int, CaseIterable, Identifiable {
     
     var title: String {
         switch self {
-        case .quickEntry: return "Додати"
-        case .transactions: return "Транзакції"
-        case .pending: return "Очікують"
-        case .accounts: return "Рахунки"
-        case .analytics: return "Аналітика"
+        case .quickEntry: return String(localized: "tab.add")
+        case .transactions: return String(localized: "tab.transactions")
+        case .pending: return String(localized: "tab.pending")
+        case .accounts: return String(localized: "tab.accounts")
+        case .analytics: return String(localized: "tab.analytics")
         }
     }
     
@@ -148,16 +148,6 @@ struct MainTabView: View {
     }
 }
 
-
-extension MainTabView {
-    func navigateToTab(_ tab: AppTab) {
-        selectedTab = tab
-    }
-    
-    func navigateToPendingTransactions() {
-        selectedTab = .pending
-    }
-}
 
 extension AppTab {
     init?(urlPath: String) {

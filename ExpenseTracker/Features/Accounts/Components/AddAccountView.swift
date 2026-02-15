@@ -41,7 +41,7 @@ struct AddAccountView: View {
             Form {
                 // Account name
                 Section {
-                    TextField("Назва рахунку", text: $name)
+                    TextField(String(localized: "account.name"), text: $name)
                         .focused($focusedField, equals: .name)
                         .accessibilityIdentifier("AccountNameField")
                         .onChange(of: name) { _, newValue in
@@ -57,15 +57,15 @@ struct AddAccountView: View {
                             .foregroundColor(name.count > 45 ? .orange : .secondary)
                     }
                 } header: {
-                    Text("Основна інформація")
+                    Text(String(localized: "account.basicInfo"))
                 } footer: {
-                    Text("Наприклад: Монобанк, Готівка, Накопичувальний")
+                    Text(String(localized: "account.nameExample"))
                         .font(.caption)
                 }
 
                 // Tag
                 Section {
-                    TextField("Тег", text: $tag)
+                    TextField(String(localized: "account.tagField"), text: $tag)
                         .focused($focusedField, equals: .tag)
                         .accessibilityIdentifier("AccountTagField")
                         .autocorrectionDisabled()
@@ -80,15 +80,15 @@ struct AddAccountView: View {
                             validationError = nil
                         }
                 } header: {
-                    Text("Тег")
+                    Text(String(localized: "account.tagField"))
                 } footer: {
-                    Text("Унікальний ідентифікатор рахунку")
+                    Text(String(localized: "account.tagDescription"))
                         .font(.caption)
                 }
 
                 // Account type
                 Section {
-                    Picker("Тип рахунку", selection: $selectedType) {
+                    Picker(String(localized: "account.type"), selection: $selectedType) {
                         ForEach(AccountType.allCases) { type in
                             HStack {
                                 Image(systemName: type.icon)
@@ -99,19 +99,19 @@ struct AddAccountView: View {
                     }
                     .pickerStyle(.menu)
                 } header: {
-                    Text("Тип")
+                    Text(String(localized: "account.type"))
                 }
 
                 // Currency
                 Section {
-                    Picker("Валюта", selection: $selectedCurrency) {
+                    Picker(String(localized: "account.currency"), selection: $selectedCurrency) {
                         ForEach(Currency.allCases) { currency in
                             Text(currency.localizedName).tag(currency)
                         }
                     }
                     .pickerStyle(.segmented)
                 } header: {
-                    Text("Валюта")
+                    Text(String(localized: "account.currency"))
                 }
 
                 // Initial balance
@@ -128,18 +128,18 @@ struct AddAccountView: View {
                             .foregroundColor(.secondary)
                     }
                 } header: {
-                    Text("Початковий баланс")
+                    Text(String(localized: "account.initialBalance"))
                 } footer: {
-                    Text("Може бути від'ємним")
+                    Text(String(localized: "account.balanceMayBeNegative"))
                         .font(.caption)
                 }
 
                 // Default account toggle
                 if viewModel.accounts.isEmpty || accountToEdit == nil {
                     Section {
-                        Toggle("Встановити як основний", isOn: $setAsDefault)
+                        Toggle(String(localized: "account.setAsDefault"), isOn: $setAsDefault)
                     } footer: {
-                        Text("Основний рахунок використовується за замовчуванням для нових транзакцій")
+                        Text(String(localized: "account.defaultAccountDescription"))
                             .font(.caption)
                     }
                 }
@@ -157,18 +157,18 @@ struct AddAccountView: View {
                     }
                 }
             }
-            .navigationTitle(accountToEdit == nil ? "Новий рахунок" : "Редагувати рахунок")
+            .navigationTitle(accountToEdit == nil ? String(localized: "account.new") : String(localized: "account.editTitle"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Скасувати") {
+                    Button(String(localized: "common.cancel")) {
                         dismiss()
                     }
                     .disabled(isLoading)
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(accountToEdit == nil ? "Створити" : "Зберегти") {
+                    Button(accountToEdit == nil ? String(localized: "common.create") : String(localized: "common.save")) {
                         saveAccount()
                     }
                     .disabled(isLoading || !isFormValid)
@@ -177,7 +177,7 @@ struct AddAccountView: View {
 
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
-                    Button("Готово") {
+                    Button(String(localized: "common.done")) {
                         focusedField = nil
                     }
                 }
@@ -244,7 +244,7 @@ struct AddAccountView: View {
 
         // Validate balance
         guard let balance = balanceDecimal else {
-            validationError = "Невірний формат балансу"
+            validationError = String(localized: "validation.invalidBalance")
             return
         }
 

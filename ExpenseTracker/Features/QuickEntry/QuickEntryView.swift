@@ -12,7 +12,7 @@ struct QuickEntryView: View {
     @EnvironmentObject private var viewModel: TransactionViewModel
     @EnvironmentObject private var pendingViewModel: PendingTransactionsViewModel
     @Environment(\.dismiss) private var dismiss
-    
+
     @FocusState private var isAmountFocused: Bool
     @FocusState private var isDescriptionFocused: Bool
 
@@ -29,7 +29,7 @@ struct QuickEntryView: View {
     @State private var datePillPressed = false
     @State private var accountPillPressed = false
     @State private var showCategorySuggestion = false
-    
+
     private let hapticFeedback = UIImpactFeedbackGenerator(style: .medium)
 
     // Best suggested category based on description (single match)
@@ -84,10 +84,9 @@ struct QuickEntryView: View {
                         .padding(.bottom, 28)
                     }
 
-                    Spacer(minLength: 40) // 1. Navigation title to amount: 40pt
+                    Spacer(minLength: 40)
 
                     // Amount Section with integrated metadata pills
-                    // (metadata pills are 8pt below amount - handled inside AmountInputSection)
                     AmountInputSection(
                         amount: $viewModel.entryAmount,
                         transactionType: $viewModel.transactionType,
@@ -101,10 +100,9 @@ struct QuickEntryView: View {
                         onMetadataTap: { showMetadataEditor = true }
                     )
 
-                    Spacer(minLength: 32) // 3. Metadata pills to description: 32pt
+                    Spacer(minLength: 32)
 
                     // Description Section with integrated category suggestion
-                    // (category suggestion is 4pt below - handled inside DescriptionSection)
                     DescriptionSection(
                         description: $viewModel.entryDescription,
                         isDescriptionFocused: _isDescriptionFocused,
@@ -120,7 +118,7 @@ struct QuickEntryView: View {
                                 .font(.system(size: 11))
                                 .foregroundColor(Color(hex: selected.colorHex))
 
-                            Text(selected.name)
+                            Text(selected.displayName)
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundColor(.primary)
 
@@ -146,7 +144,7 @@ struct QuickEntryView: View {
                         .padding(.top, 8)
                     }
 
-                    Spacer(minLength: 40) // 5. Category to action button: 40pt
+                    Spacer(minLength: 40)
 
                     // Add Button
                     AddTransactionButton(
@@ -157,7 +155,7 @@ struct QuickEntryView: View {
                         await addTransaction()
                     }
 
-                    Spacer(minLength: 32) // 6. Action button to recent transactions: 32pt
+                    Spacer(minLength: 32)
 
                     // Recent Transactions
                     if !viewModel.transactions.isEmpty {
@@ -170,12 +168,12 @@ struct QuickEntryView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, keyboardHeight)
             }
-            .navigationTitle("Додати транзакцію")
+            .navigationTitle(String(localized: "quickEntry.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if TestingConfiguration.isRunningTests {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("Скасувати") {
+                        Button(String(localized: "common.cancel")) {
                             dismiss()
                         }
                         .accessibilityIdentifier("CancelButton")
@@ -186,14 +184,14 @@ struct QuickEntryView: View {
                     Button {
                         viewModel.clearEntry()
                     } label: {
-                        Text("Очистити")
+                        Text(String(localized: "common.clear"))
                     }
                     .accessibilityIdentifier("ClearButton")
                 }
 
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
-                    Button("Готово") {
+                    Button(String(localized: "common.done")) {
                         handleKeyboardDone()
                     }
                     .font(.system(size: 17, weight: .semibold))
@@ -214,7 +212,7 @@ struct QuickEntryView: View {
                     recentCategories: recentCategories
                 )
             }
-            .alert("Помилка", isPresented: $showErrorAlert) {
+            .alert(String(localized: "error.title"), isPresented: $showErrorAlert) {
                 Button("OK") { }
             } message: {
                 if let error = viewModel.error {
@@ -262,7 +260,7 @@ struct QuickEntryView: View {
                 }
         )
     }
-    
+
     // MARK: - Actions
 
     private func handleKeyboardDone() {
@@ -338,880 +336,7 @@ struct QuickEntryView: View {
             }
         }
     }
-    
-}
 
-// MARK: - Subviews
-
-struct PendingTransactionsBadge: View {
-    let count: Int
-    let scale: CGFloat
-
-    var body: some View {
-        HStack {
-            Image(systemName: "clock.fill")
-            Text("\(count) транзакцій очікують обробки")
-                .font(.subheadline)
-                .fontWeight(.medium)
-            Spacer()
-            Image(systemName: "chevron.right")
-                .font(.caption)
-        }
-        .foregroundColor(.orange)
-        .padding()
-        .background(Color.orange.opacity(0.1))
-        .cornerRadius(12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
-        )
-        .scaleEffect(scale)
-    }
-}
-
-struct AmountInputSection: View {
-    @Binding var amount: String
-    @Binding var transactionType: TransactionType
-    @FocusState var isAmountFocused: Bool
-    @Binding var selectedDate: Date
-    let selectedAccount: Account?
-    let showAccountSelector: Bool
-    @Binding var toggleRotation: Double
-    @Binding var datePillPressed: Bool
-    @Binding var accountPillPressed: Bool
-    let onMetadataTap: () -> Void
-
-    @State private var toggleScale: CGFloat = 1.0
-
-    private static let shortDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "d MMM"
-        formatter.locale = Locale(identifier: "uk")
-        return formatter
-    }()
-
-    var body: some View {
-        VStack(spacing: 8) {
-            // Amount input - Hero layout
-            HStack(alignment: .center, spacing: 8) {
-                // Tap-to-toggle -/+ sign only (no background)
-                Button {
-                    // Rotate 180° and pulse scale
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        toggleRotation += 180
-                        transactionType = transactionType == .expense ? .income : .expense
-                    }
-
-                    // Scale pulse: 1.0 → 1.1 → 1.0
-                    withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
-                        toggleScale = 1.1
-                    }
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .milliseconds(150))
-                        withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
-                            toggleScale = 1.0
-                        }
-                    }
-                } label: {
-                    Text(transactionType.symbol)
-                        .font(.system(size: 52, weight: .ultraLight, design: .rounded))
-                        .foregroundColor(transactionType == .expense ? .red : .green)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityIdentifier("TypeToggle")
-                .buttonStyle(.plain)
-                .rotationEffect(.degrees(toggleRotation))
-                .scaleEffect(toggleScale)
-
-                TextField("0", text: $amount)
-                    .font(.system(size: 52, weight: .ultraLight, design: .rounded))
-                    .keyboardType(.decimalPad)
-                    .multilineTextAlignment(.center)
-                    .focused($isAmountFocused)
-                    .tint(.blue)
-                    .accessibilityIdentifier("AmountField")
-                    .onChange(of: amount) { _, newValue in
-                        // Format input to max 2 decimal places
-                        if let dotIndex = newValue.lastIndex(of: ".") {
-                            let decimals = newValue.distance(from: newValue.index(after: dotIndex), to: newValue.endIndex)
-                            if decimals > 2 {
-                                amount = String(newValue.prefix(newValue.count - (decimals - 2)))
-                            }
-                        }
-                    }
-
-                Text("₴")
-                    .font(.system(size: 52, weight: .ultraLight, design: .rounded))
-                    .foregroundColor(.secondary)
-            }
-
-            // Metadata pills
-            HStack(spacing: 8) {
-                // Date pill
-                Button {
-                    withAnimation(.easeOut(duration: 0.15)) {
-                        datePillPressed = true
-                    }
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .milliseconds(150))
-                        withAnimation(.easeOut(duration: 0.15)) {
-                            datePillPressed = false
-                        }
-                    }
-                    onMetadataTap()
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "calendar")
-                            .font(.system(size: 10))
-                        Text(formattedDate)
-                            .font(.system(size: 13, weight: .medium))
-                    }
-                    .foregroundColor(.primary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color(.systemGray6).opacity(0.5))
-                    .cornerRadius(12)
-                }
-                .accessibilityIdentifier("DatePicker")
-                .buttonStyle(.plain)
-                .scaleEffect(datePillPressed ? 0.95 : 1.0)
-
-                // Account pill (only if multiple accounts)
-                if showAccountSelector, let account = selectedAccount {
-                    Button {
-                        withAnimation(.easeOut(duration: 0.15)) {
-                            accountPillPressed = true
-                        }
-                        Task { @MainActor in
-                            try? await Task.sleep(for: .milliseconds(150))
-                            withAnimation(.easeOut(duration: 0.15)) {
-                                accountPillPressed = false
-                            }
-                        }
-                        onMetadataTap()
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "creditcard")
-                                .font(.system(size: 10))
-                            Text(account.name)
-                                .font(.system(size: 13, weight: .medium))
-                                .lineLimit(1)
-                        }
-                        .foregroundColor(.primary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color(.systemGray6).opacity(0.5))
-                        .cornerRadius(12)
-                    }
-                    .accessibilityIdentifier("AccountSelector")
-                    .buttonStyle(.plain)
-                    .scaleEffect(accountPillPressed ? 0.95 : 1.0)
-                }
-            }
-        }
-    }
-
-    private var formattedDate: String {
-        let calendar = Calendar.current
-        if calendar.isDateInToday(selectedDate) {
-            return "Сьогодні"
-        } else if calendar.isDateInYesterday(selectedDate) {
-            return "Вчора"
-        } else {
-            return Self.shortDateFormatter.string(from: selectedDate)
-        }
-    }
-}
-
-struct CategoriesSection: View {
-    let categories: [Category]
-    @Binding var selectedCategory: Category?
-    let onShowAllCategories: () -> Void
-    @EnvironmentObject private var viewModel: TransactionViewModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Категорія")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-
-                Spacer()
-
-                Button {
-                    onShowAllCategories()
-                } label: {
-                    HStack(spacing: 4) {
-                        Text("Всі категорії")
-                            .font(.subheadline)
-                        Image(systemName: "chevron.right")
-                            .font(.caption2)
-                    }
-                    .foregroundColor(.blue)
-                }
-            }
-
-            // Compact chips wrapped in FlowLayout
-            FlowLayout(spacing: 8) {
-                ForEach(categories) { category in
-                    CategoryChip(
-                        category: category,
-                        isSelected: selectedCategory?.id == category.id,
-                        action: {
-                            withAnimation(.spring(response: 0.3)) {
-                                if selectedCategory?.id == category.id {
-                                    selectedCategory = nil
-                                } else {
-                                    selectedCategory = category
-                                    // Mark as manually selected
-                                    viewModel.categoryWasAutoDetected = false
-                                }
-                            }
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
-struct DescriptionSection: View {
-    @Binding var description: String
-    @FocusState var isDescriptionFocused: Bool
-    @Binding var selectedCategory: Category?
-    let suggestedCategory: Category?
-    let onShowCategoryPicker: () -> Void
-    @EnvironmentObject private var viewModel: TransactionViewModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            // Plain text field with bottom border
-            VStack(spacing: 0) {
-                TextField(TestingConfiguration.isRunningTests ? "Description" : "Що купили?", text: $description)
-                    .font(.system(size: 17))
-                    .focused($isDescriptionFocused)
-                    .submitLabel(.done)
-                    .tint(.blue)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .accessibilityIdentifier("DescriptionField")
-                    .onSubmit {
-                        isDescriptionFocused = false
-                    }
-                    .onChange(of: description) { oldValue, newValue in
-                        // Auto-select category when strong suggestion appears
-                        if newValue.count >= 3,
-                           let suggested = suggestedCategory,
-                           selectedCategory == nil {
-                            withAnimation(.spring(response: 0.3)) {
-                                selectedCategory = suggested
-                                viewModel.categoryWasAutoDetected = true
-                            }
-                        }
-                    }
-
-                Divider()
-            }
-
-            // Category picker button
-            Button {
-                onShowCategoryPicker()
-            } label: {
-                HStack(spacing: 4) {
-                    Text(selectedCategory == nil ? "Обрати категорію" : "Категорія: \(selectedCategory?.name ?? "")")
-                        .font(.system(size: 14))
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 12))
-                }
-                .foregroundColor(.blue)
-            }
-            .accessibilityIdentifier("CategoryPicker")
-            .buttonStyle(.plain)
-            .padding(.horizontal, 16)
-            .padding(.top, 4)
-        }
-    }
-}
-
-struct AddTransactionButton: View {
-    let isValid: Bool
-    let isLoading: Bool
-    let scale: CGFloat
-    let action: () async -> Void
-
-    @State private var isPressed = false
-
-    var body: some View {
-        Button {
-            Task { @MainActor in
-                await action()
-            }
-        } label: {
-            Group {
-                if isLoading {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        .scaleEffect(0.9)
-                } else {
-                    Text("Додати")
-                        .font(.system(size: 17, weight: .semibold))
-                }
-            }
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .frame(height: 52)
-            .background(
-                isValid
-                    ? Color.blue.opacity(0.95)
-                    : Color.gray.opacity(0.3)
-            )
-            .cornerRadius(16)
-            .shadow(
-                color: isValid ? Color.blue.opacity(0.2) : .clear,
-                radius: 8,
-                y: 2
-            )
-        }
-        .accessibilityIdentifier("SaveButton")
-        .disabled(isLoading)
-        .scaleEffect(isPressed ? 0.98 : 1.0)
-        .scaleEffect(scale)
-        .animation(.spring(response: 0.2), value: isPressed)
-        .animation(.easeInOut(duration: 0.2), value: isValid)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    isPressed = true
-                }
-                .onEnded { _ in
-                    isPressed = false
-                }
-        )
-        .padding(.horizontal, 20)
-    }
-}
-
-struct RecentTransactionsSection: View {
-    let transactions: [Transaction]
-    let totalCount: Int
-    @EnvironmentObject private var viewModel: TransactionViewModel
-    @State private var showAllTransactions = false
-    @State private var selectedTransaction: Transaction?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header
-            HStack {
-                Text("Останні")
-                    .font(.system(size: 22, weight: .semibold))
-                Spacer()
-
-                // Only show "Всі" link if there are more than 3 items
-                if totalCount > 3 {
-                    Button {
-                        showAllTransactions = true
-                    } label: {
-                        Text("Всі")
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-
-            // Use List for swipe actions
-            List {
-                ForEach(Array(transactions.enumerated()), id: \.element.id) { index, transaction in
-                    VStack(spacing: 0) {
-                        SimpleTransactionRow(transaction: transaction)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                selectedTransaction = transaction
-                            }
-
-                        // Add divider except for last item
-                        if index < transactions.count - 1 {
-                            Divider()
-                                .background(Color(.systemGray4))
-                                .padding(.leading, 20)
-                        }
-                    }
-                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button(role: .destructive) {
-                            deleteTransaction(transaction)
-                        } label: {
-                            Label("Видалити", systemImage: "trash")
-                        }
-                    }
-                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                        Button {
-                            duplicateTransaction(transaction)
-                        } label: {
-                            Label("Дублювати", systemImage: "doc.on.doc")
-                        }
-                        .tint(.blue)
-                    }
-                }
-            }
-            .listStyle(.plain)
-            .frame(height: CGFloat(transactions.count * 60))
-            .scrollDisabled(true)
-        }
-        .sheet(isPresented: $showAllTransactions) {
-            TransactionListView()
-                .environmentObject(viewModel)
-        }
-        .sheet(item: $selectedTransaction) { transaction in
-            TransactionDetailSheet(transaction: transaction)
-                .environmentObject(viewModel)
-        }
-    }
-
-    private func deleteTransaction(_ transaction: Transaction) {
-        Task { @MainActor in
-            await viewModel.deleteTransaction(transaction)
-        }
-    }
-
-    private func duplicateTransaction(_ transaction: Transaction) {
-        // Pre-fill the form with transaction data
-        viewModel.entryAmount = String(format: "%.2f", NSDecimalNumber(decimal: transaction.amount).doubleValue)
-        viewModel.transactionType = transaction.type
-        viewModel.selectedCategory = transaction.category
-        viewModel.entryDescription = transaction.description
-        viewModel.selectedAccount = transaction.fromAccount ?? transaction.toAccount
-        viewModel.selectedDate = transaction.transactionDate
-    }
-}
-
-struct SimpleTransactionRow: View {
-    let transaction: Transaction
-
-    var displayCategory: Category? {
-        transaction.primaryCategory
-    }
-
-    private var plainAmountString: String {
-        Formatters.decimalString(
-            transaction.effectiveAmount,
-            minFractionDigits: 0,
-            maxFractionDigits: 2,
-            locale: Locale(identifier: "en_US_POSIX")
-        )
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            // Category icon and info
-            VStack(alignment: .leading, spacing: 4) {
-                Text(transaction.description)
-                    .font(.system(size: 15))
-                    .lineLimit(1)
-
-                HStack(spacing: 6) {
-                    if let category = displayCategory {
-                        Image(systemName: category.icon)
-                            .font(.system(size: 13))
-                            .foregroundColor(Color(hex: category.colorHex))
-
-                        Text(category.name)
-                            .font(.system(size: 13))
-                            .foregroundColor(.secondary)
-                    }
-
-                    Text(transaction.transactionDate, style: .date)
-                        .font(.system(size: 12))
-                        .foregroundColor(Color(.tertiaryLabel))
-                }
-            }
-
-            Spacer()
-
-            // Amount with color coding
-            Text(transaction.formattedAmount)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(transaction.type == .expense ? .red : .green)
-            if TestingConfiguration.isRunningTests {
-                Text(plainAmountString)
-                    .font(.system(size: 1))
-                    .opacity(0.01)
-                    .frame(width: 1, height: 1)
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 10)
-    }
-}
-
-struct TransactionDetailSheet: View {
-    let transaction: Transaction
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var viewModel: TransactionViewModel
-
-    var body: some View {
-        NavigationStack {
-            TransactionDetailContentView(transaction: transaction)
-            .navigationTitle("Деталі транзакції")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Закрити") {
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Видалити") {
-                        Task { @MainActor in
-                            await viewModel.deleteTransaction(transaction)
-                            dismiss()
-                        }
-                    }
-                    .foregroundColor(.red)
-                }
-            }
-        }
-    }
-}
-
-struct SuccessFeedbackView: View {
-    var body: some View {
-        HStack {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundColor(.green)
-            Text("Транзакцію додано")
-                .fontWeight(.medium)
-        }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(radius: 10)
-        .padding()
-    }
-}
-
-struct MetadataEditorSheet: View {
-    @Binding var selectedDate: Date
-    @Binding var selectedAccount: Account?
-    let accounts: [Account]
-    let showAccountSelector: Bool
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    // Date Picker
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Дата")
-                            .font(.headline)
-
-                        DatePicker(
-                            "Оберіть дату",
-                            selection: $selectedDate,
-                            in: ...Date(),
-                            displayedComponents: .date
-                        )
-                        .datePickerStyle(.graphical)
-                    }
-
-                    // Account Selector (only if more than 1 account)
-                    if showAccountSelector {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Рахунок")
-                                .font(.headline)
-
-                            ForEach(accounts) { account in
-                                Button {
-                                    selectedAccount = account
-                                } label: {
-                                    HStack {
-                                        VStack(alignment: .leading) {
-                                            Text(account.name)
-                                                .font(.body)
-                                                .foregroundColor(.primary)
-                                            Text(formatAmount(account.balance, currency: account.currency))
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                        }
-                                        Spacer()
-                                        if selectedAccount?.id == account.id {
-                                            Image(systemName: "checkmark.circle.fill")
-                                                .foregroundColor(.blue)
-                                        }
-                                    }
-                                    .contentShape(Rectangle())
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 10)
-                                    .background(
-                                        selectedAccount?.id == account.id
-                                            ? Color.blue.opacity(0.1)
-                                            : Color(.systemGray6)
-                                    )
-                                    .cornerRadius(12)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                }
-                .padding()
-            }
-            .accessibilityIdentifier("AccountsList")
-            .navigationTitle("Деталі транзакції")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Готово") {
-                        dismiss()
-                    }
-                }
-            }
-        }
-        .presentationDetents([.large])
-        .presentationDragIndicator(.visible)
-    }
-
-    private func formatAmount(_ amount: Decimal, currency: Currency) -> String {
-        Formatters.currencyString(amount: amount,
-                                  currency: currency,
-                                  minFractionDigits: 0,
-                                  maxFractionDigits: 2)
-    }
-}
-
-struct DatePickerSheet: View {
-    @Binding var selectedDate: Date
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            DatePicker(
-                "Оберіть дату",
-                selection: $selectedDate,
-                in: ...Date(),
-                displayedComponents: .date
-            )
-            .datePickerStyle(.graphical)
-            .padding()
-            .navigationTitle("Дата транзакції")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Готово") {
-                        dismiss()
-                    }
-                }
-            }
-        }
-        .presentationDetents([.medium])
-    }
-}
-
-struct AccountPickerSheet: View {
-    let accounts: [Account]
-    @Binding var selectedAccount: Account?
-    @Environment(\.dismiss) private var dismiss
-    
-    var body: some View {
-        NavigationStack {
-            if TestingConfiguration.isRunningTests {
-                ScrollView { EmptyView() }
-                    .frame(width: 1, height: 1)
-                    .opacity(0.01)
-                    .allowsHitTesting(false)
-                    .accessibilityIdentifier("AccountsList")
-            }
-            List(accounts) { account in
-                Button {
-                    selectedAccount = account
-                    dismiss()
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text(account.name)
-                                .font(.headline)
-                            Text(formatAmount(account.balance, currency: account.currency))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
-                        if selectedAccount?.id == account.id {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.blue)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-            .accessibilityIdentifier("AccountsList")
-            .navigationTitle("Оберіть рахунок")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Скасувати") {
-                        dismiss()
-                    }
-                }
-            }
-        }
-        .presentationDetents([.medium])
-    }
-    
-    private func formatAmount(_ amount: Decimal, currency: Currency) -> String {
-        Formatters.currencyString(amount: amount,
-                                  currency: currency,
-                                  minFractionDigits: 0,
-                                  maxFractionDigits: 2)
-    }
-}
-
-struct CategorySelectorSheet: View {
-    @Binding var selectedCategory: Category?
-    let categories: [Category]
-    let recentCategories: [Category]
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var searchText = ""
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // Search Bar
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.secondary)
-                        TextField("Пошук категорій", text: $searchText)
-                            .textFieldStyle(.plain)
-                        if !searchText.isEmpty {
-                            Button {
-                                searchText = ""
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
-                    .padding(.horizontal)
-
-                    // Recent Categories Section
-                    if !TestingConfiguration.isRunningTests && !recentCategories.isEmpty && searchText.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Останні використані")
-                                .font(.headline)
-                                .padding(.horizontal)
-
-                            LazyVGrid(columns: [
-                                GridItem(.flexible(), spacing: 12),
-                                GridItem(.flexible(), spacing: 12)
-                            ], spacing: 12) {
-                                ForEach(recentCategories) { category in
-                                    CategoryGridItem(
-                                        category: category,
-                                        isSelected: selectedCategory?.id == category.id
-                                    ) {
-                                        selectedCategory = category
-                                        dismiss()
-                                    }
-                                }
-                            }
-                            .padding(.horizontal)
-                        }
-                    }
-
-                    // All Categories Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(searchText.isEmpty ? "Всі категорії" : "Результати пошуку")
-                            .font(.headline)
-                            .padding(.horizontal)
-
-                        LazyVGrid(columns: [
-                            GridItem(.flexible(), spacing: 12),
-                            GridItem(.flexible(), spacing: 12)
-                        ], spacing: 12) {
-                            ForEach(filteredCategories) { category in
-                                CategoryGridItem(
-                                    category: category,
-                                    isSelected: selectedCategory?.id == category.id
-                                ) {
-                                    selectedCategory = category
-                                    dismiss()
-                                }
-                            }
-                        }
-                        .padding(.horizontal)
-                    }
-                }
-                .padding(.vertical)
-            }
-            .navigationTitle("Категорії")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Скасувати") {
-                        dismiss()
-                    }
-                }
-            }
-        }
-    }
-
-    private var filteredCategories: [Category] {
-        if searchText.isEmpty {
-            return categories
-        } else {
-            return categories.filter { category in
-                category.name.localizedCaseInsensitiveContains(searchText)
-            }
-        }
-    }
-}
-
-struct CategoryGridItem: View {
-    let category: Category
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: category.icon)
-                    .font(.body)
-                    .foregroundColor(Color(hex: category.colorHex))
-
-                Text(category.name)
-                    .font(.subheadline)
-                    .lineLimit(1)
-
-                Spacer()
-
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.blue)
-                        .font(.body)
-                }
-            }
-            .foregroundColor(isSelected ? .blue : .primary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 12)
-            .background(
-                isSelected
-                    ? Color(hex: category.colorHex).opacity(0.1)
-                    : Color(.systemGray6)
-            )
-            .cornerRadius(12)
-        }
-        .accessibilityIdentifier("Category_\(category.name)")
-        .buttonStyle(.plain)
-    }
 }
 
 #Preview {

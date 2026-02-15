@@ -19,9 +19,9 @@ struct BulkActionsBar: View {
             HStack(spacing: 16) {
                 // Selection info
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(viewModel.selectedTransactionCount) обрано")
+                    Text(String(localized: "bulk.selected \(viewModel.selectedTransactionCount)"))
                         .font(.headline)
-                    Text("з \(viewModel.filteredTransactions.count) транзакцій")
+                    Text(String(localized: "bulk.of \(viewModel.filteredTransactions.count)"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -33,14 +33,14 @@ struct BulkActionsBar: View {
                     Button {
                         viewModel.selectAllTransactions()
                     } label: {
-                        Label("Обрати всі", systemImage: "checkmark.circle")
+                        Label(String(localized: "bulk.selectAll"), systemImage: "checkmark.circle")
                             .font(.subheadline)
                     }
                 } else {
                     Button {
                         viewModel.deselectAllTransactions()
                     } label: {
-                        Label("Зняти виділення", systemImage: "xmark.circle")
+                        Label(String(localized: "bulk.deselectAll"), systemImage: "xmark.circle")
                             .font(.subheadline)
                     }
                 }
@@ -72,15 +72,15 @@ struct BulkActionsBar: View {
         .sheet(isPresented: $showCategoryPicker) {
             CategoryPickerSheet()
         }
-        .alert("Видалити транзакції?", isPresented: $showDeleteConfirmation) {
-            Button("Скасувати", role: .cancel) {}
-            Button("Видалити", role: .destructive) {
+        .alert(String(localized: "bulk.deleteConfirm.title"), isPresented: $showDeleteConfirmation) {
+            Button(String(localized: "common.cancel"), role: .cancel) {}
+            Button(String(localized: "common.delete"), role: .destructive) {
                 Task { @MainActor in
                     await viewModel.bulkDeleteSelectedTransactions()
                 }
             }
         } message: {
-            Text("Ви впевнені, що хочете видалити \(viewModel.selectedTransactionCount) транзакцій? Цю дію не можна скасувати.")
+            Text(String(localized: "bulk.deleteConfirm.message \(viewModel.selectedTransactionCount)"))
         }
     }
 }
@@ -95,7 +95,7 @@ struct CategoryPickerSheet: View {
         NavigationStack {
             List {
                 if viewModel.categories.isEmpty {
-                    Text("Немає категорій")
+                    Text(String(localized: "common.noCategories"))
                         .foregroundColor(.secondary)
                 } else {
                     ForEach(viewModel.categories) { category in
@@ -110,7 +110,7 @@ struct CategoryPickerSheet: View {
                                     .foregroundColor(Color(hex: category.colorHex))
                                     .frame(width: 30)
 
-                                Text(category.name)
+                                Text(category.displayName)
                                     .foregroundColor(.primary)
 
                                 Spacer()
@@ -120,11 +120,11 @@ struct CategoryPickerSheet: View {
                     }
                 }
             }
-            .navigationTitle("Оберіть категорію")
+            .navigationTitle(String(localized: "common.selectCategory"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Скасувати") {
+                    Button(String(localized: "common.cancel")) {
                         dismiss()
                     }
                 }

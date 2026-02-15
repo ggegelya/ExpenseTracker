@@ -59,7 +59,7 @@ struct AccountRow: View {
                     .foregroundColor(balanceColor)
 
                 if account.currency != .uah {
-                    Text(account.currency.rawValue)
+                    Text(account.currency.symbol)
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 }

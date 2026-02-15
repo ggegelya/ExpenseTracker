@@ -58,33 +58,33 @@ enum AppError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .invalidAmount:
-            return "Сума обов'язково має бути вказана"
+            return String(localized: "error.invalidAmount")
         case .insufficientFunds:
-            return "Недостатньо коштів на рахунку"
+            return String(localized: "error.insufficientFunds")
         case .networkUnavailable:
-            return "Відсутнє з'єднання з інтернетом"
+            return String(localized: "error.networkUnavailable")
         case .bankingServiceUnavailable:
-            return "Банківський сервіс тимчасово недоступний"
+            return String(localized: "error.bankingServiceUnavailable")
         case .categoryRequired:
-            return "Оберіть категорію для транзакції"
+            return String(localized: "error.categoryRequired")
         case .accountRequired:
-            return "Оберіть рахунок для транзакції"
+            return String(localized: "error.accountRequired")
         case .dataCorruption:
-            return "Виявлено пошкодження даних. Спробуйте перезапустити додаток"
+            return String(localized: "error.dataCorruption")
         case .syncFailed:
-            return "Не вдалося синхронізувати дані"
+            return String(localized: "error.syncFailed")
         case .authenticationFailed:
-            return "Помилка автентифікації"
+            return String(localized: "error.authenticationFailed")
         case .permissionDenied:
-            return "Відмовлено в доступі"
+            return String(localized: "error.permissionDenied")
         case .bankTokenExpired:
-            return "Термін дії токену банку закінчився. Потрібно повторно підключити рахунок"
+            return String(localized: "error.bankTokenExpired")
         case .bankAccountNotFound:
-            return "Банківський рахунок не знайдено"
+            return String(localized: "error.bankAccountNotFound")
         case .bankTransactionFailed:
-            return "Не вдалося обробити банківську транзакцію"
+            return String(localized: "error.bankTransactionFailed")
         case .dailyLimitExceeded:
-            return "Перевищено денний ліміт запитів до банку"
+            return String(localized: "error.dailyLimitExceeded")
         case .repositoryError(let repoError):
             return repoError.localizedDescription
         }
@@ -93,15 +93,15 @@ enum AppError: LocalizedError, Equatable {
     var recoverySuggestion: String? {
         switch self {
         case .networkUnavailable:
-            return "Перевірте з'єднання з інтернетом та спробуйте ще раз"
+            return String(localized: "error.recovery.networkUnavailable")
         case .bankingServiceUnavailable:
-            return "Спробуйте пізніше або додайте транзакцію вручну"
+            return String(localized: "error.recovery.bankingServiceUnavailable")
         case .bankTokenExpired:
-            return "Перейдіть до налаштувань рахунків та повторно підключіть банк"
+            return String(localized: "error.recovery.bankTokenExpired")
         case .dataCorruption:
-            return "Якщо проблема повторюється, зверніться до підтримки"
+            return String(localized: "error.recovery.dataCorruption")
         case .dailyLimitExceeded:
-            return "Спробуйте завтра або зменшіть кількість запитів"
+            return String(localized: "error.recovery.dailyLimitExceeded")
         default:
             return nil
         }

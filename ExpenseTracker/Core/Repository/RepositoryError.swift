@@ -22,19 +22,19 @@ enum RepositoryError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .contextUnavailable:
-            return "База даних недоступна"
+            return String(localized: "error.repo.contextUnavailable")
         case .entityNotFound:
-            return "Запис не знайдено"
+            return String(localized: "error.repo.entityNotFound")
         case .invalidData(let details):
-            return "Невірні дані: \(details)"
+            return "\(String(localized: "error.repo.invalidData")): \(details)"
         case .saveFailed(let error):
-            return "Помилка збереження: \(error.localizedDescription)"
+            return "\(String(localized: "error.repo.saveFailed")): \(error.localizedDescription)"
         case .fetchFailed(let error):
-            return "Помилка завантаження: \(error.localizedDescription)"
+            return "\(String(localized: "error.repo.fetchFailed")): \(error.localizedDescription)"
         case .migrationRequired:
-            return "Потрібна міграція даних"
+            return String(localized: "error.repo.migrationRequired")
         case .conflictDetected(let details):
-            return "Конфлікт даних: \(details)"
+            return "\(String(localized: "error.repo.conflictDetected")): \(details)"
         }
     }
 }

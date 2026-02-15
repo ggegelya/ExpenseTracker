@@ -6,6 +6,9 @@
 //
 
 import Foundation
+import os
+
+private let categorizationLogger = Logger(subsystem: "com.expensetracker", category: "Categorization")
 
 @MainActor
 protocol CategorizationServiceProtocol {
@@ -20,46 +23,52 @@ final class CategorizationService: CategorizationServiceProtocol {
 
     // Merchant patterns for Ukrainian market
     private let merchantPatterns: [String: String] = [
-        // Продукти
-        "сільпо": "продукти", "silpo": "продукти",
-        "атб": "продукти", "atb": "продукти",
-        "фора": "продукти", "fora": "продукти",
-        "метро": "продукти", "metro": "продукти",
-        "novus": "продукти", "новус": "продукти",
-        "ашан": "продукти", "auchan": "продукти",
-        "варус": "продукти", "varus": "продукти",
+        // Groceries
+        "сільпо": "groceries", "silpo": "groceries",
+        "атб": "groceries", "atb": "groceries",
+        "фора": "groceries", "fora": "groceries",
+        "метро": "groceries", "metro": "groceries",
+        "novus": "groceries", "новус": "groceries",
+        "ашан": "groceries", "auchan": "groceries",
+        "варус": "groceries", "varus": "groceries",
 
-        // Таксі
-        "uber": "таксі", "убер": "таксі",
-        "bolt": "таксі", "болт": "таксі",
-        "uklon": "таксі", "уклон": "таксі",
+        // Taxi
+        "uber": "taxi", "убер": "taxi",
+        "bolt": "taxi", "болт": "taxi",
+        "uklon": "taxi", "уклон": "taxi",
 
-        // Підписки
-        "netflix": "підписки", "spotify": "підписки",
-        "youtube": "підписки", "apple": "підписки",
-        "google": "підписки", "adobe": "підписки",
+        // Subscriptions
+        "netflix": "subscriptions", "spotify": "subscriptions",
+        "youtube": "subscriptions", "apple": "subscriptions",
+        "google": "subscriptions", "adobe": "subscriptions",
 
-        // Аптеки
-        "аптека": "аптека", "pharmacy": "аптека",
-        "911": "аптека", "д.с.": "аптека",
-        "подорожник": "аптека",
+        // Pharmacy
+        "аптека": "pharmacy", "pharmacy": "pharmacy",
+        "911": "pharmacy", "д.с.": "pharmacy",
+        "подорожник": "pharmacy",
 
-        // Кафе і ресторани
-        "aroma": "кафе", "starbucks": "кафе",
-        "mcdonald": "кафе", "kfc": "кафе",
-        "pizza": "кафе", "sushi": "кафе",
+        // Cafe
+        "aroma": "cafe", "starbucks": "cafe",
+        "mcdonald": "cafe", "kfc": "cafe",
+        "pizza": "cafe", "sushi": "cafe",
 
-        // Комуналка
-        "київенерго": "комуналка", "водоканал": "комуналка",
-        "київгаз": "комуналка", "kyivstar": "комуналка",
-        "vodafone": "комуналка", "lifecell": "комуналка"
+        // Utilities
+        "київенерго": "utilities", "водоканал": "utilities",
+        "київгаз": "utilities", "kyivstar": "utilities",
+        "vodafone": "utilities", "lifecell": "utilities"
     ]
+
+    /// Cached categories to avoid N+1 queries on every suggestCategory call.
+    private var cachedCategories: [Category]?
 
     init(repository: TransactionRepositoryProtocol) {
         self.repository = repository
     }
 
     func suggestCategory(for description: String, merchantName: String?) async -> (category: Category?, confidence: Float) {
+        // Load categories once per suggestion session
+        let categories = await loadCategoriesIfNeeded()
+
         let lowercasedDescription = description.lowercased()
         let lowercasedMerchant = merchantName?.lowercased() ?? ""
 
@@ -67,7 +76,7 @@ final class CategorizationService: CategorizationServiceProtocol {
         let learnedCorrections = UserDefaults.standard.dictionary(forKey: Self.learnedCorrectionsKey) as? [String: String] ?? [:]
         for (pattern, categoryName) in learnedCorrections {
             if lowercasedDescription.contains(pattern) || lowercasedMerchant.contains(pattern) {
-                if let category = await categoryNamed(categoryName) {
+                if let category = categories.first(where: { $0.name == categoryName }) {
                     return (category, 0.95)
                 }
             }
@@ -76,14 +85,14 @@ final class CategorizationService: CategorizationServiceProtocol {
         // Try to find category by hardcoded patterns
         for (pattern, categoryName) in merchantPatterns {
             if lowercasedDescription.contains(pattern) || lowercasedMerchant.contains(pattern) {
-                if let category = await categoryNamed(categoryName) {
+                if let category = categories.first(where: { $0.name == categoryName }) {
                     return (category, 0.85)
                 }
             }
         }
 
-        // Default to "інше" with low confidence
-        if let defaultCategory = await categoryNamed("інше") {
+        // Default to "other" with low confidence
+        if let defaultCategory = categories.first(where: { $0.name == "other" }) {
             return (defaultCategory, 0.3)
         }
 
@@ -101,13 +110,20 @@ final class CategorizationService: CategorizationServiceProtocol {
         UserDefaults.standard.set(corrections, forKey: Self.learnedCorrectionsKey)
     }
 
-    private func categoryNamed(_ name: String) async -> Category? {
+    private func loadCategoriesIfNeeded() async -> [Category] {
+        if let cached = cachedCategories { return cached }
         do {
             let categories = try await repository.getAllCategories()
-            return categories.first(where: { $0.name == name })
+            cachedCategories = categories
+            return categories
         } catch {
-            print("Failed to get categories: \(error)")
-            return nil
+            categorizationLogger.error("Failed to get categories: \(error.localizedDescription)")
+            return []
         }
+    }
+
+    /// Invalidates the category cache (call when categories change).
+    func invalidateCategoryCache() {
+        cachedCategories = nil
     }
 }

@@ -145,7 +145,7 @@ final class TransactionListUITests: XCTestCase {
                 categoryFilterOption.tap()
 
                 // Select a category
-                let groceriesCategory = app.buttons["Category_продукти"]
+                let groceriesCategory = app.buttons["Category_groceries"]
                 if groceriesCategory.waitForExistence(timeout: 2) {
                     groceriesCategory.tap()
 

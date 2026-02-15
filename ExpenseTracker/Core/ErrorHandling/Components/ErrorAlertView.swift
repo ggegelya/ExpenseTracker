@@ -30,11 +30,11 @@ struct ErrorAlertView: View {
             }
             
             HStack(spacing: 12) {
-                Button("Закрити", action: onDismiss)
+                Button(String(localized: "common.close"), action: onDismiss)
                     .buttonStyle(.bordered)
-                
+
                 if alertMessage.isRetryable, let retryAction = onRetry {
-                    Button("Спробувати ще раз") {
+                    Button(String(localized: "common.retry")) {
                         Task {
                             await retryAction()
                             onDismiss();

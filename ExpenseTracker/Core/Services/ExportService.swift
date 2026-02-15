@@ -6,6 +6,9 @@
 //
 
 import Foundation
+import os
+
+private let exportLogger = Logger(subsystem: "com.expensetracker", category: "Export")
 
 protocol ExportServiceProtocol {
     func exportToCSV(transactions: [Transaction]) async throws -> URL
@@ -13,11 +16,6 @@ protocol ExportServiceProtocol {
 }
 
 final class ExportService: ExportServiceProtocol {
-    private let repository: TransactionRepositoryProtocol
-
-    init(repository: TransactionRepositoryProtocol) {
-        self.repository = repository
-    }
 
     func exportToCSV(transactions: [Transaction]) async throws -> URL {
         // Create a unique, filesystem-safe filename with high precision timestamp and UUID
@@ -44,15 +42,13 @@ final class ExportService: ExportServiceProtocol {
 
         var csvText = "Date,Type,Amount,Category,Description,Account\n"
 
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateStyle = .short
-        dateFormatter.timeStyle = .none
+        let dateFormatter = Formatters.dateFormatter(dateStyle: .short, timeStyle: .none, localeIdentifier: "uk_UA")
 
         for transaction in transactions {
             let date = escapeCSVField(dateFormatter.string(from: transaction.transactionDate))
             let type = escapeCSVField(transaction.type.rawValue)
             let amount = escapeCSVField("\(transaction.amount)")
-            let category = escapeCSVField(transaction.category?.name ?? "")
+            let category = escapeCSVField(transaction.category?.displayName ?? "")
             let description = escapeCSVField(transaction.description)
             let account = escapeCSVField(transaction.fromAccount?.name ?? transaction.toAccount?.name ?? "")
 
@@ -65,7 +61,7 @@ final class ExportService: ExportServiceProtocol {
 
     func exportToGoogleSheets(transactions: [Transaction]) async throws {
         // Placeholder hook for future Google Sheets integration
-        print("Exporting \(transactions.count) transactions to Google Sheets")
+        exportLogger.info("Exporting \(transactions.count) transactions to Google Sheets")
     }
 
     private func escapeCSVField(_ field: String) -> String {

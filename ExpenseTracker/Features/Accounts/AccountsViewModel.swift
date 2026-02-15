@@ -13,20 +13,22 @@ import Combine
 final class AccountsViewModel: ObservableObject {
     private let repository: TransactionRepositoryProtocol
     private let analyticsService: AnalyticsServiceProtocol
-    
+    private let errorHandler: ErrorHandlingServiceProtocol
+
     @Published var accounts: [Account] = []
     @Published var isLoading = false
-    @Published var error: Error?
-    
+    @Published var error: AppError?
+
     private var cancellables = Set<AnyCancellable>()
-    
+
     init(repository: TransactionRepositoryProtocol,
-         analyticsService: AnalyticsServiceProtocol) {
+         analyticsService: AnalyticsServiceProtocol,
+         errorHandler: ErrorHandlingServiceProtocol) {
         self.repository = repository
         self.analyticsService = analyticsService
+        self.errorHandler = errorHandler
         
         repository.accountsPublisher
-            .receive(on: DispatchQueue.main)
             .sink { [weak self] accounts in
                 self?.accounts = accounts
             }
@@ -44,11 +46,10 @@ final class AccountsViewModel: ObservableObject {
         do {
             accounts = try await repository.getAllAccounts()
         } catch {
-            self.error = error
-            analyticsService.trackError(error, context: "Loading accounts")
+            self.error = errorHandler.handleAny(error, context: "Loading accounts")
         }
     }
-    
+
     func createAccount(name: String, tag: String, initialBalance: Decimal = 0, accountType: AccountType = .card, currency: Currency = .uah, setAsDefault: Bool = false) async {
         let account = Account(
             id: UUID(),
@@ -64,11 +65,10 @@ final class AccountsViewModel: ObservableObject {
             _ = try await repository.createAccount(account)
             await loadAccounts()
         } catch {
-            self.error = error
-            analyticsService.trackError(error, context: "Creating account")
+            self.error = errorHandler.handleAny(error, context: "Creating account")
         }
     }
-    
+
     func updateAccount(_ account: Account, silent: Bool = false) async {
         do {
             _ = try await repository.updateAccount(account)
@@ -77,34 +77,26 @@ final class AccountsViewModel: ObservableObject {
             }
         } catch {
             if !silent {
-                self.error = error
-                analyticsService.trackError(error, context: "Updating account")
+                self.error = errorHandler.handleAny(error, context: "Updating account")
             }
         }
     }
 
     func deleteAccount(_ account: Account) async throws {
+        let transactions = try await repository.getAllTransactions()
+        if transactions.contains(where: { $0.fromAccount?.id == account.id || $0.toAccount?.id == account.id }) {
+            throw AccountError.hasTransactions
+        }
+        // Don't allow deleting the last account
+        if accounts.count <= 1 {
+            throw AccountError.cannotDeleteLastAccount
+        }
         do {
-            let transactions = try await repository.getAllTransactions()
-            if transactions.contains(where: { $0.fromAccount?.id == account.id || $0.toAccount?.id == account.id }) {
-                self.error = AccountError.hasTransactions
-                throw AccountError.hasTransactions
-            }
-            // Don't allow deleting the last account
-            if accounts.count <= 1 {
-                throw AccountError.cannotDeleteLastAccount
-            }
             try await repository.deleteAccount(account)
         } catch let error as RepositoryError {
             if case .conflictDetected = error {
                 throw AccountError.hasTransactions
             }
-            self.error = error
-            analyticsService.trackError(error, context: "Deleting account")
-            throw error
-        } catch {
-            self.error = error
-            analyticsService.trackError(error, context: "Deleting account")
             throw error
         }
     }
@@ -132,18 +124,18 @@ enum AccountError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .hasTransactions:
-            return "Неможливо видалити рахунок з транзакціями"
+            return String(localized: "error.account.hasTransactions")
         case .cannotDeleteLastAccount:
-            return "Неможливо видалити останній рахунок"
+            return String(localized: "error.account.cannotDeleteLast")
         }
     }
 
     var recoverySuggestion: String? {
         switch self {
         case .hasTransactions:
-            return "Спершу видаліть всі транзакції цього рахунку"
+            return String(localized: "error.account.deleteTransactionsFirst")
         case .cannotDeleteLastAccount:
-            return "Створіть інший рахунок перед видаленням цього"
+            return String(localized: "error.account.createAnotherFirst")
         }
     }
 }

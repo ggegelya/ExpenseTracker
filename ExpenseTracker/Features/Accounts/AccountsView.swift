@@ -33,18 +33,18 @@ struct AccountsView: View {
                                     .font(.system(size: 60))
                                     .foregroundColor(.secondary)
 
-                                Text("Немає рахунків")
+                                Text(String(localized: "account.empty.title"))
                                     .font(.headline)
                                     .foregroundColor(.secondary)
 
-                                Text("Створіть свій перший рахунок")
+                                Text(String(localized: "account.empty.subtitle"))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
 
                                 Button {
                                     showAddAccount = true
                                 } label: {
-                                    Text("Створити рахунок")
+                                    Text(String(localized: "account.create"))
                                         .fontWeight(.semibold)
                                 }
                                 .buttonStyle(.borderedProminent)
@@ -62,7 +62,7 @@ struct AccountsView: View {
                                     Button {
                                         showEditSheet(for: account)
                                     } label: {
-                                        Label("Редагувати", systemImage: "pencil")
+                                        Label(String(localized: "common.edit"), systemImage: "pencil")
                                     }
 
                                     if !account.isDefault {
@@ -71,7 +71,7 @@ struct AccountsView: View {
                                                 await viewModel.setAsDefault(account)
                                             }
                                         } label: {
-                                            Label("Встановити за замовчуванням", systemImage: "star")
+                                            Label(String(localized: "account.setDefault"), systemImage: "star")
                                         }
                                     }
 
@@ -81,7 +81,7 @@ struct AccountsView: View {
                                         accountToDelete = account
                                         showDeleteConfirmation = true
                                     } label: {
-                                        Label("Видалити", systemImage: "trash")
+                                        Label(String(localized: "common.delete"), systemImage: "trash")
                                     }
                                 }
                             }
@@ -92,7 +92,7 @@ struct AccountsView: View {
                                     Image(systemName: "exclamationmark.triangle.fill")
                                         .foregroundColor(.red)
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text("Помилка видалення")
+                                        Text(String(localized: "error.deleteError"))
                                             .font(.caption)
                                             .fontWeight(.semibold)
                                             .foregroundColor(.red)
@@ -121,7 +121,7 @@ struct AccountsView: View {
 
                         VStack(spacing: Spacing.sm) {
                             HStack {
-                                Text("Загальний баланс")
+                                Text(String(localized: "account.totalBalance"))
                                     .font(.system(size: 13))
                                     .foregroundColor(.secondary)
                                 Spacer()
@@ -153,14 +153,14 @@ struct AccountsView: View {
                     }
                 }
             }
-            .navigationTitle("Рахунки")
+            .navigationTitle(String(localized: "tab.accounts"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         showAddAccount.toggle()
                     } label: {
-                        Label("Додати рахунок", systemImage: "plus")
+                        Label(String(localized: "account.add"), systemImage: "plus")
                     }
                     .accessibilityIdentifier("AddAccountButton")
                 }
@@ -171,19 +171,19 @@ struct AccountsView: View {
             .sheet(item: $accountToEdit) { account in
                 AddAccountView(accountToEdit: account)
             }
-            .alert("Видалити рахунок?", isPresented: $showDeleteConfirmation) {
-                Button("Скасувати", role: .cancel) {
+            .alert(String(localized: "account.deleteConfirm.title"), isPresented: $showDeleteConfirmation) {
+                Button(String(localized: "common.cancel"), role: .cancel) {
                     accountToDelete = nil
                     deleteError = nil
                 }
-                Button("Видалити", role: .destructive) {
+                Button(String(localized: "common.delete"), role: .destructive) {
                     if let account = accountToDelete {
                         deleteAccount(account)
                     }
                 }
             } message: {
                 if let account = accountToDelete {
-                    Text("Ви впевнені, що хочете видалити рахунок \"\(account.name)\"?\n\nЦю дію не можна скасувати.")
+                    Text(String(localized: "account.deleteConfirm.message \(account.name)"))
                 }
             }
         }

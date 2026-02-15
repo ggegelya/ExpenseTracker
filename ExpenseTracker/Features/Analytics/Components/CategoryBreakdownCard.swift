@@ -10,17 +10,17 @@ import Charts
 
 struct CategoryBreakdownCard: View {
     @ObservedObject var viewModel: AnalyticsViewModel
-    @Binding var onCategoryTap: ((Category) -> Void)?
+    var onCategoryTap: ((Category) -> Void)?
 
     var body: some View {
         VStack(spacing: 16) {
             // Header
             HStack {
-                Text("Розподіл за категоріями")
+                Text(String(localized: "analytics.categoryBreakdown"))
                     .font(.headline)
                 Spacer()
                 if !viewModel.categoryBreakdown.isEmpty {
-                    Text("\(viewModel.categoryBreakdown.count) категорій")
+                    Text(String(localized: "analytics.categoryCount \(viewModel.categoryBreakdown.count)"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -32,10 +32,10 @@ struct CategoryBreakdownCard: View {
                     Image(systemName: "chart.pie")
                         .font(.system(size: 48))
                         .foregroundColor(.secondary)
-                    Text("Немає даних")
+                    Text(String(localized: "analytics.noData"))
                         .font(.headline)
                         .foregroundColor(.secondary)
-                    Text("Додайте транзакції з категоріями")
+                    Text(String(localized: "analytics.addTransactionsWithCategories"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -58,7 +58,7 @@ struct CategoryBreakdownCard: View {
                         }
                     }
 
-                    Text(viewModel.categoryBreakdown[0].category.name)
+                    Text(viewModel.categoryBreakdown[0].category.displayName)
                         .font(.headline)
                     Text(viewModel.formatAmount(viewModel.categoryBreakdown[0].amount))
                         .font(.subheadline)
@@ -100,10 +100,10 @@ struct CategoryBreakdownCard: View {
 
                                 // Category name & count
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(item.category.name)
+                                    Text(item.category.displayName)
                                         .font(.subheadline)
                                         .foregroundColor(.primary)
-                                    Text("\(item.transactionCount) транзакцій")
+                                    Text(String(localized: "analytics.transactionCount \(item.transactionCount)"))
                                         .font(.caption2)
                                         .foregroundColor(.secondary)
                                 }
@@ -128,7 +128,7 @@ struct CategoryBreakdownCard: View {
                     }
 
                     if viewModel.categoryBreakdown.count > 5 {
-                        Text("+ ще \(viewModel.categoryBreakdown.count - 5) категорій")
+                        Text(String(localized: "analytics.moreCategories \(viewModel.categoryBreakdown.count - 5)"))
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }

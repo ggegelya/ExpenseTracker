@@ -16,7 +16,7 @@ struct CategoryChip : View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: category.icon).font(.caption)
-                Text("#\(category.name)").font(.caption)
+                Text("#\(category.displayName)").font(.caption)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)

@@ -68,17 +68,17 @@ struct BatchProcessingView: View {
                     completionView
                 }
             }
-            .navigationTitle("Переглянути всі (\(currentIndex + 1)/\(pendingTransactions.count))")
+            .navigationTitle(String(localized: "pending.reviewProgress \(currentIndex + 1) \(pendingTransactions.count)"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Закрити") {
+                    Button(String(localized: "common.close")) {
                         dismiss()
                     }
                     .disabled(isProcessing)
                 }
             }
-            .alert("Помилка", isPresented: $showError) {
+            .alert(String(localized: "error.title"), isPresented: $showError) {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(errorMessage)
@@ -90,7 +90,7 @@ struct BatchProcessingView: View {
     private var progressSection: some View {
         VStack(spacing: 8) {
             HStack {
-                Text("Прогрес")
+                Text(String(localized: "pending.progress"))
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Spacer()
@@ -129,7 +129,7 @@ struct BatchProcessingView: View {
                         Image(systemName: "building.2")
                             .foregroundColor(.blue)
                             .frame(width: 24)
-                        Text("Торгівець")
+                        Text(String(localized: "pending.merchant"))
                             .foregroundColor(.secondary)
                         Spacer()
                         Text(merchant)
@@ -141,7 +141,7 @@ struct BatchProcessingView: View {
                     Image(systemName: "creditcard")
                         .foregroundColor(.blue)
                         .frame(width: 24)
-                    Text("Рахунок")
+                    Text(String(localized: "common.account"))
                         .foregroundColor(.secondary)
                     Spacer()
                     Text(pending.account.name)
@@ -158,11 +158,11 @@ struct BatchProcessingView: View {
     // MARK: - Description Editor
     private func descriptionEditor(for pending: PendingTransaction) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Опис")
+            Text(String(localized: "common.description"))
                 .font(.headline)
 
             TextField(
-                "Введіть опис",
+                String(localized: "edit.enterDescription"),
                 text: Binding(
                     get: { editedDescriptions[pending.id] ?? pending.descriptionText },
                     set: { editedDescriptions[pending.id] = $0 }
@@ -193,7 +193,7 @@ struct BatchProcessingView: View {
                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     } else {
                         Image(systemName: "checkmark.circle.fill")
-                        Text(currentIndex < pendingTransactions.count - 1 ? "Прийняти і продовжити" : "Прийняти і завершити")
+                        Text(currentIndex < pendingTransactions.count - 1 ? String(localized: "pending.acceptAndContinue") : String(localized: "pending.acceptAndFinish"))
                             .fontWeight(.semibold)
                     }
                 }
@@ -212,7 +212,7 @@ struct BatchProcessingView: View {
                 } label: {
                     HStack {
                         Image(systemName: "forward")
-                        Text("Пропустити")
+                        Text(String(localized: "pending.skip"))
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
@@ -230,7 +230,7 @@ struct BatchProcessingView: View {
                 } label: {
                     HStack {
                         Image(systemName: "xmark.circle")
-                        Text("Відхилити")
+                        Text(String(localized: "pending.dismiss"))
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
@@ -253,11 +253,11 @@ struct BatchProcessingView: View {
                 .foregroundColor(.green)
 
             VStack(spacing: 8) {
-                Text("Готово!")
+                Text(String(localized: "pending.complete"))
                     .font(.title)
                     .fontWeight(.bold)
 
-                Text("Оброблено \(processedCount) з \(pendingTransactions.count) транзакцій")
+                Text(String(localized: "pending.processedCount \(processedCount) \(pendingTransactions.count)"))
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }
@@ -265,7 +265,7 @@ struct BatchProcessingView: View {
             Button {
                 dismiss()
             } label: {
-                Text("Закрити")
+                Text(String(localized: "common.close"))
                     .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
                     .padding()
@@ -298,7 +298,7 @@ struct BatchProcessingView: View {
             processedCount += 1
             moveToNext()
         } catch {
-            errorMessage = "Не вдалося обробити транзакцію: \(error.localizedDescription)"
+            errorMessage = "\(String(localized: "error.processFailed")): \(error.localizedDescription)"
             showError = true
         }
     }
@@ -311,7 +311,7 @@ struct BatchProcessingView: View {
             await viewModel.dismissPendingTransaction(pending)
             moveToNext()
         } catch {
-            errorMessage = "Не вдалося відхилити транзакцію: \(error.localizedDescription)"
+            errorMessage = "\(String(localized: "error.dismissFailed")): \(error.localizedDescription)"
             showError = true
         }
     }

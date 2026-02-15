@@ -14,13 +14,13 @@ struct MonthSummaryCard: View {
     
     var body: some View {
         VStack(spacing: 12) {
-            Text("Поточний місяць")
+            Text(String(localized: "analytics.currentMonth"))
                 .font(.headline)
                 .foregroundColor(.secondary)
             
             HStack(spacing: 20) {
                 VStack {
-                    Text("Витрати")
+                    Text(String(localized: "analytics.expenses"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Text(formatAmount(expenses))
@@ -35,7 +35,7 @@ struct MonthSummaryCard: View {
                     .frame(height: 40)
                 
                 VStack {
-                    Text("Доходи")
+                    Text(String(localized: "analytics.income"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Text(formatAmount(income))
@@ -50,7 +50,7 @@ struct MonthSummaryCard: View {
                     .frame(height: 40)
                 
                 VStack {
-                    Text("Баланс")
+                    Text(String(localized: "analytics.balance"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Text(formatAmount(income - expenses))
@@ -73,7 +73,7 @@ struct MonthSummaryCard: View {
         if absAmount >= 1_000_000 {
             let millions = amount / 1_000_000
             let formatted = Formatters.decimalString(millions, minFractionDigits: 0, maxFractionDigits: 1)
-            return "\(formatted) млн ₴"
+            return "\(formatted) \(String(localized: "analytics.million")) ₴"
         } else {
             return Formatters.currencyStringUAH(amount: amount, minFractionDigits: 0, maxFractionDigits: 2)
         }

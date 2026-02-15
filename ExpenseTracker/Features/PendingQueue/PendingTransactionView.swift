@@ -20,35 +20,35 @@ struct PendingTransactionsView: View {
         NavigationStack {
             ZStack(alignment: .bottom) {
                 List {
-                    if viewModel.pendingTransactions.isEmpty {
-                        EmptyStateView(
-                            icon: "checkmark.circle.fill",
-                            title: "Всі транзакції оброблені",
-                            subtitle: "Нові транзакції з'являться тут після синхронізації з банком"
-                        )
-                        .listRowBackground(Color.clear)
-                    } else {
-                        ForEach(viewModel.pendingTransactions) { pending in
-                            PendingTransactionRow(
-                                pending: pending,
-                                isProcessing: viewModel.processingIds.contains(pending.id)
-                            ) {
-                                selectedPending = pending
-                            } onAccept: {
-                                Task { @MainActor in
-                                    await handleQuickAccept(pending)
-                                }
-                            } onDismiss: {
-                                handleQuickDismiss(pending)
+                    ForEach(viewModel.pendingTransactions) { pending in
+                        PendingTransactionRow(
+                            pending: pending,
+                            isProcessing: viewModel.processingIds.contains(pending.id)
+                        ) {
+                            selectedPending = pending
+                        } onAccept: {
+                            Task { @MainActor in
+                                await handleQuickAccept(pending)
                             }
-                            .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                        } onDismiss: {
+                            handleQuickDismiss(pending)
                         }
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                     }
                 }
                 .listStyle(.plain)
+                .overlay {
+                    if viewModel.pendingTransactions.isEmpty {
+                        EmptyStateView(
+                            icon: "checkmark.circle.fill",
+                            title: String(localized: "pending.empty.title"),
+                            subtitle: String(localized: "pending.empty.subtitle")
+                        )
+                    }
+                }
                 .accessibilityIdentifier("PendingTransactionList")
-                .navigationTitle("Очікують обробки")
+                .navigationTitle(String(localized: "pending.title"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     if !viewModel.pendingTransactions.isEmpty {
@@ -59,13 +59,13 @@ struct PendingTransactionsView: View {
                                         await viewModel.processAllPending()
                                     }
                                 } label: {
-                                    Label("Прийняти всі", systemImage: "checkmark.circle")
+                                    Label(String(localized: "pending.acceptAll"), systemImage: "checkmark.circle")
                                 }
 
                                 Button {
                                     showBatchProcessing = true
                                 } label: {
-                                    Label("Переглянути всі", systemImage: "list.bullet")
+                                    Label(String(localized: "pending.reviewAll"), systemImage: "list.bullet")
                                 }
                             } label: {
                                 Image(systemName: "ellipsis.circle")
@@ -111,7 +111,7 @@ struct PendingTransactionsView: View {
             Image(systemName: "brain.head.profile")
                 .foregroundColor(.blue)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Запам'ятав!")
+                Text(String(localized: "pending.learned"))
                     .fontWeight(.semibold)
                 Text("'\(notification.merchantName)' → \(notification.categoryName)")
                     .font(.caption)
@@ -134,12 +134,12 @@ struct PendingTransactionsView: View {
     private var undoToast: some View {
         HStack {
             Image(systemName: "trash")
-            Text("Транзакцію відхилено")
+            Text(String(localized: "pending.dismissed"))
                 .fontWeight(.medium)
 
             Spacer()
 
-            Button("Скасувати") {
+            Button(String(localized: "common.undo")) {
                 undoDismiss()
             }
             .fontWeight(.semibold)

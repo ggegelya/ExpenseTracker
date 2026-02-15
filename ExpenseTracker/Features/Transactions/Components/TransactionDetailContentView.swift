@@ -23,7 +23,7 @@ struct TransactionDetailContentView: View {
                             .foregroundColor(transaction.type == .expense ? .red : .green)
                         Text(formatAmount(transaction.amount))
                             .font(.system(size: 52, weight: .ultraLight, design: .rounded))
-                            .accessibilityLabel("Сума \(formatAmount(transaction.amount))")
+                            .accessibilityLabel(String(localized: "accessibility.amount \(formatAmount(transaction.amount))"))
                     }
                     .frame(maxWidth: .infinity)
 
@@ -65,7 +65,7 @@ struct TransactionDetailContentView: View {
                 // Description Section
                 if !transaction.description.isEmpty {
                     VStack(alignment: .leading, spacing: Spacing.xs) {
-                        Text("Опис")
+                        Text(String(localized: "common.description"))
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                         Text(transaction.description)
@@ -77,18 +77,18 @@ struct TransactionDetailContentView: View {
 
                 // Category Section
                 VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text("Категорія")
+                    Text(String(localized: "common.category"))
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     if let category = transaction.category {
                         HStack(spacing: 8) {
                             Image(systemName: category.icon)
                                 .foregroundColor(Color(hex: category.colorHex))
-                            Text(category.name)
+                            Text(category.displayName)
                                 .font(.body)
                         }
                     } else {
-                        Text("Без категорії")
+                        Text(String(localized: "analytics.uncategorized"))
                             .font(.body)
                             .foregroundColor(.secondary)
                     }
@@ -99,13 +99,13 @@ struct TransactionDetailContentView: View {
                 // Account Section
                 if transaction.fromAccount != nil || transaction.toAccount != nil {
                     VStack(alignment: .leading, spacing: Spacing.md) {
-                        Text("Рахунок")
+                        Text(String(localized: "common.account"))
                             .font(.subheadline)
                             .foregroundColor(.secondary)
 
                         if let fromAccount = transaction.fromAccount {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("З рахунку")
+                                Text(String(localized: "edit.fromAccount"))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 Text(fromAccount.name)
@@ -118,7 +118,7 @@ struct TransactionDetailContentView: View {
 
                         if let toAccount = transaction.toAccount {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("На рахунок")
+                                Text(String(localized: "edit.toAccount"))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 Text(toAccount.name)
@@ -132,12 +132,12 @@ struct TransactionDetailContentView: View {
                         // Balance impact
                         if let account = transaction.fromAccount ?? transaction.toAccount {
                             VStack(alignment: .leading, spacing: Spacing.xs) {
-                                Text("Вплив на баланс")
+                                Text(String(localized: "detail.balanceImpact"))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
 
                                 HStack {
-                                    Text("Було:")
+                                    Text(String(localized: "detail.was"))
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
                                     Spacer()
@@ -146,7 +146,7 @@ struct TransactionDetailContentView: View {
                                 }
 
                                 HStack {
-                                    Text("Стало:")
+                                    Text(String(localized: "detail.became"))
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
                                     Spacer()
@@ -164,13 +164,13 @@ struct TransactionDetailContentView: View {
 
                 // Timestamps Section
                 VStack(alignment: .leading, spacing: Spacing.md) {
-                    Text("Час")
+                    Text(String(localized: "detail.time"))
                         .font(.subheadline)
                         .foregroundColor(.secondary)
 
                     VStack(alignment: .leading, spacing: Spacing.xs) {
                         HStack {
-                            Text("Дата транзакції:")
+                            Text(String(localized: "detail.transactionDate"))
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                             Spacer()
@@ -184,7 +184,7 @@ struct TransactionDetailContentView: View {
                         }
 
                         HStack {
-                            Text("Дата запису:")
+                            Text(String(localized: "detail.recordDate"))
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                             Spacer()
@@ -209,13 +209,13 @@ struct TransactionDetailContentView: View {
     private func typeLocalizedName(_ type: TransactionType) -> String {
         switch type {
         case .expense:
-            return "Витрата"
+            return String(localized: "transactionType.expense")
         case .income:
-            return "Дохід"
+            return String(localized: "transactionType.income")
         case .transferOut:
-            return "Переказ (списання)"
+            return String(localized: "transactionType.transferOut")
         case .transferIn:
-            return "Переказ (зарахування)"
+            return String(localized: "transactionType.transferIn")
         }
     }
 

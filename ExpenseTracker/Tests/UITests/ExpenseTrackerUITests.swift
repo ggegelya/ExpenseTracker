@@ -54,7 +54,7 @@ final class ExpenseTrackerUITests: XCTestCase {
         if categoryPicker.exists {
             categoryPicker.tap()
 
-            let groceriesCategory = app.buttons["Category_продукти"]
+            let groceriesCategory = app.buttons["Category_groceries"]
             if groceriesCategory.waitForExistence(timeout: 2) {
                 groceriesCategory.tap()
             }
@@ -205,7 +205,7 @@ final class ExpenseTrackerUITests: XCTestCase {
                 let split1Category = app.buttons["SplitCategoryPicker_0"]
                 if split1Category.exists {
                     split1Category.tap()
-                    let groceries = app.buttons["Category_продукти"]
+                    let groceries = app.buttons["Category_groceries"]
                     if groceries.waitForExistence(timeout: 1) {
                         groceries.tap()
                     }
@@ -295,7 +295,7 @@ final class ExpenseTrackerUITests: XCTestCase {
             if categoryFilter.waitForExistence(timeout: 2) {
                 categoryFilter.tap()
 
-                let groceries = app.buttons["Category_продукти"]
+                let groceries = app.buttons["Category_groceries"]
                 if groceries.waitForExistence(timeout: 2) {
                     groceries.tap()
                 }
@@ -406,12 +406,15 @@ final class ExpenseTrackerUITests: XCTestCase {
     func testScrollPerformance() throws {
         app.launch()
 
-        let scrollView = app.tables["TransactionList"].firstMatch
+        // Try table first, then fall back to scroll view (List uses ScrollView internally)
+        let tableView = app.tables["TransactionList"].firstMatch
+        let scrollView = app.scrollViews["TransactionList"].firstMatch
+        let targetView = tableView.exists ? tableView : scrollView
 
-        if scrollView.waitForExistence(timeout: 5) {
+        if targetView.waitForExistence(timeout: 5) {
             measure(metrics: [XCTOSSignpostMetric.scrollDecelerationMetric]) {
-                scrollView.swipeUp(velocity: .fast)
-                scrollView.swipeDown(velocity: .fast)
+                targetView.swipeUp(velocity: .fast)
+                targetView.swipeDown(velocity: .fast)
             }
         }
     }

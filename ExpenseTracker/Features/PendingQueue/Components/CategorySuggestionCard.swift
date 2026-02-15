@@ -19,7 +19,7 @@ struct CategorySuggestionCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Категорія")
+                Text(String(localized: "common.category"))
                     .font(.headline)
                 Spacer()
                 if suggestedCategory != nil {
@@ -38,7 +38,7 @@ struct CategorySuggestionCard: View {
                             .background(Color(hex: category.colorHex).opacity(0.2))
                             .clipShape(RoundedRectangle(cornerRadius: 8))
 
-                        Text(category.name.capitalized)
+                        Text(category.displayName)
                             .font(.body)
                             .foregroundColor(.primary)
 
@@ -61,7 +61,7 @@ struct CategorySuggestionCard: View {
                             .foregroundColor(.orange)
                             .frame(width: 32, height: 32)
 
-                        Text("Оберіть категорію")
+                        Text(String(localized: "common.selectCategory"))
                             .font(.body)
                             .foregroundColor(.secondary)
 
@@ -114,11 +114,11 @@ struct CategorySuggestionCard: View {
 
     private var confidenceText: String {
         if confidence >= 0.8 {
-            return "Впевнений"
+            return String(localized: "confidence.high")
         } else if confidence >= 0.5 {
-            return "Можливо"
+            return String(localized: "confidence.medium")
         } else {
-            return "Невпевнений"
+            return String(localized: "confidence.low")
         }
     }
 
@@ -149,21 +149,21 @@ struct CategoryPickerView: View {
         if searchText.isEmpty {
             return categories
         }
-        return categories.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        return categories.filter { $0.displayName.localizedCaseInsensitiveContains(searchText) }
     }
 
     var body: some View {
         NavigationStack {
             Group {
                 if isLoading {
-                    ProgressView("Завантаження категорій...")
+                    ProgressView(String(localized: "loading.categories"))
                 } else if let error = loadError {
                     VStack(spacing: 16) {
                         Image(systemName: "exclamationmark.triangle")
                             .font(.system(size: 48))
                             .foregroundColor(.orange)
 
-                        Text("Не вдалося завантажити категорії")
+                        Text(String(localized: "error.loadCategories"))
                             .font(.headline)
 
                         Text(error.localizedDescription)
@@ -171,7 +171,7 @@ struct CategoryPickerView: View {
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
 
-                        Button("Спробувати знову") {
+                        Button(String(localized: "common.retry")) {
                             Task { @MainActor in
                                 await loadCategories()
                             }
@@ -185,10 +185,10 @@ struct CategoryPickerView: View {
                             .font(.system(size: 48))
                             .foregroundColor(.secondary)
 
-                        Text("Немає категорій")
+                        Text(String(localized: "common.noCategories"))
                             .font(.headline)
 
-                        Text("Створіть категорії в налаштуваннях")
+                        Text(String(localized: "category.createInSettings"))
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -206,7 +206,7 @@ struct CategoryPickerView: View {
                                         .background(Color(hex: category.colorHex).opacity(0.2))
                                         .clipShape(RoundedRectangle(cornerRadius: 8))
 
-                                    Text(category.name.capitalized)
+                                    Text(category.displayName)
                                         .foregroundColor(.primary)
 
                                     Spacer()
@@ -219,14 +219,14 @@ struct CategoryPickerView: View {
                             }
                         }
                     }
-                    .searchable(text: $searchText, prompt: "Пошук категорій")
+                    .searchable(text: $searchText, prompt: String(localized: "search.categories"))
                 }
             }
-            .navigationTitle("Оберіть категорію")
+            .navigationTitle(String(localized: "common.selectCategory"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Закрити") {
+                    Button(String(localized: "common.close")) {
                         dismiss()
                     }
                 }

@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct AccountDetailView: View {
-    let account: Account
+    @State private var account: Account
     @EnvironmentObject var viewModel: AccountsViewModel
     @EnvironmentObject var transactionViewModel: TransactionViewModel
     @Environment(\.dismiss) private var dismiss
@@ -16,6 +16,10 @@ struct AccountDetailView: View {
     @State private var showEditSheet = false
     @State private var showDeleteConfirmation = false
     @State private var deleteError: String?
+
+    init(account: Account) {
+        _account = State(initialValue: account)
+    }
 
     var body: some View {
         ScrollView {
@@ -74,33 +78,33 @@ struct AccountDetailView: View {
 
                 // Account Details Section
                 VStack(alignment: .leading, spacing: Spacing.md) {
-                    Text("Деталі")
+                    Text(String(localized: "common.details"))
                         .font(.subheadline)
                         .foregroundColor(.secondary)
 
                     VStack(spacing: Spacing.md) {
-                        DetailRow(label: "Валюта", value: account.currency.localizedName)
+                        DetailRow(label: String(localized: "account.currency"), value: account.currency.localizedName)
 
                         if let lastDate = account.lastTransactionDate {
                             DetailRow(
-                                label: "Остання транзакція",
+                                label: String(localized: "account.lastTransaction"),
                                 value: formatDate(lastDate)
                             )
                         }
 
                         HStack {
-                            Text("За замовчуванням")
+                            Text(String(localized: "account.default"))
                                 .foregroundColor(.secondary)
                             Spacer()
                             if account.isDefault {
                                 HStack(spacing: 4) {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundColor(.green)
-                                    Text("Так")
+                                    Text(String(localized: "common.yes"))
                                         .fontWeight(.medium)
                                 }
                             } else {
-                                Text("Ні")
+                                Text(String(localized: "common.no"))
                                     .fontWeight(.medium)
                             }
                         }
@@ -111,7 +115,7 @@ struct AccountDetailView: View {
 
                 // Transaction History Section
                 VStack(alignment: .leading, spacing: Spacing.md) {
-                    Text("Останні транзакції")
+                    Text(String(localized: "account.recentTransactions"))
                         .font(.subheadline)
                         .foregroundColor(.secondary)
 
@@ -120,7 +124,7 @@ struct AccountDetailView: View {
                             Image(systemName: "tray")
                                 .font(.largeTitle)
                                 .foregroundColor(.secondary)
-                            Text("Немає транзакцій")
+                            Text(String(localized: "transaction.empty.title"))
                                 .foregroundColor(.secondary)
                         }
                         .frame(maxWidth: .infinity)
@@ -136,7 +140,7 @@ struct AccountDetailView: View {
                                     AccountTransactionsView(account: account)
                                 } label: {
                                     HStack {
-                                        Text("Показати всі (\(accountTransactions.count))")
+                                        Text(String(localized: "common.showAll \(accountTransactions.count)"))
                                             .foregroundColor(.accentColor)
                                             .font(.subheadline)
                                         Spacer()
@@ -172,7 +176,7 @@ struct AccountDetailView: View {
             }
             .padding(Spacing.paddingBase)
         }
-        .navigationTitle("Деталі рахунку")
+        .navigationTitle(String(localized: "account.detail.title"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -180,16 +184,17 @@ struct AccountDetailView: View {
                     Button {
                         showEditSheet = true
                     } label: {
-                        Label("Редагувати", systemImage: "pencil")
+                        Label(String(localized: "common.edit"), systemImage: "pencil")
                     }
 
                     if !account.isDefault {
                         Button {
                             Task { @MainActor in
                                 await viewModel.setAsDefault(account)
+                                refreshAccount()
                             }
                         } label: {
-                            Label("Встановити за замовчуванням", systemImage: "star")
+                            Label(String(localized: "account.setDefault"), systemImage: "star")
                         }
                     }
 
@@ -198,25 +203,27 @@ struct AccountDetailView: View {
                     Button(role: .destructive) {
                         showDeleteConfirmation = true
                     } label: {
-                        Label("Видалити", systemImage: "trash")
+                        Label(String(localized: "common.delete"), systemImage: "trash")
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
             }
         }
-        .sheet(isPresented: $showEditSheet) {
+        .sheet(isPresented: $showEditSheet, onDismiss: {
+            refreshAccount()
+        }) {
             AddAccountView(accountToEdit: account)
         }
-        .alert("Видалити рахунок?", isPresented: $showDeleteConfirmation) {
-            Button("Скасувати", role: .cancel) {
+        .alert(String(localized: "account.deleteConfirm.title"), isPresented: $showDeleteConfirmation) {
+            Button(String(localized: "common.cancel"), role: .cancel) {
                 deleteError = nil
             }
-            Button("Видалити", role: .destructive) {
+            Button(String(localized: "common.delete"), role: .destructive) {
                 deleteAccount()
             }
         } message: {
-            Text("Ви впевнені, що хочете видалити рахунок \"\(account.name)\"? Цю дію не можна скасувати.")
+            Text(String(localized: "account.deleteConfirm.message \(account.name)"))
         }
     }
 
@@ -259,6 +266,12 @@ struct AccountDetailView: View {
             } catch {
                 deleteError = error.localizedDescription
             }
+        }
+    }
+
+    private func refreshAccount() {
+        if let updated = viewModel.accounts.first(where: { $0.id == account.id }) {
+            account = updated
         }
     }
 
@@ -307,7 +320,7 @@ struct SimplifiedTransactionRow: View {
                             .font(.system(size: 13))
                             .foregroundColor(Color(hex: category.colorHex))
 
-                        Text(category.name)
+                        Text(category.displayName)
                             .font(.system(size: 13))
                             .foregroundColor(.secondary)
                     }
@@ -345,7 +358,7 @@ struct AccountTransactionsView: View {
                 }
             }
         }
-        .navigationTitle("Транзакції")
+        .navigationTitle(String(localized: "tab.transactions"))
         .navigationBarTitleDisplayMode(.inline)
     }
 

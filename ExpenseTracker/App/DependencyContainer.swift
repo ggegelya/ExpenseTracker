@@ -8,6 +8,9 @@
 
 import Foundation
 import CoreData
+import os
+
+private let containerLogger = Logger(subsystem: "com.expensetracker", category: "DependencyContainer")
 
 // MARK: - Dependency Container Protocol
 @MainActor
@@ -17,7 +20,8 @@ protocol DependencyContainerProtocol {
     var categorizationService: CategorizationServiceProtocol { get }
     var analyticsService: AnalyticsServiceProtocol { get }
     var exportService: ExportServiceProtocol { get }
-    
+    var errorHandlingService: ErrorHandlingServiceProtocol { get }
+
     // ViewModels
     @MainActor func makeTransactionViewModel() -> TransactionViewModel
     @MainActor func makeAccountsViewModel() -> AccountsViewModel
@@ -34,50 +38,52 @@ final class DependencyContainer: DependencyContainerProtocol {
     let categorizationService: CategorizationServiceProtocol
     let analyticsService: AnalyticsServiceProtocol
     let exportService: ExportServiceProtocol
-    
+    let errorHandlingService: ErrorHandlingServiceProtocol
+
+    /// Task that completes when initial data setup is finished.
+    private(set) var setupTask: Task<Void, Never>?
+
     init(environment: AppEnvironment = .production) {
         self.environment = environment
         // Initialize persistence
         self.persistenceController = PersistenceController(inMemory: environment.usesInMemoryStore)
-        
+
         // Initialize repositories
         self.transactionRepository = CoreDataTransactionRepository(
             persistenceController: persistenceController
         )
-        
+
         // Initialize services
         self.categorizationService = CategorizationService(
             repository: transactionRepository
         )
-        
+
         self.analyticsService = AnalyticsService()
-        
-//        self.analyticsService = environment == .testing
-//        ? MockAnalyticsService()
-//        : AnalyticsService()
-//        
-        self.exportService = ExportService(
-            repository: transactionRepository
+
+        self.exportService = ExportService()
+
+        self.errorHandlingService = ErrorHandlingService(
+            analyticsService: analyticsService
         )
-        
-//        self.bankingService = environment == .testing
-//        ? MockBankingService()
-//        : BankingService(baseURL: environment.bankingBaseURL)
-        
-        // Setup initial data for non-testing environments
+
+        // Setup initial data — store the task so callers can await it
         if environment != .testing {
-            Task {
+            setupTask = Task {
                 await setupInitialDataIfNeeded()
             }
         } else if TestingConfiguration.isRunningTests {
-            // Seed predictable data for UI tests
-            Task {
+            setupTask = Task {
                 await setupInitialDataIfNeeded()
                 if !TestingConfiguration.shouldStartEmpty {
                     await setupPreviewData()
                 }
             }
         }
+    }
+
+    /// Awaits initial data setup completion. Safe to call multiple times.
+    func ensureReady() async {
+        await setupTask?.value
     }
     
     // MARK: - Factory Methods
@@ -87,31 +93,35 @@ final class DependencyContainer: DependencyContainerProtocol {
         return TransactionViewModel(
             repository: transactionRepository,
             categorizationService: categorizationService,
-            analyticsService: analyticsService
+            analyticsService: analyticsService,
+            errorHandler: errorHandlingService
         )
     }
-    
+
     @MainActor
     func makeAccountsViewModel() -> AccountsViewModel {
         return AccountsViewModel(
             repository: transactionRepository,
-            analyticsService: analyticsService
+            analyticsService: analyticsService,
+            errorHandler: errorHandlingService
         )
     }
-    
+
     @MainActor
     func makePendingTransactionsViewModel() -> PendingTransactionsViewModel {
         return PendingTransactionsViewModel(
             repository: transactionRepository,
             categorizationService: categorizationService,
-            analyticsService: analyticsService
+            analyticsService: analyticsService,
+            errorHandler: errorHandlingService
         )
     }
 
     @MainActor
     func makeAnalyticsViewModel() -> AnalyticsViewModel {
         return AnalyticsViewModel(
-            repository: transactionRepository
+            repository: transactionRepository,
+            errorHandler: errorHandlingService
         )
     }
 
@@ -130,7 +140,7 @@ final class DependencyContainer: DependencyContainerProtocol {
                 // Create default account
                 let defaultAccount = Account(
                     id: UUID(),
-                    name: "Основна картка",
+                    name: "default_card",
                     tag: "#main",
                     balance: 0,
                     isDefault: true
@@ -141,31 +151,12 @@ final class DependencyContainer: DependencyContainerProtocol {
             // Check if we have categories
             let categories = try await transactionRepository.getAllCategories()
             if categories.isEmpty {
-                // Create default categories
-                let defaultCategories = [
-                    Category(id: UUID(), name: "продукти", icon: "cart.fill", colorHex: "#4CAF50"),
-                    Category(id: UUID(), name: "таксі", icon: "car.fill", colorHex: "#FFC107"),
-                    Category(id: UUID(), name: "підписки", icon: "repeat", colorHex: "#9C27B0"),
-                    Category(id: UUID(), name: "комуналка", icon: "house.fill", colorHex: "#2196F3"),
-                    Category(id: UUID(), name: "аптека", icon: "cross.case.fill", colorHex: "#F44336"),
-                    Category(id: UUID(), name: "кафе", icon: "cup.and.saucer.fill", colorHex: "#FF9800"),
-                    Category(id: UUID(), name: "одяг", icon: "tshirt.fill", colorHex: "#E91E63"),
-                    Category(id: UUID(), name: "розваги", icon: "gamecontroller.fill", colorHex: "#00BCD4"),
-                    Category(id: UUID(), name: "транспорт", icon: "bus.fill", colorHex: "#795548"),
-                    Category(id: UUID(), name: "подарунки", icon: "gift.fill", colorHex: "#FF5722"),
-                    Category(id: UUID(), name: "навчання", icon: "book.fill", colorHex: "#3F51B5"),
-                    Category(id: UUID(), name: "спорт", icon: "figure.run", colorHex: "#4CAF50"),
-                    Category(id: UUID(), name: "краса", icon: "sparkles", colorHex: "#E91E63"),
-                    Category(id: UUID(), name: "техніка", icon: "desktopcomputer", colorHex: "#607D8B"),
-                    Category(id: UUID(), name: "інше", icon: "ellipsis.circle.fill", colorHex: "#9E9E9E")
-                ]
-                
-                for category in defaultCategories {
+                for category in Category.defaults {
                     _ = try await transactionRepository.createCategory(category)
                 }
             }
         } catch {
-            print("Failed to setup initial data: \(error)")
+            containerLogger.error("Failed to setup initial data: \(error.localizedDescription)")
         }
     }
     
@@ -179,9 +170,9 @@ final class DependencyContainer: DependencyContainerProtocol {
                 _ = try await transactionRepository.createAccount(savingsAccount)
 
                 let categories = try await transactionRepository.getAllCategories()
-                let groceries = categories.first { $0.name == "продукти" }
-                let transport = categories.first { $0.name == "транспорт" }
-                let cafe = categories.first { $0.name == "кафе" }
+                let groceries = categories.first { $0.name == "groceries" }
+                let transport = categories.first { $0.name == "transport" }
+                let cafe = categories.first { $0.name == "cafe" }
 
                 let calendar = Calendar.current
                 let now = Date()
@@ -298,7 +289,7 @@ final class DependencyContainer: DependencyContainerProtocol {
                     transactionDate: calendar.date(byAdding: .day, value: -i, to: now) ?? now,
                     type: .expense,
                     account: mainAccount,
-                    suggestedCategory: categories.first { $0.name == "продукти" },
+                    suggestedCategory: categories.first { $0.name == "groceries" },
                     confidence: 0.85,
                     importedAt: Date(),
                     status: .pending
@@ -308,37 +299,37 @@ final class DependencyContainer: DependencyContainerProtocol {
             }
             
         } catch {
-            print("Failed to setup preview data: \(error)")
+            containerLogger.error("Failed to setup preview data: \(error.localizedDescription)")
         }
     }
     
     private func generateSampleDescription(for category: Category?, isExpense: Bool) -> String {
-        guard let category = category else { return "Інша операція" }
+        guard let category = category else { return "Other" }
         
         let descriptions: [String: [String]] = [
-            "продукти": ["Сільпо", "АТБ", "Фора", "Метро", "Novus"],
-            "таксі": ["Uber", "Bolt", "Uklon", "Таксі по місту"],
-            "підписки": ["Netflix", "Spotify", "Apple Music", "YouTube Premium"],
-            "комуналка": ["Київводоканал", "Київенерго", "Київгаз", "Інтернет"],
-            "аптека": ["Аптека Доброго Дня", "Аптека 911", "Аптека Низьких Цін"],
-            "кафе": ["Aroma Kava", "Starbucks", "Львівська майстерня шоколаду", "One Love"],
-            "одяг": ["Zara", "H&M", "Reserved", "Bershka", "Pull&Bear"],
-            "розваги": ["Кінотеатр", "Боулінг", "Квест кімната", "Концерт"],
-            "транспорт": ["Метро", "Маршрутка", "Автобус", "Трамвай"],
-            "подарунки": ["Подарунок на день народження", "Новорічний подарунок", "Сувенір"],
-            "навчання": ["Курси англійської", "Онлайн курс", "Книги", "Підручники"],
-            "спорт": ["Спортзал", "Басейн", "Йога", "Тренер"],
-            "краса": ["Перукарня", "Манікюр", "Косметика", "SPA"],
-            "техніка": ["Rozetka", "Фокстрот", "Алло", "Comfy"]
+            "groceries": ["Сільпо", "АТБ", "Фора", "Метро", "Novus"],
+            "taxi": ["Uber", "Bolt", "Uklon"],
+            "subscriptions": ["Netflix", "Spotify", "Apple Music", "YouTube Premium"],
+            "utilities": ["Київводоканал", "Київенерго", "Київгаз"],
+            "pharmacy": ["Аптека Доброго Дня", "Аптека 911"],
+            "cafe": ["Aroma Kava", "Starbucks", "One Love"],
+            "clothing": ["Zara", "H&M", "Reserved", "Bershka"],
+            "entertainment": ["Кінотеатр", "Боулінг", "Концерт"],
+            "transport": ["Метро", "Маршрутка", "Автобус"],
+            "gifts": ["Подарунок", "Сувенір"],
+            "education": ["Курси", "Книги"],
+            "sports": ["Спортзал", "Басейн", "Йога"],
+            "beauty": ["Перукарня", "Манікюр", "SPA"],
+            "electronics": ["Rozetka", "Фокстрот", "Comfy"]
         ]
         
         if !isExpense {
-            let incomeDescriptions = ["Зарплата", "Фріланс", "Повернення боргу", "Кешбек", "Подарунок"]
-            return incomeDescriptions.randomElement() ?? "Надходження"
+            let incomeDescriptions = ["Salary", "Freelance", "Cashback"]
+            return incomeDescriptions.randomElement() ?? "Income"
         }
-        
-        let categoryDescriptions = descriptions[category.name] ?? ["Оплата"]
-        return categoryDescriptions.randomElement() ?? "Витрата"
+
+        let categoryDescriptions = descriptions[category.name] ?? ["Payment"]
+        return categoryDescriptions.randomElement() ?? "Expense"
     }
 }
 
@@ -377,10 +368,10 @@ extension DependencyContainer {
 
         // Create categories
         let categoryData: [(String, String, String)] = [
-            ("продукти", "cart.fill", "#4CAF50"),
-            ("таксі", "car.fill", "#FFC107"),
-            ("кафе", "cup.and.saucer.fill", "#FF9800"),
-            ("інше", "ellipsis.circle.fill", "#9E9E9E")
+            ("groceries", "cart.fill", "#4CAF50"),
+            ("taxi", "car.fill", "#FFC107"),
+            ("cafe", "cup.and.saucer.fill", "#FF9800"),
+            ("other", "ellipsis.circle.fill", "#9E9E9E")
         ]
 
         var categoryEntities: [CategoryEntity] = []

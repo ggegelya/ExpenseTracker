@@ -27,7 +27,9 @@
         <attribute name="monthlyBudget" optional="YES" attributeType="Decimal" defaultValueString="0.0"/>
         <attribute name="name" optional="YES" attributeType="String"/>
         <attribute name="sortOrder" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <relationship name="pendingTransactions" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="PendingTransactionEntity" inverseName="suggestedCategory" inverseEntity="PendingTransactionEntity"/>
         <relationship name="rules" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="CategoryRuleEntity" inverseName="category" inverseEntity="CategoryRuleEntity"/>
+        <relationship name="suggestedMerchants" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="MerchantEntity" inverseName="suggestedCategory" inverseEntity="MerchantEntity"/>
         <relationship name="transactions" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="TransactionEntity" inverseName="category" inverseEntity="TransactionEntity"/>
     </entity>
     
@@ -61,10 +63,10 @@
         <attribute name="merchantName" optional="YES" attributeType="String"/>
         <attribute name="processedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="status" optional="YES" attributeType="String" defaultValueString="pending"/>
-        <attribute name="suggestedCategoryId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="transactionDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="type" optional="YES" attributeType="String"/>
         <relationship name="account" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="AccountEntity" inverseName="pendingTransactions" inverseEntity="AccountEntity"/>
+        <relationship name="suggestedCategory" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CategoryEntity" inverseName="pendingTransactions" inverseEntity="CategoryEntity"/>
     </entity>
     
     <!-- Category Rule Entity (for auto-categorization) -->
@@ -84,7 +86,7 @@
         <attribute name="mcc" optional="YES" attributeType="String"/>
         <attribute name="name" optional="YES" attributeType="String"/>
         <attribute name="normalizedName" optional="YES" attributeType="String"/>
-        <attribute name="suggestedCategoryId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="usageCount" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <relationship name="suggestedCategory" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CategoryEntity" inverseName="suggestedMerchants" inverseEntity="CategoryEntity"/>
     </entity>
 </model>

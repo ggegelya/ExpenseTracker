@@ -16,16 +16,19 @@ struct PendingTransactionsViewModelTests {
     var mockRepository: MockTransactionRepository
     var mockCategorizationService: MockCategorizationService
     var mockAnalyticsService: MockAnalyticsService
+    var mockErrorHandler: MockErrorHandlingService
 
     init() async throws {
         mockRepository = MockTransactionRepository()
         mockCategorizationService = MockCategorizationService()
         mockAnalyticsService = MockAnalyticsService()
+        mockErrorHandler = MockErrorHandlingService()
 
         sut = PendingTransactionsViewModel(
             repository: mockRepository,
             categorizationService: mockCategorizationService,
-            analyticsService: mockAnalyticsService
+            analyticsService: mockAnalyticsService,
+            errorHandler: mockErrorHandler
         )
     }
 
@@ -521,7 +524,8 @@ struct PendingTransactionsViewModelTests {
         let newSut = PendingTransactionsViewModel(
             repository: newMockRepo,
             categorizationService: mockCategorizationService,
-            analyticsService: mockAnalyticsService
+            analyticsService: mockAnalyticsService,
+            errorHandler: mockErrorHandler
         )
         await newSut.loadPendingTransactions(for: account)
 

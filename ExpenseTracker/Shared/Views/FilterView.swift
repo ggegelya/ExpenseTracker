@@ -9,12 +9,21 @@ import Foundation
 import SwiftUI
 
 enum DateRangeFilter: String, CaseIterable, Identifiable {
-    case today = "Сьогодні"
-    case thisWeek = "Цей тиждень"
-    case thisMonth = "Цей місяць"
-    case custom = "Власний період"
+    case today = "today"
+    case thisWeek = "thisWeek"
+    case thisMonth = "thisMonth"
+    case custom = "custom"
 
     var id: String { rawValue }
+
+    var localizedName: String {
+        switch self {
+        case .today: return String(localized: "filter.today")
+        case .thisWeek: return String(localized: "filter.thisWeek")
+        case .thisMonth: return String(localized: "filter.thisMonth")
+        case .custom: return String(localized: "filter.custom")
+        }
+    }
 
     func dateRange() -> ClosedRange<Date>? {
         let calendar = Calendar.current
@@ -65,9 +74,9 @@ struct FilterView: View {
                             .contentShape(Rectangle())
                             .opacity(0.02)
                     }
-                    Picker("Період", selection: $selectedDateRange) {
+                    Picker(String(localized: "filter.period"), selection: $selectedDateRange) {
                         ForEach(DateRangeFilter.allCases) { range in
-                            Text(range.rawValue).tag(range)
+                            Text(range.localizedName).tag(range)
                         }
                     }
                     .pickerStyle(.segmented)
@@ -84,14 +93,14 @@ struct FilterView: View {
                     }
 
                     if selectedDateRange == .custom {
-                        DatePicker("Від", selection: $customStartDate, displayedComponents: .date)
-                        DatePicker("До", selection: $customEndDate, displayedComponents: .date)
+                        DatePicker(String(localized: "common.from"), selection: $customStartDate, displayedComponents: .date)
+                        DatePicker(String(localized: "common.to"), selection: $customEndDate, displayedComponents: .date)
                     }
                 } header: {
-                    Text("Дата")
+                    Text(String(localized: "filter.date"))
                 } footer: {
                     if selectedDateRange == .custom {
-                        Text("Оберіть початкову та кінцеву дату")
+                        Text(String(localized: "filter.selectDateRange"))
                     }
                 }
 
@@ -104,7 +113,7 @@ struct FilterView: View {
                             .opacity(0.01)
                     }
                     if viewModel.categories.isEmpty {
-                        Text("Немає категорій")
+                        Text(String(localized: "common.noCategories"))
                             .foregroundColor(.secondary)
                     } else {
                         ForEach(viewModel.categories) { category in
@@ -114,7 +123,7 @@ struct FilterView: View {
                                 HStack {
                                     Image(systemName: category.icon)
                                         .foregroundColor(Color(hex: category.colorHex))
-                                    Text(category.name)
+                                    Text(category.displayName)
                                         .foregroundColor(.primary)
                                     Spacer()
                                     if selectedCategories.contains(category.id) {
@@ -128,10 +137,10 @@ struct FilterView: View {
                     }
                 } header: {
                     HStack {
-                        Text("Категорії")
+                        Text(String(localized: "filter.categories"))
                         Spacer()
                         if !selectedCategories.isEmpty {
-                            Button("Очистити") {
+                            Button(String(localized: "common.clear")) {
                                 selectedCategories.removeAll()
                             }
                             .font(.caption)
@@ -139,14 +148,14 @@ struct FilterView: View {
                     }
                 } footer: {
                     if !selectedCategories.isEmpty {
-                        Text("Обрано: \(selectedCategories.count)")
+                        Text(String(localized: "filter.selected \(selectedCategories.count)"))
                     }
                 }
 
                 // Amount Range Section
                 Section {
                     HStack {
-                        Text("Від")
+                        Text(String(localized: "common.from"))
                             .frame(width: 50, alignment: .leading)
                         TextField("0", text: $minAmount)
                             .keyboardType(.decimalPad)
@@ -155,7 +164,7 @@ struct FilterView: View {
                     }
 
                     HStack {
-                        Text("До")
+                        Text(String(localized: "common.to"))
                             .frame(width: 50, alignment: .leading)
                         TextField("∞", text: $maxAmount)
                             .keyboardType(.decimalPad)
@@ -163,9 +172,9 @@ struct FilterView: View {
                         Text("₴")
                     }
                 } header: {
-                    Text("Сума")
+                    Text(String(localized: "filter.amount"))
                 } footer: {
-                    Text("Залиште порожнім для необмеженого діапазону")
+                    Text(String(localized: "filter.amountFooter"))
                 }
 
                 // Transaction Type Section
@@ -187,10 +196,10 @@ struct FilterView: View {
                     }
                 } header: {
                     HStack {
-                        Text("Тип транзакції")
+                        Text(String(localized: "filter.transactionType"))
                         Spacer()
                         if !selectedTypes.isEmpty {
-                            Button("Очистити") {
+                            Button(String(localized: "common.clear")) {
                                 selectedTypes.removeAll()
                             }
                             .font(.caption)
@@ -201,7 +210,7 @@ struct FilterView: View {
                 // Account Section
                 Section {
                     if viewModel.accounts.isEmpty {
-                        Text("Немає рахунків")
+                        Text(String(localized: "common.noAccounts"))
                             .foregroundColor(.secondary)
                     } else {
                         ForEach(viewModel.accounts) { account in
@@ -227,10 +236,10 @@ struct FilterView: View {
                     }
                 } header: {
                     HStack {
-                        Text("Рахунки")
+                        Text(String(localized: "filter.accounts"))
                         Spacer()
                         if !selectedAccounts.isEmpty {
-                            Button("Очистити") {
+                            Button(String(localized: "common.clear")) {
                                 selectedAccounts.removeAll()
                             }
                             .font(.caption)
@@ -238,25 +247,25 @@ struct FilterView: View {
                     }
                 }
             }
-            .navigationTitle("Фільтри")
+            .navigationTitle(String(localized: "filter.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     if TestingConfiguration.isRunningTests {
-                        Button("Скинути") {
+                        Button(String(localized: "common.reset")) {
                             resetFilters()
                             dismiss()
                         }
                         .accessibilityIdentifier("ClearFilters")
                     } else {
-                        Button("Скинути") {
+                        Button(String(localized: "common.reset")) {
                             resetFilters()
                         }
                     }
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Застосувати") {
+                    Button(String(localized: "common.apply")) {
                         applyFilters()
                         dismiss()
                     }
@@ -268,11 +277,11 @@ struct FilterView: View {
         }
         .overlay(alignment: .topLeading) {
             if TestingConfiguration.isRunningTests {
-                Text(selectedDateRange.rawValue)
+                Text(selectedDateRange.localizedName)
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .accessibilityIdentifier("SelectedDateRangeLabel")
-                    .accessibilityLabel(selectedDateRange.rawValue)
+                    .accessibilityLabel(selectedDateRange.localizedName)
             }
         }
     }
@@ -304,16 +313,7 @@ struct FilterView: View {
     }
 
     private func typeLocalizedName(_ type: TransactionType) -> String {
-        switch type {
-        case .expense:
-            return "Витрата"
-        case .income:
-            return "Дохід"
-        case .transferOut:
-            return "Переказ (списання)"
-        case .transferIn:
-            return "Переказ (зарахування)"
-        }
+        type.localizedName
     }
 
     private func loadCurrentFilters() {

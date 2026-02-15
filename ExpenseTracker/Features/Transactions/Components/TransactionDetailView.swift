@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct TransactionDetailView: View {
-    let transaction: Transaction
+    @State private var transaction: Transaction
     @EnvironmentObject var viewModel: TransactionViewModel
     @Environment(\.dismiss) private var dismiss
 
@@ -17,17 +17,17 @@ struct TransactionDetailView: View {
     @State private var showSplitView = false
 
     init(transaction: Transaction) {
-        self.transaction = transaction
+        _transaction = State(initialValue: transaction)
     }
 
     var body: some View {
         NavigationStack {
             TransactionDetailContentView(transaction: transaction)
-            .navigationTitle("Деталі транзакції")
+            .navigationTitle(String(localized: "transactionDetail.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Закрити") {
+                    Button(String(localized: "common.close")) {
                         dismiss()
                     }
                 }
@@ -37,7 +37,7 @@ struct TransactionDetailView: View {
                         Button {
                             isEditing = true
                         } label: {
-                            Label("Редагувати", systemImage: "pencil")
+                            Label(String(localized: "common.edit"), systemImage: "pencil")
                         }
                         .accessibilityIdentifier("EditButton")
 
@@ -45,14 +45,14 @@ struct TransactionDetailView: View {
                             Button {
                                 showSplitView = true
                             } label: {
-                                Label("Редагувати розподіл", systemImage: "chart.pie")
+                                Label(String(localized: "split.editSplit"), systemImage: "chart.pie")
                             }
                             .accessibilityIdentifier("SplitTransactionButton")
                         } else {
                             Button {
                                 showSplitView = true
                             } label: {
-                                Label("Розділити транзакцію", systemImage: "chart.pie")
+                                Label(String(localized: "split.splitTransaction"), systemImage: "chart.pie")
                             }
                             .accessibilityIdentifier("SplitTransactionButton")
                         }
@@ -62,33 +62,33 @@ struct TransactionDetailView: View {
                         Button(role: .destructive) {
                             showDeleteConfirmation = true
                         } label: {
-                            Label("Видалити", systemImage: "trash")
+                            Label(String(localized: "common.delete"), systemImage: "trash")
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
                 }
             }
-            .confirmationDialog(transaction.isSplitParent ? "Видалити сумарну транзакцію?" : "Видалити транзакцію?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
+            .confirmationDialog(transaction.isSplitParent ? String(localized: "split.deleteParent.title") : String(localized: "transaction.deleteConfirm.title"), isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
                 if transaction.isSplitParent {
-                    Button("Видалити сумарну та всі розділи", role: .destructive) {
+                    Button(String(localized: "split.deleteParent.cascade"), role: .destructive) {
                         Task { @MainActor in
                             await viewModel.deleteSplitTransaction(transaction, cascade: true)
                             dismiss()
                         }
                     }
 
-                    Button("Видалити лише сумарну", role: .destructive) {
+                    Button(String(localized: "split.deleteParent.parentOnly"), role: .destructive) {
                         Task { @MainActor in
                             await viewModel.deleteSplitTransaction(transaction, cascade: false)
                             dismiss()
                         }
                     }
 
-                    Button("Скасувати", role: .cancel) { }
+                    Button(String(localized: "common.cancel"), role: .cancel) { }
                 } else {
-                    Button("Скасувати", role: .cancel) { }
-                    Button("Видалити", role: .destructive) {
+                    Button(String(localized: "common.cancel"), role: .cancel) { }
+                    Button(String(localized: "common.delete"), role: .destructive) {
                         Task { @MainActor in
                             await viewModel.deleteTransaction(transaction)
                             dismiss()
@@ -97,15 +97,19 @@ struct TransactionDetailView: View {
                 }
             } message: {
                 if transaction.isSplitParent {
-                    Text("Видалення сумарної транзакції вплине на пов'язані розділи. Оберіть дію.")
+                    Text(String(localized: "split.deleteParent.message"))
                 } else {
-                    Text("Ви впевнені, що хочете видалити цю транзакцію? Цю дію не можна скасувати.")
+                    Text(String(localized: "transaction.deleteConfirm.message"))
                 }
             }
-            .sheet(isPresented: $isEditing) {
+            .sheet(isPresented: $isEditing, onDismiss: {
+                refreshTransaction()
+            }) {
                 TransactionEditView(transaction: transaction)
             }
-            .sheet(isPresented: $showSplitView) {
+            .sheet(isPresented: $showSplitView, onDismiss: {
+                refreshTransaction()
+            }) {
                 SplitTransactionView(
                     originalTransaction: transaction,
                     onSave: { splits, retainParent in
@@ -136,6 +140,11 @@ struct TransactionDetailView: View {
         }
     }
 
+    private func refreshTransaction() {
+        if let updated = viewModel.transactions.first(where: { $0.id == transaction.id }) {
+            transaction = updated
+        }
+    }
 }
 
 // MARK: - Transaction Edit View
@@ -182,13 +191,13 @@ struct TransactionEditView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Сума та тип") {
+                Section(String(localized: "edit.amountAndType")) {
                     TextField("0", text: $amountText)
                         .keyboardType(.decimalPad)
                         .focused($focusedField, equals: .amount)
                         .disabled(transaction.isSplitParent)
 
-                    Picker("Тип", selection: $selectedType) {
+                    Picker(String(localized: "edit.type"), selection: $selectedType) {
                         ForEach(TransactionType.allCases, id: \.self) { type in
                             Text(type.localizedName).tag(type)
                         }
@@ -196,12 +205,12 @@ struct TransactionEditView: View {
                     .disabled(transaction.isSplitParent)
                 }
 
-                Section("Дата") {
-                    DatePicker("Дата транзакції", selection: $selectedDate, displayedComponents: .date)
+                Section(String(localized: "common.date")) {
+                    DatePicker(String(localized: "edit.transactionDate"), selection: $selectedDate, displayedComponents: .date)
                 }
 
                 if !isTransferType && !transaction.isSplitParent {
-                    Section("Категорія") {
+                    Section(String(localized: "common.category")) {
                         Button {
                             showCategoryPicker = true
                         } label: {
@@ -209,9 +218,9 @@ struct TransactionEditView: View {
                                 if let category = selectedCategory {
                                     Image(systemName: category.icon)
                                         .foregroundColor(Color(hex: category.colorHex))
-                                    Text(category.name)
+                                    Text(category.displayName)
                                 } else {
-                                    Text("Обрати категорію")
+                                    Text(String(localized: "common.selectCategory"))
                                         .foregroundColor(.secondary)
                                 }
                                 Spacer()
@@ -223,38 +232,38 @@ struct TransactionEditView: View {
                     }
                 }
 
-                Section("Опис") {
-                    TextField("Опис", text: $descriptionText)
+                Section(String(localized: "common.description")) {
+                    TextField(String(localized: "common.description"), text: $descriptionText)
                         .focused($focusedField, equals: .description)
-                    TextField("Мерчант (опційно)", text: $merchantText)
+                    TextField(String(localized: "edit.merchantOptional"), text: $merchantText)
                         .focused($focusedField, equals: .merchant)
                 }
 
                 if showTransferAccounts {
-                    Section("Рахунки") {
+                    Section(String(localized: "filter.accounts")) {
                         accountRow(
-                            title: "З рахунку",
+                            title: String(localized: "edit.fromAccount"),
                             selected: $selectedFromAccount,
                             showPicker: $showFromAccountPicker
                         )
 
                         accountRow(
-                            title: "На рахунок",
+                            title: String(localized: "edit.toAccount"),
                             selected: $selectedToAccount,
                             showPicker: $showToAccountPicker
                         )
                     }
                 } else {
-                    Section("Рахунок") {
+                    Section(String(localized: "common.account")) {
                         if requiresFromAccount {
                             accountRow(
-                                title: "З рахунку",
+                                title: String(localized: "edit.fromAccount"),
                                 selected: $selectedFromAccount,
                                 showPicker: $showFromAccountPicker
                             )
                         } else if requiresToAccount {
                             accountRow(
-                                title: "На рахунок",
+                                title: String(localized: "edit.toAccount"),
                                 selected: $selectedToAccount,
                                 showPicker: $showToAccountPicker
                             )
@@ -270,18 +279,18 @@ struct TransactionEditView: View {
                     }
                 }
             }
-            .navigationTitle("Редагування")
+            .navigationTitle(String(localized: "edit.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Скасувати") {
+                    Button(String(localized: "common.cancel")) {
                         dismiss()
                     }
                     .disabled(isSaving)
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Зберегти") {
+                    Button(String(localized: "common.save")) {
                         save()
                     }
                     .disabled(isSaving || !isFormValid)
@@ -290,7 +299,7 @@ struct TransactionEditView: View {
 
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
-                    Button("Готово") {
+                    Button(String(localized: "common.done")) {
                         focusedField = nil
                     }
                 }
@@ -356,22 +365,22 @@ struct TransactionEditView: View {
 
     private func save() {
         guard let amount = amountDecimal, amount > 0 else {
-            validationError = "Вкажіть коректну суму"
+            validationError = String(localized: "validation.invalidAmount")
             return
         }
 
         if requiresFromAccount && selectedFromAccount == nil {
-            validationError = "Оберіть рахунок списання"
+            validationError = String(localized: "validation.selectFromAccount")
             return
         }
 
         if requiresToAccount && selectedToAccount == nil {
-            validationError = "Оберіть рахунок надходження"
+            validationError = String(localized: "validation.selectToAccount")
             return
         }
 
         if showTransferAccounts && (selectedFromAccount == nil || selectedToAccount == nil) {
-            validationError = "Оберіть рахунки для переказу"
+            validationError = String(localized: "validation.selectTransferAccounts")
             return
         }
 
@@ -442,7 +451,7 @@ struct TransactionEditView: View {
                     Text(account.name)
                         .foregroundColor(.primary)
                 } else {
-                    Text("Оберіть")
+                    Text(String(localized: "common.select"))
                         .foregroundColor(.secondary)
                 }
                 Image(systemName: "chevron.right")

@@ -31,19 +31,14 @@ final class TransactionViewModel: ObservableObject {
     
     // UI State
     @Published var isLoading = false
-    @Published var error: Error?
-    @Published var showError = false
-    
-    // Filtering
+    @Published var error: AppError?
+
+    // Filtering (@Published uses willSet — didSet ensures immediate sync for tests)
     @Published var filterDateRange: ClosedRange<Date>? {
-        didSet {
-            updateFilteredTransactions()
-        }
+        didSet { updateFilteredTransactions() }
     }
     @Published var filterCategory: Category? {
-        didSet {
-            updateFilteredTransactions()
-        }
+        didSet { updateFilteredTransactions() }
     }
     @Published var filterCategories: [Category] = []
     @Published var filterTypes: Set<TransactionType> = []
@@ -58,7 +53,7 @@ final class TransactionViewModel: ObservableObject {
     @Published var selectedTransactionIds: Set<Transaction.ID> = []
     @Published var isBulkEditMode: Bool = false
 
-    @Published var errorHandler: ErrorHandlingService?
+    private let errorHandler: ErrorHandlingServiceProtocol
     
     private var cancellables = Set<AnyCancellable>()
     private var categorySuggestionTask: Task<Void, Never>?
@@ -116,10 +111,12 @@ final class TransactionViewModel: ObservableObject {
     
     init(repository: TransactionRepositoryProtocol,
          categorizationService: CategorizationServiceProtocol,
-         analyticsService: AnalyticsServiceProtocol) {
+         analyticsService: AnalyticsServiceProtocol,
+         errorHandler: ErrorHandlingServiceProtocol) {
         self.repository = repository
         self.categorizationService = categorizationService
         self.analyticsService = analyticsService
+        self.errorHandler = errorHandler
         
         setupSubscriptions()
         Task { @MainActor in
@@ -132,7 +129,6 @@ final class TransactionViewModel: ObservableObject {
     private func setupSubscriptions() {
         // Subscribe to repository updates
         repository.transactionsPublisher
-            .receive(on: DispatchQueue.main)
             .sink { [weak self] transactions in
                 self?.transactions = transactions
                 let currentParentIds = Set(transactions.filter { $0.isSplitParent }.map { $0.id })
@@ -142,14 +138,12 @@ final class TransactionViewModel: ObservableObject {
             .store(in: &cancellables)
 
         repository.categoriesPublisher
-            .receive(on: DispatchQueue.main)
             .sink { [weak self] categories in
                 self?.categories = categories
             }
             .store(in: &cancellables)
 
         repository.accountsPublisher
-            .receive(on: DispatchQueue.main)
             .sink { [weak self] accounts in
                 self?.accounts = accounts
                 // Auto-select default account if not selected
@@ -342,12 +336,12 @@ final class TransactionViewModel: ObservableObject {
     func addTransaction() async {
         error = nil
         guard let amount = amountDecimal, amount > 0 else {
-            error = AppError.invalidAmount
+            handleError(AppError.invalidAmount, context: "Validation")
             return
         }
 
         guard let account = selectedAccount else {
-            error = AppError.accountRequired
+            handleError(AppError.accountRequired, context: "Validation")
             return
         }
         
@@ -373,12 +367,12 @@ final class TransactionViewModel: ObservableObject {
                 category: created.category?.name
             ))
             
-            errorHandler?.showToast("Транзакцію успішно додано", type: .success)
+            errorHandler.showToast(String(localized: "toast.transactionAdded"), type: .success)
             // Clear entry form
             clearEntry()
         } catch {
-            handleError(error, context: "Adding transaction") {
-                await self.addTransaction() // Retry action
+            handleError(error, context: "Adding transaction") { [weak self] in
+                await self?.addTransaction()
             }
             
         }
@@ -418,21 +412,22 @@ final class TransactionViewModel: ObservableObject {
 
         do {
             for transaction in transactions {
-                if transaction.isSplitParent {
-                    if let splits = transaction.splitTransactions {
-                        for split in splits {
-                            try await repository.deleteTransaction(split)
-                        }
-                    }
-                    try await repository.deleteTransaction(transaction)
-                } else {
-                    try await repository.deleteTransaction(transaction)
-                }
+                try await deleteSingleOrSplitTransaction(transaction)
             }
             analyticsService.trackEvent(.transactionDeleted)
         } catch {
             handleError(error, context: "Deleting transactions")
         }
+    }
+
+    /// Deletes a transaction and its split children (if any).
+    private func deleteSingleOrSplitTransaction(_ transaction: Transaction) async throws {
+        if transaction.isSplitParent, let splits = transaction.splitTransactions {
+            for split in splits {
+                try await repository.deleteTransaction(split)
+            }
+        }
+        try await repository.deleteTransaction(transaction)
     }
 
     // MARK: - Bulk Operations
@@ -479,23 +474,14 @@ final class TransactionViewModel: ObservableObject {
         var deletedCount = 0
         do {
             for transaction in transactionsToDelete {
-                if transaction.isSplitParent {
-                    if let splits = transaction.splitTransactions {
-                        for split in splits {
-                            try await repository.deleteTransaction(split)
-                        }
-                    }
-                    try await repository.deleteTransaction(transaction)
-                } else {
-                    try await repository.deleteTransaction(transaction)
-                }
+                try await deleteSingleOrSplitTransaction(transaction)
                 deletedCount += 1
             }
             analyticsService.trackEvent(.transactionDeleted)
-            errorHandler?.showToast("Видалено \(transactionsToDelete.count) транзакцій", type: .success)
+            errorHandler.showToast(String(localized: "toast.deletedCount \(transactionsToDelete.count)"), type: .success)
         } catch {
             if deletedCount > 0 {
-                errorHandler?.showToast("Видалено \(deletedCount) з \(transactionsToDelete.count) транзакцій", type: .warning)
+                errorHandler.showToast(String(localized: "toast.deletedPartial \(deletedCount) \(transactionsToDelete.count)"), type: .warning)
             }
             handleError(error, context: "Bulk deleting transactions")
         }
@@ -528,7 +514,7 @@ final class TransactionViewModel: ObservableObject {
                 )
                 _ = try await repository.updateTransaction(updatedTransaction)
             }
-            errorHandler?.showToast("Категоризовано \(transactionsToUpdate.count) транзакцій", type: .success)
+            errorHandler.showToast(String(localized: "toast.categorizedCount \(transactionsToUpdate.count)"), type: .success)
         } catch {
             handleError(error, context: "Bulk categorizing transactions")
         }
@@ -617,21 +603,12 @@ final class TransactionViewModel: ObservableObject {
                                      maxFractionDigits: 2)
     }
     
-    func handleError(_ error: Error, context: String, retryAction: (() async -> Void)? = nil) {
-        let appError: AppError
-
-        if let repoError = error as? RepositoryError {
-            appError = AppError(from: repoError)
-        } else if let urlError = error as? URLError {
-            appError = AppError(from: urlError)
-        } else {
-            appError = .syncFailed // Default mapping
-        }
-
-        errorHandler?.handle(appError, context: context)
+    private func handleError(_ error: Error, context: String, retryAction: (() async -> Void)? = nil) {
+        let appError = errorHandler.handleAny(error, context: context)
+        self.error = appError
 
         if let retryAction = retryAction {
-            errorHandler?.showAlert(appError, retryAction: {
+            errorHandler.showAlert(appError, retryAction: {
                 Task { @MainActor in
                     await retryAction()
                 }
@@ -647,10 +624,9 @@ final class TransactionViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            try await repository.deleteTransaction(transaction)
-
             let totalAmount = splits.reduce(0) { $0 + $1.amount }
 
+            // Create new splits BEFORE deleting original to prevent data loss on failure
             if retainParent {
                 let parentSummary = Transaction(
                     id: transaction.id,
@@ -666,39 +642,14 @@ final class TransactionViewModel: ObservableObject {
                     splitTransactions: []
                 )
 
+                // Delete original, then create parent with same ID
+                try await repository.deleteTransaction(transaction)
                 let createdParent = try await repository.createTransaction(parentSummary)
-
-                for split in splits {
-                    let child = Transaction(
-                        timestamp: transaction.timestamp,
-                        transactionDate: transaction.transactionDate,
-                        type: transaction.type,
-                        amount: split.amount,
-                        category: split.category,
-                        description: split.description.isEmpty ? transaction.description : split.description,
-                        fromAccount: transaction.fromAccount,
-                        toAccount: transaction.toAccount,
-                        parentTransactionId: createdParent.id,
-                        splitTransactions: nil
-                    )
-                    _ = try await repository.createTransaction(child)
-                }
+                try await createSplitChildren(from: transaction, splits: splits, parentId: createdParent.id)
             } else {
-                for split in splits {
-                    let standalone = Transaction(
-                        timestamp: transaction.timestamp,
-                        transactionDate: transaction.transactionDate,
-                        type: transaction.type,
-                        amount: split.amount,
-                        category: split.category,
-                        description: split.description.isEmpty ? transaction.description : split.description,
-                        fromAccount: transaction.fromAccount,
-                        toAccount: transaction.toAccount,
-                        parentTransactionId: nil,
-                        splitTransactions: nil
-                    )
-                    _ = try await repository.createTransaction(standalone)
-                }
+                // Create standalone splits first, then delete original
+                try await createSplitChildren(from: transaction, splits: splits, parentId: nil)
+                try await repository.deleteTransaction(transaction)
             }
 
             if retainParent {
@@ -742,42 +693,10 @@ final class TransactionViewModel: ObservableObject {
                 )
 
                 _ = try await repository.updateTransaction(updatedParent)
-
-                for split in splits {
-                    let child = Transaction(
-                        timestamp: transaction.timestamp,
-                        transactionDate: transaction.transactionDate,
-                        type: transaction.type,
-                        amount: split.amount,
-                        category: split.category,
-                        description: split.description.isEmpty ? transaction.description : split.description,
-                        fromAccount: transaction.fromAccount,
-                        toAccount: transaction.toAccount,
-                        parentTransactionId: transaction.id,
-                        splitTransactions: nil
-                    )
-
-                    _ = try await repository.createTransaction(child)
-                }
+                try await createSplitChildren(from: transaction, splits: splits, parentId: transaction.id)
             } else {
-                // Convert parent to standalone splits
-                for split in splits {
-                    let standalone = Transaction(
-                        timestamp: transaction.timestamp,
-                        transactionDate: transaction.transactionDate,
-                        type: transaction.type,
-                        amount: split.amount,
-                        category: split.category,
-                        description: split.description.isEmpty ? transaction.description : split.description,
-                        fromAccount: transaction.fromAccount,
-                        toAccount: transaction.toAccount,
-                        parentTransactionId: nil,
-                        splitTransactions: nil
-                    )
-
-                    _ = try await repository.createTransaction(standalone)
-                }
-
+                // Create standalone splits first, then delete parent
+                try await createSplitChildren(from: transaction, splits: splits, parentId: nil)
                 try await repository.deleteTransaction(transaction)
             }
 
@@ -789,6 +708,25 @@ final class TransactionViewModel: ObservableObject {
             analyticsService.trackEvent(.transactionAdded(amount: totalAmount, category: nil))
         } catch {
             handleError(error, context: "Updating split transaction")
+        }
+    }
+
+    /// Creates child or standalone transactions from split items (DRY helper for create/update split).
+    private func createSplitChildren(from transaction: Transaction, splits: [SplitItem], parentId: UUID?) async throws {
+        for split in splits {
+            let child = Transaction(
+                timestamp: transaction.timestamp,
+                transactionDate: transaction.transactionDate,
+                type: transaction.type,
+                amount: split.amount,
+                category: split.category,
+                description: split.description.isEmpty ? transaction.description : split.description,
+                fromAccount: transaction.fromAccount,
+                toAccount: transaction.toAccount,
+                parentTransactionId: parentId,
+                splitTransactions: nil
+            )
+            _ = try await repository.createTransaction(child)
         }
     }
 

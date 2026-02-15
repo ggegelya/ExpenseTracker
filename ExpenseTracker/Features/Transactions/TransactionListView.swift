@@ -15,7 +15,6 @@ struct TransactionListView: View {
     @EnvironmentObject var viewModel: TransactionViewModel
     @State private var showFilters = false
     @State private var selectedTransaction: Transaction?
-    @State private var showTransactionDetail = false
     @State private var parentPendingDeletion: Transaction?
     @State private var didTapTransactionForTests = false
 
@@ -48,10 +47,10 @@ struct TransactionListView: View {
                     HStack {
                         Image(systemName: "line.3.horizontal.decrease.circle.fill")
                             .foregroundColor(.accentColor)
-                        Text("Активні фільтри")
+                        Text(String(localized: "filter.active"))
                             .foregroundColor(.secondary)
                         Spacer()
-                        Button("Очистити") {
+                        Button(String(localized: "common.clear")) {
                             viewModel.clearAllFilters()
                         }
                         .font(.caption)
@@ -73,17 +72,17 @@ struct TransactionListView: View {
         let calendar = Calendar.current
         if let today = DateRangeFilter.today.dateRange(),
            calendar.isDate(range.lowerBound, inSameDayAs: today.lowerBound) {
-            return DateRangeFilter.today.rawValue
+            return DateRangeFilter.today.localizedName
         }
         if let week = DateRangeFilter.thisWeek.dateRange(),
            calendar.isDate(range.lowerBound, inSameDayAs: week.lowerBound) {
-            return DateRangeFilter.thisWeek.rawValue
+            return DateRangeFilter.thisWeek.localizedName
         }
         if let month = DateRangeFilter.thisMonth.dateRange(),
            calendar.isDate(range.lowerBound, inSameDayAs: month.lowerBound) {
-            return DateRangeFilter.thisMonth.rawValue
+            return DateRangeFilter.thisMonth.localizedName
         }
-        return DateRangeFilter.custom.rawValue
+        return DateRangeFilter.custom.localizedName
     }
 
     @ViewBuilder
@@ -107,7 +106,6 @@ struct TransactionListView: View {
             if TestingConfiguration.isRunningTests && !viewModel.isBulkEditMode {
                 Button {
                     selectedTransaction = transaction
-                    showTransactionDetail = true
                     didTapTransactionForTests = true
                 } label: {
                     rowContent
@@ -120,40 +118,31 @@ struct TransactionListView: View {
                             await viewModel.deleteTransaction(transaction)
                         }
                     } label: {
-                        Label("Видалити", systemImage: "trash")
+                        Label(String(localized: "common.delete"), systemImage: "trash")
                     }
                 }
             } else {
-                rowContent
-                    .highPriorityGesture(
-                        TapGesture().onEnded {
-                            if viewModel.isBulkEditMode {
-                                viewModel.toggleTransactionSelection(transaction.id)
-                            } else {
-                                selectedTransaction = transaction
-                                showTransactionDetail = true
+                Button {
+                    if viewModel.isBulkEditMode {
+                        viewModel.toggleTransactionSelection(transaction.id)
+                    } else {
+                        selectedTransaction = transaction
+                    }
+                } label: {
+                    rowContent
+                }
+                .buttonStyle(.plain)
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    if !viewModel.isBulkEditMode {
+                        Button(role: .destructive) {
+                            Task { @MainActor in
+                                await viewModel.deleteTransaction(transaction)
                             }
-                        }
-                    )
-                    .accessibilityAction {
-                        if viewModel.isBulkEditMode {
-                            viewModel.toggleTransactionSelection(transaction.id)
-                        } else {
-                            selectedTransaction = transaction
-                            showTransactionDetail = true
+                        } label: {
+                            Label(String(localized: "common.delete"), systemImage: "trash")
                         }
                     }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        if !viewModel.isBulkEditMode {
-                            Button(role: .destructive) {
-                                Task { @MainActor in
-                                    await viewModel.deleteTransaction(transaction)
-                                }
-                            } label: {
-                                Label("Видалити", systemImage: "trash")
-                            }
-                        }
-                    }
+                }
             }
         case .parent(let transaction):
             let splits = transaction.splitTransactions ?? []
@@ -178,7 +167,7 @@ struct TransactionListView: View {
                         .lineLimit(1)
 
                     HStack(spacing: 8) {
-                        Text("\(splits.count) розділів")
+                        Text(String(localized: "split.count \(splits.count)"))
                             .font(.caption2)
                             .foregroundColor(.blue)
                             .padding(.horizontal, 6)
@@ -187,7 +176,7 @@ struct TransactionListView: View {
                             .clipShape(Capsule())
 
                         if let category = transaction.primaryCategory {
-                            Text("#\(category.name)")
+                            Text("#\(category.displayName)")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -209,9 +198,8 @@ struct TransactionListView: View {
                     if !viewModel.isBulkEditMode && !TestingConfiguration.isRunningTests {
                         Button {
                             selectedTransaction = transaction
-                            showTransactionDetail = true
                         } label: {
-                            Label("Редагувати", systemImage: "slider.horizontal.3")
+                            Label(String(localized: "common.edit"), systemImage: "slider.horizontal.3")
                                 .labelStyle(.iconOnly)
                         }
                         .buttonStyle(.plain)
@@ -235,7 +223,6 @@ struct TransactionListView: View {
             if TestingConfiguration.isRunningTests && !viewModel.isBulkEditMode {
                 Button {
                     selectedTransaction = transaction
-                    showTransactionDetail = true
                     didTapTransactionForTests = true
                 } label: {
                     parentContent
@@ -246,7 +233,7 @@ struct TransactionListView: View {
                     Button(role: .destructive) {
                         parentPendingDeletion = transaction
                     } label: {
-                        Label("Видалити", systemImage: "trash")
+                        Label(String(localized: "common.delete"), systemImage: "trash")
                     }
                 }
             } else {
@@ -265,7 +252,7 @@ struct TransactionListView: View {
                             Button(role: .destructive) {
                                 parentPendingDeletion = transaction
                             } label: {
-                                Label("Видалити", systemImage: "trash")
+                                Label(String(localized: "common.delete"), systemImage: "trash")
                             }
                         }
                     }
@@ -289,7 +276,6 @@ struct TransactionListView: View {
             if TestingConfiguration.isRunningTests && !viewModel.isBulkEditMode {
                 Button {
                     selectedTransaction = child
-                    showTransactionDetail = true
                     didTapTransactionForTests = true
                 } label: {
                     rowContent
@@ -302,40 +288,31 @@ struct TransactionListView: View {
                             await viewModel.deleteTransaction(child)
                         }
                     } label: {
-                        Label("Видалити", systemImage: "trash")
+                        Label(String(localized: "common.delete"), systemImage: "trash")
                     }
                 }
             } else {
-                rowContent
-                    .highPriorityGesture(
-                        TapGesture().onEnded {
-                            if viewModel.isBulkEditMode {
-                                viewModel.toggleTransactionSelection(child.id)
-                            } else {
-                                selectedTransaction = child
-                                showTransactionDetail = true
+                Button {
+                    if viewModel.isBulkEditMode {
+                        viewModel.toggleTransactionSelection(child.id)
+                    } else {
+                        selectedTransaction = child
+                    }
+                } label: {
+                    rowContent
+                }
+                .buttonStyle(.plain)
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    if !viewModel.isBulkEditMode {
+                        Button(role: .destructive) {
+                            Task { @MainActor in
+                                await viewModel.deleteTransaction(child)
                             }
-                        }
-                    )
-                    .accessibilityAction {
-                        if viewModel.isBulkEditMode {
-                            viewModel.toggleTransactionSelection(child.id)
-                        } else {
-                            selectedTransaction = child
-                            showTransactionDetail = true
+                        } label: {
+                            Label(String(localized: "common.delete"), systemImage: "trash")
                         }
                     }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        if !viewModel.isBulkEditMode {
-                            Button(role: .destructive) {
-                                Task { @MainActor in
-                                    await viewModel.deleteTransaction(child)
-                                }
-                            } label: {
-                                Label("Видалити", systemImage: "trash")
-                            }
-                        }
-                    }
+                }
             }
         }
     }
@@ -419,11 +396,11 @@ struct TransactionListView: View {
                         .transition(.move(edge: .bottom))
                 }
             }
-            .navigationTitle("Транзакції")
+            .navigationTitle(String(localized: "tab.transactions"))
             .navigationBarTitleDisplayMode(.inline)
             .searchable(
                 text: $viewModel.searchText,
-                prompt: "Пошук за описом, категорією"
+                prompt: String(localized: "search.transactions")
             )
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -464,23 +441,19 @@ struct TransactionListView: View {
             .sheet(isPresented: $showFilters) {
                 FilterView()
             }
-            .sheet(isPresented: $showTransactionDetail, onDismiss: {
-                selectedTransaction = nil
-            }) {
-                if let transaction = selectedTransaction {
-                    TransactionDetailView(transaction: transaction)
-                        .environmentObject(viewModel)
-                }
+            .sheet(item: $selectedTransaction) { transaction in
+                TransactionDetailView(transaction: transaction)
+                    .environmentObject(viewModel)
             }
             .overlay {
                 let shouldShowEmptyState = viewModel.filteredTransactions.isEmpty && !viewModel.isLoading
                 if shouldShowEmptyState || TestingConfiguration.shouldStartEmpty {
                     EmptyStateView(
                         icon: viewModel.hasActiveFilters ? "line.3.horizontal.decrease.circle" : "tray",
-                        title: "Транзакцій не знайдено",
+                        title: String(localized: "transaction.empty.title"),
                         subtitle: viewModel.hasActiveFilters ?
-                            "Спробуйте змінити фільтри або пошуковий запит" :
-                            "Додайте свою першу транзакцію"
+                            String(localized: "transaction.empty.filtered") :
+                            String(localized: "transaction.empty.subtitle")
                     )
                 }
             }
@@ -488,32 +461,32 @@ struct TransactionListView: View {
                 await viewModel.loadData()
             }
             .confirmationDialog(
-                "Видалити сумарну транзакцію?",
+                String(localized: "split.deleteParent.title"),
                 isPresented: Binding(
                     get: { parentPendingDeletion != nil },
                     set: { if !$0 { parentPendingDeletion = nil } }
                 ),
                 presenting: parentPendingDeletion
             ) { parent in
-                Button("Видалити сумарну та всі розділи", role: .destructive) {
+                Button(String(localized: "split.deleteParent.cascade"), role: .destructive) {
                     Task { @MainActor in
                         await viewModel.deleteSplitTransaction(parent, cascade: true)
                         parentPendingDeletion = nil
                     }
                 }
 
-                Button("Видалити лише сумарну", role: .destructive) {
+                Button(String(localized: "split.deleteParent.parentOnly"), role: .destructive) {
                     Task { @MainActor in
                         await viewModel.deleteSplitTransaction(parent, cascade: false)
                         parentPendingDeletion = nil
                     }
                 }
 
-                Button("Скасувати", role: .cancel) {
+                Button(String(localized: "common.cancel"), role: .cancel) {
                     parentPendingDeletion = nil
                 }
             } message: { parent in
-                Text("Видалення сумарної транзакції також може вплинути на пов'язані розділи. Оберіть дію.")
+                Text(String(localized: "split.deleteParent.message"))
             }
         }
     }
@@ -594,7 +567,7 @@ struct TransactionRowWithSelection: View {
 
                 HStack(spacing: 8) {
                     if let category = transaction.category {
-                        Text("#\(category.name)")
+                        Text("#\(category.displayName)")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }

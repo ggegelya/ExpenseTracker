@@ -69,23 +69,23 @@ struct SplitTransactionView: View {
 
     var validationError: String? {
         if splitItems.isEmpty {
-            return "Додайте хоча б один розділ"
+            return String(localized: "split.addAtLeastOne")
         }
 
         for (index, item) in splitItems.enumerated() {
             if item.category == nil {
-                return "Розділ \(index + 1): оберіть категорію"
+                return String(localized: "split.selectCategory \(index + 1)")
             }
             if item.amount <= 0 {
-                return "Розділ \(index + 1): сума повинна бути більше 0"
+                return String(localized: "split.amountRequired \(index + 1)")
             }
         }
 
         if !isRemainingBalanced {
             if remainingAmount > 0 {
-                return "Розподілено недостатньо: залишилось \(Formatters.currencyStringUAH(amount: remainingAmount))"
+                return "\(String(localized: "split.underAllocated")): \(Formatters.currencyStringUAH(amount: remainingAmount))"
             } else {
-                return "Розподілено забагато: перевищення на \(Formatters.currencyStringUAH(amount: abs(remainingAmount)))"
+                return "\(String(localized: "split.overAllocated")): \(Formatters.currencyStringUAH(amount: abs(remainingAmount)))"
             }
         }
 
@@ -97,11 +97,11 @@ struct SplitTransactionView: View {
             ScrollView {
                 mainContent
             }
-            .navigationTitle("Розділити транзакцію")
+            .navigationTitle(String(localized: "split.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Скасувати") {
+                    Button(String(localized: "common.cancel")) {
                         dismiss()
                     }
                     .disabled(isSaving)
@@ -117,7 +117,7 @@ struct SplitTransactionView: View {
                 )
                 .environmentObject(viewModel)
             }
-            .alert("Помилка", isPresented: $showError) {
+            .alert(String(localized: "error.title"), isPresented: $showError) {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(errorMessage)
@@ -156,7 +156,7 @@ struct SplitTransactionView: View {
 
             if shouldShowRetainParentToggle {
                 Toggle(isOn: $retainParent) {
-                    Text("Зберегти сумарну транзакцію")
+                    Text(String(localized: "split.retainParent"))
                         .font(.subheadline)
                         .fontWeight(.medium)
                 }
@@ -164,7 +164,7 @@ struct SplitTransactionView: View {
                 .toggleStyle(SwitchToggleStyle(tint: .blue))
 
                 if !retainParent {
-                    Text("Після збереження сумарна транзакція буде вилучена, а розділи залишаться окремими записами.")
+                    Text(String(localized: "split.retainParentDescription"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .padding(.horizontal)
@@ -174,7 +174,7 @@ struct SplitTransactionView: View {
             // Split Items List
             VStack(spacing: 12) {
                 HStack {
-                    Text("Розділи")
+                    Text(String(localized: "split.splits"))
                         .font(.headline)
                     Spacer()
                     Text("\(splitItems.count)")
@@ -221,7 +221,7 @@ struct SplitTransactionView: View {
                 } label: {
                     HStack {
                         Image(systemName: "plus.circle.fill")
-                        Text("Додати розділ")
+                        Text(String(localized: "split.addSplit"))
                             .fontWeight(.medium)
                     }
                     .frame(maxWidth: .infinity)
@@ -260,7 +260,7 @@ struct SplitTransactionView: View {
     private var originalTransactionCard: some View {
         VStack(spacing: 16) {
             HStack {
-                Text("Оригінальна транзакція")
+                Text(String(localized: "split.originalTransaction"))
                     .font(.headline)
                 Spacer()
             }
@@ -273,7 +273,7 @@ struct SplitTransactionView: View {
                             .fontWeight(.medium)
 
                         if let category = originalTransaction.category {
-                            Text("#\(category.name)")
+                            Text("#\(category.displayName)")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -302,12 +302,12 @@ struct SplitTransactionView: View {
     private var splitAllocationView: some View {
         VStack(spacing: 12) {
             HStack {
-                Text("Розподіл")
+                Text(String(localized: "split.allocation"))
                     .font(.headline)
                 Spacer()
 
                 HStack(spacing: 4) {
-                    Text("Залишок:")
+                    Text(String(localized: "split.remaining"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Text(formatAmount(remainingAmount))
@@ -352,7 +352,7 @@ struct SplitTransactionView: View {
                             Circle()
                                 .fill(Color(hex: split.category.colorHex))
                                 .frame(width: 8, height: 8)
-                            Text(split.category.name)
+                            Text(split.category.displayName)
                                 .font(.caption2)
                             Text(split.item.formattedAmount)
                                 .font(.caption2)
@@ -384,7 +384,7 @@ struct SplitTransactionView: View {
                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     } else {
                         Image(systemName: "checkmark.circle.fill")
-                        Text("Зберегти розділ")
+                        Text(String(localized: "split.save"))
                             .fontWeight(.semibold)
                     }
                 }
@@ -423,7 +423,7 @@ struct SplitTransactionView: View {
 
     private func saveSplit() {
         guard isValid else {
-            errorMessage = validationError ?? "Некоректні дані"
+            errorMessage = validationError ?? String(localized: "error.invalidData")
             showError = true
             return
         }
@@ -490,7 +490,7 @@ private struct SplitCategoryPickerSheet: View {
                                 .background(Color(hex: category.colorHex).opacity(0.2))
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
 
-                            Text(category.name.capitalized)
+                            Text(category.displayName)
                                 .foregroundColor(.primary)
 
                             Spacer()
@@ -504,12 +504,12 @@ private struct SplitCategoryPickerSheet: View {
                     .accessibilityIdentifier("Category_\(category.name)")
                 }
             }
-            .navigationTitle("Оберіть категорію")
+            .navigationTitle(String(localized: "common.selectCategory"))
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $searchText, prompt: "Пошук категорій")
+            .searchable(text: $searchText, prompt: String(localized: "search.categories"))
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Закрити") {
+                    Button(String(localized: "common.close")) {
                         dismiss()
                     }
                 }

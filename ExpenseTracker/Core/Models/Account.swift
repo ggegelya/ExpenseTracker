@@ -19,10 +19,10 @@ enum AccountType: String, Codable, CaseIterable, Identifiable {
 
     var localizedName: String {
         switch self {
-        case .cash: return "Готівка"
-        case .card: return "Картка"
-        case .savings: return "Накопичення"
-        case .investment: return "Інвестиції"
+        case .cash: return String(localized: "accountType.cash")
+        case .card: return String(localized: "accountType.card")
+        case .savings: return String(localized: "accountType.savings")
+        case .investment: return String(localized: "accountType.investment")
         }
     }
 
@@ -64,9 +64,9 @@ enum Currency: String, Codable, CaseIterable, Identifiable {
 
     var localizedName: String {
         switch self {
-        case .uah: return "Гривня (₴)"
-        case .usd: return "Долар ($)"
-        case .eur: return "Євро (€)"
+        case .uah: return String(localized: "currency.uah")
+        case .usd: return String(localized: "currency.usd")
+        case .eur: return String(localized: "currency.eur")
         }
     }
 }
@@ -94,7 +94,7 @@ struct Account: Codable, Hashable, Identifiable {
         self.lastTransactionDate = lastTransactionDate
     }
 
-    static let defaultAccount = Account(id: UUID(), name: "Основна картка", tag: "#main", balance: 0, isDefault: true, accountType: .card, currency: .uah)
+    static let defaultAccount = Account(id: UUID(), name: "default_card", tag: "#main", balance: 0, isDefault: true, accountType: .card, currency: .uah)
 }
 
 // MARK: - Account Validation
@@ -110,15 +110,15 @@ extension Account {
         var errorDescription: String? {
             switch self {
             case .emptyName:
-                return "Введіть назву рахунку"
+                return String(localized: "validation.account.emptyName")
             case .nameTooLong:
-                return "Назва занадто довга (макс. 50 символів)"
+                return String(localized: "validation.account.nameTooLong")
             case .emptyTag:
-                return "Введіть тег рахунку"
+                return String(localized: "validation.account.emptyTag")
             case .invalidTagFormat:
-                return "Тег має починатися з #"
+                return String(localized: "validation.account.invalidTagFormat")
             case .duplicateTag:
-                return "Рахунок з таким тегом вже існує"
+                return String(localized: "validation.account.duplicateTag")
             }
         }
     }

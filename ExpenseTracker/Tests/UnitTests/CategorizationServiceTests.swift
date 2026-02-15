@@ -23,63 +23,63 @@ struct CategorizationServiceTests {
 
     // MARK: - Ukrainian Merchant Tests
 
-    @Test("Suggest category for Silpo returns продукти with high confidence")
+    @Test("Suggest category for Silpo returns groceries with high confidence")
     func suggestCategoryForSilpo() async throws {
         // When
         let result = await sut.suggestCategory(for: "Purchase at Silpo", merchantName: "Silpo")
 
         // Then
-        #expect(result.category?.name == "продукти")
+        #expect(result.category?.name == "groceries")
         #expect(result.confidence == 0.85)
     }
 
-    @Test("Suggest category for ATB returns продукти with high confidence")
+    @Test("Suggest category for ATB returns groceries with high confidence")
     func suggestCategoryForATB() async throws {
         // When
         let result = await sut.suggestCategory(for: "ATB market", merchantName: "ATB")
 
         // Then
-        #expect(result.category?.name == "продукти")
+        #expect(result.category?.name == "groceries")
         #expect(result.confidence == 0.85)
     }
 
-    @Test("Suggest category for Uber returns таксі with high confidence")
+    @Test("Suggest category for Uber returns taxi with high confidence")
     func suggestCategoryForUber() async throws {
         // When
         let result = await sut.suggestCategory(for: "Ride with Uber", merchantName: "Uber")
 
         // Then
-        #expect(result.category?.name == "таксі")
+        #expect(result.category?.name == "taxi")
         #expect(result.confidence == 0.85)
     }
 
-    @Test("Suggest category for Bolt returns таксі with high confidence")
+    @Test("Suggest category for Bolt returns taxi with high confidence")
     func suggestCategoryForBolt() async throws {
         // When
         let result = await sut.suggestCategory(for: "Bolt ride", merchantName: "Bolt")
 
         // Then
-        #expect(result.category?.name == "таксі")
+        #expect(result.category?.name == "taxi")
         #expect(result.confidence == 0.85)
     }
 
-    @Test("Suggest category for Netflix returns підписки with high confidence")
+    @Test("Suggest category for Netflix returns subscriptions with high confidence")
     func suggestCategoryForNetflix() async throws {
         // When
         let result = await sut.suggestCategory(for: "Netflix subscription", merchantName: "Netflix")
 
         // Then
-        #expect(result.category?.name == "підписки")
+        #expect(result.category?.name == "subscriptions")
         #expect(result.confidence == 0.85)
     }
 
-    @Test("Suggest category for unknown merchant returns інше with low confidence")
+    @Test("Suggest category for unknown merchant returns other with low confidence")
     func suggestCategoryForUnknownMerchant() async throws {
         // When
         let result = await sut.suggestCategory(for: "Unknown store", merchantName: "Unknown Store")
 
         // Then
-        #expect(result.category?.name == "інше")
+        #expect(result.category?.name == "other")
         #expect(result.confidence == 0.3)
     }
 
@@ -91,9 +91,9 @@ struct CategorizationServiceTests {
         let mixedCaseResult = await sut.suggestCategory(for: "Purchase", merchantName: "SiLpO")
 
         // Then
-        #expect(lowercaseResult.category?.name == "продукти")
-        #expect(uppercaseResult.category?.name == "продукти")
-        #expect(mixedCaseResult.category?.name == "продукти")
+        #expect(lowercaseResult.category?.name == "groceries")
+        #expect(uppercaseResult.category?.name == "groceries")
+        #expect(mixedCaseResult.category?.name == "groceries")
     }
 
     @Test("Suggest category is case-insensitive for description")
@@ -104,9 +104,9 @@ struct CategorizationServiceTests {
         let mixedCaseResult = await sut.suggestCategory(for: "SiLpO SuperMarket", merchantName: nil)
 
         // Then
-        #expect(lowercaseResult.category?.name == "продукти")
-        #expect(uppercaseResult.category?.name == "продукти")
-        #expect(mixedCaseResult.category?.name == "продукти")
+        #expect(lowercaseResult.category?.name == "groceries")
+        #expect(uppercaseResult.category?.name == "groceries")
+        #expect(mixedCaseResult.category?.name == "groceries")
     }
 
     @Test("Suggest category matches on description when no merchant name")
@@ -115,7 +115,7 @@ struct CategorizationServiceTests {
         let result = await sut.suggestCategory(for: "Покупка в Сільпо", merchantName: nil)
 
         // Then
-        #expect(result.category?.name == "продукти")
+        #expect(result.category?.name == "groceries")
         #expect(result.confidence == 0.85)
     }
 
@@ -127,9 +127,9 @@ struct CategorizationServiceTests {
         let netflixResult = await sut.suggestCategory(for: "Subscription", merchantName: "Netflix")
 
         // Then
-        #expect(silpoResult.category?.name == "продукти")
-        #expect(uberResult.category?.name == "таксі")
-        #expect(netflixResult.category?.name == "підписки")
+        #expect(silpoResult.category?.name == "groceries")
+        #expect(uberResult.category?.name == "taxi")
+        #expect(netflixResult.category?.name == "subscriptions")
     }
 
     @Test("Multiple patterns for same category all work")
@@ -140,11 +140,11 @@ struct CategorizationServiceTests {
         let foraResult = await sut.suggestCategory(for: "Purchase", merchantName: "Fora")
         let metroResult = await sut.suggestCategory(for: "Purchase", merchantName: "Metro")
 
-        // Then - all should return продукти
-        #expect(silpoResult.category?.name == "продукти")
-        #expect(atbResult.category?.name == "продукти")
-        #expect(foraResult.category?.name == "продукти")
-        #expect(metroResult.category?.name == "продукти")
+        // Then - all should return groceries
+        #expect(silpoResult.category?.name == "groceries")
+        #expect(atbResult.category?.name == "groceries")
+        #expect(foraResult.category?.name == "groceries")
+        #expect(metroResult.category?.name == "groceries")
     }
 
     @Test("Confidence scores are within valid range (0.0-1.0)")
@@ -168,8 +168,8 @@ struct CategorizationServiceTests {
         let atbResult = await sut.suggestCategory(for: "Покупка в АТБ", merchantName: nil)
 
         // Then
-        #expect(silpoResult.category?.name == "продукти")
-        #expect(atbResult.category?.name == "продукти")
+        #expect(silpoResult.category?.name == "groceries")
+        #expect(atbResult.category?.name == "groceries")
     }
 
     @Test("Pharmacy patterns recognized correctly")
@@ -179,8 +179,8 @@ struct CategorizationServiceTests {
         let apteka2 = await sut.suggestCategory(for: "Pharmacy purchase", merchantName: nil)
 
         // Then
-        #expect(apteka1.category?.name == "аптека")
-        #expect(apteka2.category?.name == "аптека")
+        #expect(apteka1.category?.name == "pharmacy")
+        #expect(apteka2.category?.name == "pharmacy")
     }
 
     @Test("Cafe and restaurant patterns recognized")
@@ -191,9 +191,9 @@ struct CategorizationServiceTests {
         let kfcResult = await sut.suggestCategory(for: "Dinner", merchantName: "KFC")
 
         // Then
-        #expect(aromaResult.category?.name == "кафе")
-        #expect(mcdonaldsResult.category?.name == "кафе")
-        #expect(kfcResult.category?.name == "кафе")
+        #expect(aromaResult.category?.name == "cafe")
+        #expect(mcdonaldsResult.category?.name == "cafe")
+        #expect(kfcResult.category?.name == "cafe")
     }
 
     @Test("Utilities patterns recognized for Ukrainian providers")
@@ -204,9 +204,9 @@ struct CategorizationServiceTests {
         let vodafoneResult = await sut.suggestCategory(for: "Mobile payment", merchantName: "Vodafone")
 
         // Then
-        #expect(kyivenergoResult.category?.name == "комуналка")
-        #expect(kyivstarResult.category?.name == "комуналка")
-        #expect(vodafoneResult.category?.name == "комуналка")
+        #expect(kyivenergoResult.category?.name == "utilities")
+        #expect(kyivstarResult.category?.name == "utilities")
+        #expect(vodafoneResult.category?.name == "utilities")
     }
 
     // MARK: - Learning Tests
@@ -253,7 +253,7 @@ struct CategorizationServiceTests {
         let result = await sut.suggestCategory(for: "", merchantName: nil)
 
         // Then
-        #expect(result.category?.name == "інше")
+        #expect(result.category?.name == "other")
         #expect(result.confidence == 0.3)
     }
 
@@ -266,7 +266,7 @@ struct CategorizationServiceTests {
         )
 
         // Then
-        #expect(result.category?.name == "продукти")
+        #expect(result.category?.name == "groceries")
     }
 
     @Test("Merchant name takes priority over description")
@@ -278,7 +278,7 @@ struct CategorizationServiceTests {
         )
 
         // Then - should match Silpo (groceries) not taxi
-        #expect(result.category?.name == "продукти")
+        #expect(result.category?.name == "groceries")
     }
 
     @Test("Returns nil category when categories not available")

@@ -16,7 +16,7 @@ struct MonthOverviewCard: View {
             // Header
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Огляд місяця")
+                    Text(String(localized: "analytics.monthOverview"))
                         .font(.headline)
                     Text(dateRangeText)
                         .font(.caption)
@@ -37,7 +37,7 @@ struct MonthOverviewCard: View {
             HStack(spacing: 12) {
                 // Expenses
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Витрати")
+                    Text(String(localized: "analytics.expenses"))
                         .font(.caption)
                         .foregroundColor(.secondary)
 
@@ -61,7 +61,7 @@ struct MonthOverviewCard: View {
 
                 // Income
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Доходи")
+                    Text(String(localized: "analytics.income"))
                         .font(.caption)
                         .foregroundColor(.secondary)
 
@@ -87,7 +87,7 @@ struct MonthOverviewCard: View {
             // Balance
             VStack(spacing: 8) {
                 HStack {
-                    Text("Баланс")
+                    Text(String(localized: "analytics.balance"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Spacer()
@@ -129,7 +129,7 @@ struct MonthOverviewCard: View {
                         Circle()
                             .fill(Color.red.opacity(0.7))
                             .frame(width: 8, height: 8)
-                        Text("Витрати")
+                        Text(String(localized: "analytics.expenses"))
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
@@ -138,7 +138,7 @@ struct MonthOverviewCard: View {
                         Circle()
                             .fill(Color.green.opacity(0.3))
                             .frame(width: 8, height: 8)
-                        Text("Доходи")
+                        Text(String(localized: "analytics.income"))
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
@@ -215,56 +215,56 @@ struct MonthlyBreakdownSheet: View {
             List {
                 Section {
                     StatRow(
-                        title: "Загальні витрати",
+                        title: String(localized: "analytics.totalExpenses"),
                         value: viewModel.formatAmount(viewModel.currentMonthExpenses),
                         color: .red
                     )
                     StatRow(
-                        title: "Загальні доходи",
+                        title: String(localized: "analytics.totalIncome"),
                         value: viewModel.formatAmount(viewModel.currentMonthIncome),
                         color: .green
                     )
                     StatRow(
-                        title: "Баланс",
+                        title: String(localized: "analytics.balance"),
                         value: viewModel.formatAmount(viewModel.currentMonthIncome - viewModel.currentMonthExpenses),
                         color: (viewModel.currentMonthIncome - viewModel.currentMonthExpenses) >= 0 ? .green : .red
                     )
                 } header: {
-                    Text("Підсумки")
+                    Text(String(localized: "analytics.summary"))
                 }
 
                 if viewModel.selectedDateRange == .currentMonth {
                     Section {
                         StatRow(
-                            title: "Витрати минулого місяця",
+                            title: String(localized: "analytics.previousExpenses"),
                             value: viewModel.formatAmount(viewModel.monthComparison.previousExpenses),
                             color: .secondary
                         )
                         StatRow(
-                            title: "Доходи минулого місяця",
+                            title: String(localized: "analytics.previousIncome"),
                             value: viewModel.formatAmount(viewModel.monthComparison.previousIncome),
                             color: .secondary
                         )
                     } header: {
-                        Text("Порівняння")
+                        Text(String(localized: "analytics.comparison"))
                     }
                 }
 
                 Section {
                     StatRow(
-                        title: "Середні витрати на день",
+                        title: String(localized: "analytics.averageDailySpending"),
                         value: viewModel.formatAmount(viewModel.averageDailySpending),
                         color: .orange
                     )
                 } header: {
-                    Text("Статистика")
+                    Text(String(localized: "analytics.statistics"))
                 }
             }
-            .navigationTitle("Детальний огляд")
+            .navigationTitle(String(localized: "analytics.detailedOverview"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Закрити") {
+                    Button(String(localized: "common.close")) {
                         dismiss()
                     }
                 }
