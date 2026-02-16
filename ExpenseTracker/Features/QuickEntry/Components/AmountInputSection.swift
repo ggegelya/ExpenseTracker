@@ -130,7 +130,7 @@ struct AmountInputSection: View {
                         HStack(spacing: 4) {
                             Image(systemName: "creditcard")
                                 .font(.system(size: 10))
-                            Text(account.name)
+                            Text(account.displayName)
                                 .font(.system(size: 13, weight: .medium))
                                 .lineLimit(1)
                         }

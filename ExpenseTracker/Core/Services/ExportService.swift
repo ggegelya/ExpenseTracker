@@ -50,12 +50,19 @@ final class ExportService: ExportServiceProtocol {
             let amount = escapeCSVField("\(transaction.amount)")
             let category = escapeCSVField(transaction.category?.displayName ?? "")
             let description = escapeCSVField(transaction.description)
-            let account = escapeCSVField(transaction.fromAccount?.name ?? transaction.toAccount?.name ?? "")
+            let account = escapeCSVField(transaction.fromAccount?.displayName ?? transaction.toAccount?.displayName ?? "")
 
             csvText += "\(date),\(type),\(amount),\(category),\(description),\(account)\n"
         }
 
         try csvText.write(to: fileURL, atomically: true, encoding: .utf8)
+
+        // Apply file protection so the file is encrypted when device is locked
+        try (fileURL as NSURL).setResourceValue(
+            URLFileProtection.complete,
+            forKey: .fileProtectionKey
+        )
+
         return fileURL
     }
 
@@ -76,12 +83,16 @@ final class ExportService: ExportServiceProtocol {
         let fileManager = FileManager.default
         guard let files = try? fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.creationDateKey]) else { return }
 
-        let oneHourAgo = Date().addingTimeInterval(-3600)
+        let fiveMinutesAgo = Date().addingTimeInterval(-300)
         for file in files {
             guard let attributes = try? file.resourceValues(forKeys: [.creationDateKey]),
                   let creationDate = attributes.creationDate,
-                  creationDate < oneHourAgo else { continue }
-            try? fileManager.removeItem(at: file)
+                  creationDate < fiveMinutesAgo else { continue }
+            do {
+                try fileManager.removeItem(at: file)
+            } catch {
+                exportLogger.warning("Failed to clean up export file \(file.lastPathComponent): \(error.localizedDescription)")
+            }
         }
     }
 }

@@ -183,7 +183,7 @@ struct AccountsView: View {
                 }
             } message: {
                 if let account = accountToDelete {
-                    Text(String(localized: "account.deleteConfirm.message \(account.name)"))
+                    Text(String(localized: "account.deleteConfirm.message \(account.displayName)"))
                 }
             }
         }

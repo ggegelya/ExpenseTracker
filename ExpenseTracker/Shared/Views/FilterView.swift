@@ -219,7 +219,7 @@ struct FilterView: View {
                             } label: {
                                 HStack {
                                     VStack(alignment: .leading) {
-                                        Text(account.name)
+                                        Text(account.displayName)
                                             .foregroundColor(.primary)
                                         Text(account.tag)
                                             .font(.caption)

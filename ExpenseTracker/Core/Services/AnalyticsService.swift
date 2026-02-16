@@ -32,8 +32,14 @@ final class AnalyticsService: AnalyticsServiceProtocol {
     }
 
     func trackError(_ error: Error, context: String?) {
-        // In production, send to error tracking service
+        #if DEBUG
+        // Full error details in debug builds only
         analyticsLogger.error("Error: \(error.localizedDescription) — Context: \(context ?? "none")")
+        #else
+        // In release builds, log only error type + context (no user data in localizedDescription)
+        let errorType = String(describing: type(of: error))
+        analyticsLogger.error("Error type: \(errorType) — Context: \(context ?? "none")")
+        #endif
     }
 
     // MARK: - Business Analytics

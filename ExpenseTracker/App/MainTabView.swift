@@ -52,6 +52,7 @@ struct MainTabView: View {
     @State private var selectedTab: AppTab = TestingConfiguration.isRunningTests ? .transactions : .quickEntry
     @State private var showQuickEntrySheet = false
     @EnvironmentObject var pendingViewModel: PendingTransactionsViewModel
+    @EnvironmentObject var errorService: ErrorHandlingService
     @Environment(\.scenePhase) private var scenePhase
 
     @ViewBuilder
@@ -113,6 +114,47 @@ struct MainTabView: View {
         .tint(.blue)
         .onChange(of: scenePhase) { _, scenePhase in
             handleScenePhaseChange(scenePhase)
+        }
+        .overlay(alignment: .top) {
+            Group {
+                if let toast = errorService.currentToast {
+                    ToastView(toast: toast) {
+                        errorService.dismissToast()
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(1)
+                }
+            }
+            .animation(.easeInOut, value: errorService.currentToast)
+        }
+        .alert(
+            errorService.currentMessage?.title ?? "",
+            isPresented: Binding(
+                get: { errorService.currentMessage != nil },
+                set: { if !$0 { errorService.dismissAlert() } }
+            )
+        ) {
+            if let message = errorService.currentMessage {
+                Button(String(localized: "common.close"), role: .cancel) {
+                    errorService.dismissAlert()
+                }
+                if message.isRetryable, let retryAction = message.retryAction {
+                    Button(String(localized: "common.retry")) {
+                        retryAction()
+                    }
+                }
+            }
+        } message: {
+            if let message = errorService.currentMessage {
+                VStack {
+                    Text(message.message)
+                    if let suggestion = message.recoverySuggestion {
+                        Text(suggestion)
+                    }
+                }
+            }
         }
         .overlay(alignment: .bottomTrailing) {
             if TestingConfiguration.isRunningTests {

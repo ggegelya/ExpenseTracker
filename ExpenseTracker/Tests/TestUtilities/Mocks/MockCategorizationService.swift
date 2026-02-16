@@ -174,6 +174,10 @@ final class MockCategorizationService: CategorizationServiceProtocol {
         }
     }
 
+    func invalidateCategoryCache() {
+        // No-op for mock
+    }
+
     // MARK: - Test Convenience Methods
 
     /// Returns whether suggestCategory was called

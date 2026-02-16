@@ -26,7 +26,7 @@ struct AccountPickerSheet: View {
                 } label: {
                     HStack {
                         VStack(alignment: .leading) {
-                            Text(account.name)
+                            Text(account.displayName)
                                 .font(.headline)
                             Text(account.formattedBalance())
                                 .font(.caption)

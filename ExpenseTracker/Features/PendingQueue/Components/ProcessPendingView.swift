@@ -131,7 +131,7 @@ struct ProcessPendingView: View {
                 PendingDetailRow(
                     icon: "creditcard",
                     label: String(localized: "common.account"),
-                    value: pending.account.name
+                    value: pending.account.displayName
                 )
 
                 PendingDetailRow(

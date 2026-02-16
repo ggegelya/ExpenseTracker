@@ -40,6 +40,9 @@ final class DependencyContainer: DependencyContainerProtocol {
     let exportService: ExportServiceProtocol
     let errorHandlingService: ErrorHandlingServiceProtocol
 
+    /// Concrete ErrorHandlingService instance for SwiftUI environmentObject injection.
+    let errorHandlingServiceInstance: ErrorHandlingService
+
     /// Task that completes when initial data setup is finished.
     private(set) var setupTask: Task<Void, Never>?
 
@@ -62,20 +65,27 @@ final class DependencyContainer: DependencyContainerProtocol {
 
         self.exportService = ExportService()
 
-        self.errorHandlingService = ErrorHandlingService(
+        let errorService = ErrorHandlingService(
             analyticsService: analyticsService
         )
+        self.errorHandlingService = errorService
+        self.errorHandlingServiceInstance = errorService
 
         // Setup initial data — store the task so callers can await it
+        let seeder = DataSeeder(repository: transactionRepository)
         if environment != .testing {
             setupTask = Task {
-                await setupInitialDataIfNeeded()
+                let migrationService = CategoryMigrationService(repository: transactionRepository)
+                await migrationService.migrateIfNeeded()
+                await seeder.setupInitialDataIfNeeded()
+                // Invalidate category cache after migration may have renamed categories
+                categorizationService.invalidateCategoryCache()
             }
         } else if TestingConfiguration.isRunningTests {
             setupTask = Task {
-                await setupInitialDataIfNeeded()
+                await seeder.setupInitialDataIfNeeded()
                 if !TestingConfiguration.shouldStartEmpty {
-                    await setupPreviewData()
+                    await seeder.setupPreviewData()
                 }
             }
         }
@@ -130,207 +140,6 @@ final class DependencyContainer: DependencyContainerProtocol {
         // await bankingService.disconnect()
     }
     
-    // MARK: - Setup Methods
-    
-    private func setupInitialDataIfNeeded() async {
-        do {
-            // Check if we have any accounts
-            let accounts = try await transactionRepository.getAllAccounts()
-            if accounts.isEmpty {
-                // Create default account
-                let defaultAccount = Account(
-                    id: UUID(),
-                    name: "default_card",
-                    tag: "#main",
-                    balance: 0,
-                    isDefault: true
-                )
-                _ = try await transactionRepository.createAccount(defaultAccount)
-            }
-            
-            // Check if we have categories
-            let categories = try await transactionRepository.getAllCategories()
-            if categories.isEmpty {
-                for category in Category.defaults {
-                    _ = try await transactionRepository.createCategory(category)
-                }
-            }
-        } catch {
-            containerLogger.error("Failed to setup initial data: \(error.localizedDescription)")
-        }
-    }
-    
-    private func setupPreviewData() async {
-        do {
-            if TestingConfiguration.isRunningTests || TestingConfiguration.shouldUseMockData {
-                let mainAccount = Account(id: UUID(), name: "Монобанк", tag: "#mono", balance: 15000, isDefault: true)
-                let savingsAccount = Account(id: UUID(), name: "Заощадження", tag: "#savings", balance: 50000, isDefault: false)
-
-                _ = try await transactionRepository.createAccount(mainAccount)
-                _ = try await transactionRepository.createAccount(savingsAccount)
-
-                let categories = try await transactionRepository.getAllCategories()
-                let groceries = categories.first { $0.name == "groceries" }
-                let transport = categories.first { $0.name == "transport" }
-                let cafe = categories.first { $0.name == "cafe" }
-
-                let calendar = Calendar.current
-                let now = Date()
-
-                let transactions: [Transaction] = [
-                    Transaction(
-                        transactionDate: now,
-                        type: .expense,
-                        amount: 250,
-                        category: groceries,
-                        description: "Сільпо",
-                        fromAccount: mainAccount,
-                        toAccount: nil
-                    ),
-                    Transaction(
-                        transactionDate: calendar.date(byAdding: .day, value: -1, to: now) ?? now,
-                        type: .expense,
-                        amount: 80,
-                        category: transport,
-                        description: "Метро",
-                        fromAccount: mainAccount,
-                        toAccount: nil
-                    ),
-                    Transaction(
-                        transactionDate: calendar.date(byAdding: .day, value: -2, to: now) ?? now,
-                        type: .expense,
-                        amount: 120,
-                        category: cafe,
-                        description: "Aroma Kava",
-                        fromAccount: mainAccount,
-                        toAccount: nil
-                    ),
-                    Transaction(
-                        transactionDate: calendar.date(byAdding: .day, value: -3, to: now) ?? now,
-                        type: .income,
-                        amount: 2000,
-                        category: nil,
-                        description: "Зарплата",
-                        fromAccount: nil,
-                        toAccount: mainAccount
-                    )
-                ]
-
-                for transaction in transactions {
-                    _ = try await transactionRepository.createTransaction(transaction)
-                }
-
-                let pending = PendingTransaction(
-                    id: UUID(),
-                    bankTransactionId: "MONO000001",
-                    amount: 150,
-                    descriptionText: "Термінал Сільпо",
-                    merchantName: "SILPO MARKET",
-                    transactionDate: now,
-                    type: .expense,
-                    account: mainAccount,
-                    suggestedCategory: groceries,
-                    confidence: 0.85,
-                    importedAt: now,
-                    status: .pending
-                )
-                _ = try await transactionRepository.createPendingTransaction(pending)
-                return
-            }
-
-            // Create accounts
-            let mainAccount = Account(id: UUID(), name: "Монобанк", tag: "#mono", balance: 15000, isDefault: true)
-            let savingsAccount = Account(id: UUID(), name: "Заощадження", tag: "#savings", balance: 50000, isDefault: false)
-            
-            _ = try await transactionRepository.createAccount(mainAccount)
-            _ = try await transactionRepository.createAccount(savingsAccount)
-            
-            // Get categories
-            let categories = try await transactionRepository.getAllCategories()
-            
-            // Create sample transactions
-            let calendar = Calendar.current
-            let now = Date()
-            
-            // Sample transactions for the last 30 days
-            for dayOffset in 0..<30 {
-                guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: now) else { continue }
-                
-                // Random 0-3 transactions per day
-                let transactionCount = Int.random(in: 0...3)
-                
-                for _ in 0..<transactionCount {
-                    let isExpense = Double.random(in: 0...1) > 0.2 // 80% expenses
-                    let category = categories.randomElement()
-                    let amount = Decimal(Double.random(in: 20...500))
-                    
-                    let transaction = Transaction(
-                        transactionDate: date,
-                        type: isExpense ? .expense : .income,
-                        amount: amount,
-                        category: category,
-                        description: generateSampleDescription(for: category, isExpense: isExpense),
-                        fromAccount: isExpense ? mainAccount : nil,
-                        toAccount: isExpense ? nil : mainAccount
-                    )
-                    
-                    _ = try await transactionRepository.createTransaction(transaction)
-                }
-            }
-            
-            // Create pending transactions (banking queue)
-            for i in 0..<5 {
-                let pending = PendingTransaction(
-                    id: UUID(),
-                    bankTransactionId: "MONO\(String(format: "%06d", i))",
-                    amount: Decimal(Double.random(in: 50...300)),
-                    descriptionText: "Термінал Сільпо",
-                    merchantName: "SILPO MARKET",
-                    transactionDate: calendar.date(byAdding: .day, value: -i, to: now) ?? now,
-                    type: .expense,
-                    account: mainAccount,
-                    suggestedCategory: categories.first { $0.name == "groceries" },
-                    confidence: 0.85,
-                    importedAt: Date(),
-                    status: .pending
-                )
-                
-                _ = try await transactionRepository.createPendingTransaction(pending)
-            }
-            
-        } catch {
-            containerLogger.error("Failed to setup preview data: \(error.localizedDescription)")
-        }
-    }
-    
-    private func generateSampleDescription(for category: Category?, isExpense: Bool) -> String {
-        guard let category = category else { return "Other" }
-        
-        let descriptions: [String: [String]] = [
-            "groceries": ["Сільпо", "АТБ", "Фора", "Метро", "Novus"],
-            "taxi": ["Uber", "Bolt", "Uklon"],
-            "subscriptions": ["Netflix", "Spotify", "Apple Music", "YouTube Premium"],
-            "utilities": ["Київводоканал", "Київенерго", "Київгаз"],
-            "pharmacy": ["Аптека Доброго Дня", "Аптека 911"],
-            "cafe": ["Aroma Kava", "Starbucks", "One Love"],
-            "clothing": ["Zara", "H&M", "Reserved", "Bershka"],
-            "entertainment": ["Кінотеатр", "Боулінг", "Концерт"],
-            "transport": ["Метро", "Маршрутка", "Автобус"],
-            "gifts": ["Подарунок", "Сувенір"],
-            "education": ["Курси", "Книги"],
-            "sports": ["Спортзал", "Басейн", "Йога"],
-            "beauty": ["Перукарня", "Манікюр", "SPA"],
-            "electronics": ["Rozetka", "Фокстрот", "Comfy"]
-        ]
-        
-        if !isExpense {
-            let incomeDescriptions = ["Salary", "Freelance", "Cashback"]
-            return incomeDescriptions.randomElement() ?? "Income"
-        }
-
-        let categoryDescriptions = descriptions[category.name] ?? ["Payment"]
-        return categoryDescriptions.randomElement() ?? "Expense"
-    }
 }
 
 extension DependencyContainer {

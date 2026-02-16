@@ -448,7 +448,7 @@ struct TransactionEditView: View {
                 Text(title)
                 Spacer()
                 if let account = selected.wrappedValue {
-                    Text(account.name)
+                    Text(account.displayName)
                         .foregroundColor(.primary)
                 } else {
                     Text(String(localized: "common.select"))

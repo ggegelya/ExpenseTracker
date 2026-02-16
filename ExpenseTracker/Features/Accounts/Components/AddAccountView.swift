@@ -234,8 +234,7 @@ struct AddAccountView: View {
             try Account.validate(
                 name: name,
                 tag: tag,
-                existingTags: existingTags,
-                excludeAccountId: accountToEdit?.id
+                existingTags: existingTags
             )
         } catch {
             validationError = error.localizedDescription

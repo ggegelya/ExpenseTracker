@@ -559,8 +559,81 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
         }
     }
     
+    // MARK: - Atomic Transaction Operations
+
+    func performAtomicTransactionOperations(
+        delete: [Transaction],
+        update: [Transaction],
+        create: [Transaction]
+    ) async throws {
+        try await performBackgroundTask { [weak self] context in
+            guard let self = self else { throw RepositoryError.contextUnavailable }
+
+            // 1. Delete
+            // Build a set of IDs being deleted to avoid double balance reversal
+            // when both parent and children are in the delete array
+            let deleteIds = Set(delete.map { $0.id })
+
+            for transaction in delete {
+                let request: NSFetchRequest<TransactionEntity> = TransactionEntity.fetchRequest()
+                request.predicate = NSPredicate(format: "id == %@", transaction.id as CVarArg)
+                request.fetchLimit = 1
+
+                guard let entity = try context.fetch(request).first else {
+                    throw RepositoryError.entityNotFound
+                }
+
+                // Delete children first if split parent
+                if let children = entity.splitTransactions as? Set<TransactionEntity>, !children.isEmpty {
+                    for child in children {
+                        // Only reverse balance if child is not also in the delete array
+                        // (avoids double reversal when caller includes both parent and children)
+                        if let childId = child.id, !deleteIds.contains(childId) {
+                            try self.updateAccountBalances(for: child, isReversal: true, in: context)
+                        }
+                        context.delete(child)
+                    }
+                }
+
+                try self.updateAccountBalances(for: entity, isReversal: true, in: context)
+                context.delete(entity)
+            }
+
+            // 2. Update
+            for transaction in update {
+                let request: NSFetchRequest<TransactionEntity> = TransactionEntity.fetchRequest()
+                request.predicate = NSPredicate(format: "id == %@", transaction.id as CVarArg)
+                request.fetchLimit = 1
+
+                guard let entity = try context.fetch(request).first else {
+                    throw RepositoryError.entityNotFound
+                }
+
+                try self.updateAccountBalances(for: entity, isReversal: true, in: context)
+                try self.updateEntity(entity, from: transaction, in: context)
+                try self.updateAccountBalances(for: entity, isReversal: false, in: context)
+            }
+
+            // 3. Create
+            for transaction in create {
+                let entity = TransactionEntity(context: context)
+                try self.updateEntity(entity, from: transaction, in: context)
+                try self.updateAccountBalances(for: entity, isReversal: false, in: context)
+            }
+
+            // Single atomic save — rolls back on failure
+            do {
+                try context.save()
+            } catch {
+                context.rollback()
+                throw error
+            }
+        }
+        await refreshPublishersIfNeeded()
+    }
+
     // MARK: - Batch Operations
-    
+
     func performBatch(_ operation: @escaping @Sendable (NSManagedObjectContext) throws -> Void) async throws {
         try await performBackgroundTask { context in
             do {

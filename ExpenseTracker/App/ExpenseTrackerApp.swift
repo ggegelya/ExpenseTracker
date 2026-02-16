@@ -63,6 +63,7 @@ struct ExpenseTrackerApp: App {
                 .environmentObject(transactionViewModel)
                 .environmentObject(accountsViewModel)
                 .environmentObject(pendingViewModel)
+                .environmentObject(container.errorHandlingServiceInstance)
         }
     }
     
@@ -110,5 +111,6 @@ struct ExpenseTrackerApp: App {
         .environmentObject(previewContainer.makeTransactionViewModel())
         .environmentObject(previewContainer.makeAccountsViewModel())
         .environmentObject(previewContainer.makePendingTransactionsViewModel())
+        .environmentObject(previewContainer.errorHandlingServiceInstance)
         .environment(\.managedObjectContext, previewContainer.persistenceController.container.viewContext)
 }

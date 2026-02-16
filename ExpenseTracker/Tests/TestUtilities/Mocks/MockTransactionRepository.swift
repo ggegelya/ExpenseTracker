@@ -408,6 +408,38 @@ final class MockTransactionRepository: TransactionRepositoryProtocol {
         return categories
     }
 
+    // MARK: - Atomic Transaction Operations
+
+    func performAtomicTransactionOperations(
+        delete: [Transaction],
+        update: [Transaction],
+        create: [Transaction]
+    ) async throws {
+        recordCall(#function, parameters: [
+            "deleteCount": delete.count,
+            "updateCount": update.count,
+            "createCount": create.count
+        ])
+        try checkForError(method: #function)
+
+        // Apply deletes
+        for transaction in delete {
+            transactions.removeAll { $0.id == transaction.id }
+        }
+
+        // Apply updates
+        for transaction in update {
+            if let index = transactions.firstIndex(where: { $0.id == transaction.id }) {
+                transactions[index] = transaction
+            }
+        }
+
+        // Apply creates
+        transactions.append(contentsOf: create)
+
+        publishChanges()
+    }
+
     // MARK: - Batch Operations
 
     func performBatch(_ operation: @escaping @Sendable (NSManagedObjectContext) throws -> Void) async throws {

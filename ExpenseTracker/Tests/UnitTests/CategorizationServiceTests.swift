@@ -6,6 +6,7 @@
 //
 
 import Testing
+import Foundation
 @testable import ExpenseTracker
 
 @MainActor
@@ -13,12 +14,15 @@ import Testing
 struct CategorizationServiceTests {
     var sut: CategorizationService
     var mockRepository: MockTransactionRepository
+    var testDefaults: UserDefaults
 
     init() async throws {
         mockRepository = MockTransactionRepository(
             categories: MockCategory.makeDefaultCategories()
         )
-        sut = CategorizationService(repository: mockRepository)
+        let suiteName = "com.expensetracker.tests.categorization.\(UUID().uuidString)"
+        testDefaults = UserDefaults(suiteName: suiteName)!
+        sut = CategorizationService(repository: mockRepository, userDefaults: testDefaults)
     }
 
     // MARK: - Ukrainian Merchant Tests
@@ -285,7 +289,8 @@ struct CategorizationServiceTests {
     func returnsNilWhenCategoriesNotAvailable() async throws {
         // Given - repository with no categories
         let emptyRepository = await MockTransactionRepository(categories: [])
-        let serviceWithEmptyRepo = CategorizationService(repository: emptyRepository)
+        let emptyDefaults = UserDefaults(suiteName: "com.expensetracker.tests.empty.\(UUID().uuidString)")!
+        let serviceWithEmptyRepo = CategorizationService(repository: emptyRepository, userDefaults: emptyDefaults)
 
         // When
         let result = await serviceWithEmptyRepo.suggestCategory(

@@ -43,6 +43,15 @@ protocol TransactionRepositoryProtocol: AnyObject {
     
     // Batch Operations
     func performBatch(_ operation: @escaping @Sendable (NSManagedObjectContext) throws -> Void) async throws
+
+    // Atomic Transaction Operations
+    /// Performs delete, update, and create operations atomically in a single save.
+    /// On any failure, all changes are rolled back.
+    func performAtomicTransactionOperations(
+        delete: [Transaction],
+        update: [Transaction],
+        create: [Transaction]
+    ) async throws
     
     // Observers
     var transactionsPublisher: AnyPublisher<[Transaction], Never> { get }

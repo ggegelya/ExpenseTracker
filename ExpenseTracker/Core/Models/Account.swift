@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftUI
 
 // MARK: - Account Type
 
@@ -41,6 +42,15 @@ enum AccountType: String, Codable, CaseIterable, Identifiable {
         case .card: return "blue"
         case .savings: return "orange"
         case .investment: return "purple"
+        }
+    }
+
+    var swiftUIColor: Color {
+        switch self {
+        case .cash: return .green
+        case .card: return .blue
+        case .savings: return .orange
+        case .investment: return .purple
         }
     }
 }
@@ -83,6 +93,14 @@ struct Account: Codable, Hashable, Identifiable {
     var currency: Currency
     var lastTransactionDate: Date?
 
+    /// Localized display name. Resolves "account.\(name)" via localization,
+    /// falls back to raw name for user-created accounts.
+    var displayName: String {
+        let key = "account.\(name)"
+        let localized = String(localized: String.LocalizationValue(key))
+        return localized == key ? name : localized
+    }
+
     init(id: UUID = UUID(), name: String, tag: String, balance: Decimal = 0, isDefault: Bool = false, accountType: AccountType = .card, currency: Currency = .uah, lastTransactionDate: Date? = nil) {
         self.id = id
         self.name = name
@@ -123,7 +141,7 @@ extension Account {
         }
     }
 
-    static func validate(name: String, tag: String, existingTags: [String] = [], excludeAccountId: UUID? = nil) throws {
+    static func validate(name: String, tag: String, existingTags: [String] = []) throws {
         // Name validation
         guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ValidationError.emptyName
@@ -146,6 +164,16 @@ extension Account {
         // Check for duplicate tags
         if existingTags.contains(trimmedTag) {
             throw ValidationError.duplicateTag
+        }
+    }
+
+    var balanceColor: Color {
+        if balance > 0 {
+            return .green
+        } else if balance < 0 {
+            return .red
+        } else {
+            return .primary
         }
     }
 

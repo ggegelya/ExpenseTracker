@@ -144,7 +144,7 @@ struct BatchProcessingView: View {
                     Text(String(localized: "common.account"))
                         .foregroundColor(.secondary)
                     Spacer()
-                    Text(pending.account.name)
+                    Text(pending.account.displayName)
                         .fontWeight(.medium)
                 }
             }

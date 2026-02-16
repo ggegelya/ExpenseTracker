@@ -696,8 +696,8 @@ struct TransactionViewModelTests {
         // When
         await sut.createSplitTransaction(from: parentTransaction, splits: splits, retainParent: false)
 
-        // Then
-        #expect(mockRepository.wasCalled("createTransaction(_:)"))
+        // Then — split operations now use atomic batch operations
+        #expect(mockRepository.wasCalled("performAtomicTransactionOperations(delete:update:create:)"))
     }
 
     @Test("Split expansion toggle works")
@@ -761,6 +761,56 @@ struct TransactionViewModelTests {
 
         // Then
         #expect(sut.selectedTransactionIds.isEmpty)
+    }
+
+    @Test("Bulk delete with expanded split parent does not double-delete children")
+    func bulkDeleteWithExpandedSplitParentNoDoubleDelete() async throws {
+        // Given — a split parent with 2 children
+        let account = MockAccount.makeDefault()
+        let groceries = MockCategory.makeGroceries()
+        let transport = MockCategory.makeTransport()
+
+        let parentId = UUID()
+        let child1 = Transaction(
+            id: UUID(), type: .expense, amount: 300,
+            category: groceries, description: "Part 1",
+            fromAccount: account, parentTransactionId: parentId
+        )
+        let child2 = Transaction(
+            id: UUID(), type: .expense, amount: 200,
+            category: transport, description: "Part 2",
+            fromAccount: account, parentTransactionId: parentId
+        )
+        let parent = Transaction(
+            id: parentId, type: .expense, amount: 0,
+            description: "Split parent",
+            fromAccount: account,
+            splitTransactions: [child1, child2]
+        )
+
+        mockRepository.accounts = [account]
+        mockRepository.categories = [groceries, transport]
+        mockRepository.transactions = [parent]
+
+        await sut.loadData()
+
+        // Expand the split parent
+        sut.toggleSplitExpansion(parentId)
+
+        // Select all — should only select parent (filteredTransactions), not flattened children
+        sut.isBulkEditMode = true
+        sut.selectAllTransactions()
+
+        // When
+        await sut.bulkDeleteSelectedTransactions()
+        await AsyncTestUtilities.wait(seconds: 0.2)
+
+        // Then — no error was triggered, and delete was called
+        // The parent delete cascades to children in deleteSingleOrSplitTransaction
+        #expect(sut.error == nil)
+        #expect(mockRepository.wasCalled("deleteTransaction(_:)"))
+        #expect(sut.selectedTransactionIds.isEmpty)
+        #expect(!sut.isBulkEditMode)
     }
 
     @Test("selectedTransactionCount returns correct count")

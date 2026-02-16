@@ -108,7 +108,7 @@ struct TransactionDetailContentView: View {
                                 Text(String(localized: "edit.fromAccount"))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
-                                Text(fromAccount.name)
+                                Text(fromAccount.displayName)
                                     .font(.body)
                                 Text(fromAccount.tag)
                                     .font(.caption)
@@ -121,7 +121,7 @@ struct TransactionDetailContentView: View {
                                 Text(String(localized: "edit.toAccount"))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
-                                Text(toAccount.name)
+                                Text(toAccount.displayName)
                                     .font(.body)
                                 Text(toAccount.tag)
                                     .font(.caption)
@@ -194,14 +194,14 @@ struct TransactionDetailContentView: View {
                                 Text(transaction.timestamp, style: .time)
                                     .font(.caption)
                                     .foregroundColor(.secondary)
-            }
-        }
-        .accessibilityIdentifier("TransactionDetailView")
-    }
+                            }
+                        }
+                    }
                 }
             }
             .padding(Spacing.paddingBase)
         }
+        .accessibilityIdentifier("TransactionDetailView")
     }
 
     // MARK: - Helper Methods
@@ -238,9 +238,13 @@ struct TransactionDetailContentView: View {
     }
 
     private func formatBalance(_ amount: Decimal) -> String {
-        Formatters.currencyStringUAH(amount: amount,
-                                     minFractionDigits: 0,
-                                     maxFractionDigits: 2)
+        let account = transaction.fromAccount ?? transaction.toAccount
+        return Formatters.currencyString(
+            amount: amount,
+            currency: account?.currency ?? .uah,
+            minFractionDigits: 0,
+            maxFractionDigits: 2
+        )
     }
 
     private func formatAmount(_ amount: Decimal) -> String {

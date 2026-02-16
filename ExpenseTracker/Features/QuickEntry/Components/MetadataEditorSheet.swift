@@ -42,7 +42,7 @@ struct MetadataEditorSheet: View {
                                 } label: {
                                     HStack {
                                         VStack(alignment: .leading) {
-                                            Text(account.name)
+                                            Text(account.displayName)
                                                 .font(.body)
                                                 .foregroundColor(.primary)
                                             Text(account.formattedBalance())

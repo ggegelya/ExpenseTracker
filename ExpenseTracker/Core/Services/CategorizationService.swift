@@ -14,12 +14,23 @@ private let categorizationLogger = Logger(subsystem: "com.expensetracker", categ
 protocol CategorizationServiceProtocol {
     func suggestCategory(for description: String, merchantName: String?) async -> (category: Category?, confidence: Float)
     func learnFromCorrection(description: String, merchantName: String?, correctCategory: Category) async
+    func invalidateCategoryCache()
 }
 
 @MainActor
 final class CategorizationService: CategorizationServiceProtocol {
     private let repository: TransactionRepositoryProtocol
-    private static let learnedCorrectionsKey = "CategorizationService.learnedCorrections"
+
+    /// Shared key for learned corrections in UserDefaults.
+    /// Used by both CategorizationService and CategoryMigrationService.
+    static let learnedCorrectionsKey = "CategorizationService.learnedCorrections"
+
+    /// Pre-computed reverse map: English key → Ukrainian name.
+    /// Safe against duplicate values (keeps first occurrence).
+    private static let englishToUkrainianMap: [String: String] = Dictionary(
+        CategoryMigrationService.ukrainianToEnglishMap.map { ($1, $0) },
+        uniquingKeysWith: { first, _ in first }
+    )
 
     // Merchant patterns for Ukrainian market
     private let merchantPatterns: [String: String] = [
@@ -61,8 +72,11 @@ final class CategorizationService: CategorizationServiceProtocol {
     /// Cached categories to avoid N+1 queries on every suggestCategory call.
     private var cachedCategories: [Category]?
 
-    init(repository: TransactionRepositoryProtocol) {
+    private let userDefaults: UserDefaults
+
+    init(repository: TransactionRepositoryProtocol, userDefaults: UserDefaults = .standard) {
         self.repository = repository
+        self.userDefaults = userDefaults
     }
 
     func suggestCategory(for description: String, merchantName: String?) async -> (category: Category?, confidence: Float) {
@@ -73,10 +87,10 @@ final class CategorizationService: CategorizationServiceProtocol {
         let lowercasedMerchant = merchantName?.lowercased() ?? ""
 
         // Check learned corrections first
-        let learnedCorrections = UserDefaults.standard.dictionary(forKey: Self.learnedCorrectionsKey) as? [String: String] ?? [:]
+        let learnedCorrections = userDefaults.dictionary(forKey: Self.learnedCorrectionsKey) as? [String: String] ?? [:]
         for (pattern, categoryName) in learnedCorrections {
             if lowercasedDescription.contains(pattern) || lowercasedMerchant.contains(pattern) {
-                if let category = categories.first(where: { $0.name == categoryName }) {
+                if let category = Self.findCategory(named: categoryName, in: categories) {
                     return (category, 0.95)
                 }
             }
@@ -85,29 +99,54 @@ final class CategorizationService: CategorizationServiceProtocol {
         // Try to find category by hardcoded patterns
         for (pattern, categoryName) in merchantPatterns {
             if lowercasedDescription.contains(pattern) || lowercasedMerchant.contains(pattern) {
-                if let category = categories.first(where: { $0.name == categoryName }) {
+                if let category = Self.findCategory(named: categoryName, in: categories) {
                     return (category, 0.85)
                 }
             }
         }
 
         // Default to "other" with low confidence
-        if let defaultCategory = categories.first(where: { $0.name == "other" }) {
+        if let defaultCategory = Self.findCategory(named: "other", in: categories) {
             return (defaultCategory, 0.3)
         }
 
         return (nil, 0.0)
     }
 
+    /// Finds a category by name with alias fallback.
+    /// Checks: direct match → forward alias (Ukrainian→English) → reverse alias (English→Ukrainian).
+    static func findCategory(named name: String, in categories: [Category]) -> Category? {
+        // Direct match
+        if let match = categories.first(where: { $0.name == name }) {
+            return match
+        }
+
+        // Forward alias: Ukrainian name → English key
+        if let englishKey = CategoryMigrationService.ukrainianToEnglishMap[name.lowercased()] {
+            if let match = categories.first(where: { $0.name == englishKey }) {
+                return match
+            }
+        }
+
+        // Reverse alias: English key → Ukrainian name
+        if let ukrainianName = englishToUkrainianMap[name.lowercased()] {
+            if let match = categories.first(where: { $0.name.lowercased() == ukrainianName }) {
+                return match
+            }
+        }
+
+        return nil
+    }
+
     func learnFromCorrection(description: String, merchantName: String?, correctCategory: Category) async {
-        var corrections = UserDefaults.standard.dictionary(forKey: Self.learnedCorrectionsKey) as? [String: String] ?? [:]
+        var corrections = userDefaults.dictionary(forKey: Self.learnedCorrectionsKey) as? [String: String] ?? [:]
 
         // Store the description pattern (lowercased) → category name
         let key = (merchantName ?? description).lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { return }
 
         corrections[key] = correctCategory.name
-        UserDefaults.standard.set(corrections, forKey: Self.learnedCorrectionsKey)
+        userDefaults.set(corrections, forKey: Self.learnedCorrectionsKey)
     }
 
     private func loadCategoriesIfNeeded() async -> [Category] {

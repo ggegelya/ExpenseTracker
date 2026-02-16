@@ -9,10 +9,12 @@
 import Foundation
 import SwiftUI
 
-struct ToastMessage: Identifiable {
+struct ToastMessage: Identifiable, Equatable {
     let id = UUID()
     let message: String
     let type: ToastType
+
+    static func == (lhs: ToastMessage, rhs: ToastMessage) -> Bool {
+        lhs.id == rhs.id && lhs.message == rhs.message && lhs.type == rhs.type
+    }
 }
-
-

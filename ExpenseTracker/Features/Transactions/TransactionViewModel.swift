@@ -433,7 +433,7 @@ final class TransactionViewModel: ObservableObject {
     // MARK: - Bulk Operations
 
     func selectAllTransactions() {
-        selectedTransactionIds = Set(flattenedFilteredTransactions.map { $0.id })
+        selectedTransactionIds = Set(filteredTransactions.map { $0.id })
     }
 
     func deselectAllTransactions() {
@@ -461,7 +461,17 @@ final class TransactionViewModel: ObservableObject {
     }
 
     func bulkDeleteSelectedTransactions() async {
-        let transactionsToDelete = flattenedFilteredTransactions.filter { selectedTransactionIds.contains($0.id) }
+        // Filter out children whose parent is also selected (parent cascade handles them)
+        let parentIds = selectedTransactionIds
+        let transactionsToDelete = filteredTransactions
+            .filter { selectedTransactionIds.contains($0.id) }
+            .filter { transaction in
+                // Skip children whose parent is also selected (cascade will handle them)
+                if let parentId = transaction.parentTransactionId, parentIds.contains(parentId) {
+                    return false
+                }
+                return true
+            }
         guard !transactionsToDelete.isEmpty else { return }
 
         isLoading = true
@@ -473,7 +483,9 @@ final class TransactionViewModel: ObservableObject {
 
         var deletedCount = 0
         do {
-            for transaction in transactionsToDelete {
+            // Process parents first (their cascade deletes children)
+            let sorted = transactionsToDelete.sorted { $0.isSplitParent && !$1.isSplitParent }
+            for transaction in sorted {
                 try await deleteSingleOrSplitTransaction(transaction)
                 deletedCount += 1
             }
@@ -595,6 +607,15 @@ final class TransactionViewModel: ObservableObject {
         )
     }
     
+    /// Returns transactions for a specific account, excluding split children, sorted by date descending.
+    func transactions(for account: Account) -> [Transaction] {
+        transactions.filter { transaction in
+            (transaction.fromAccount?.id == account.id ||
+            transaction.toAccount?.id == account.id) &&
+            transaction.parentTransactionId == nil
+        }.sorted { $0.transactionDate > $1.transactionDate }
+    }
+
     // MARK: - Formatting Helpers
     
     func formatAmount(_ amount: Decimal) -> String {
@@ -618,22 +639,22 @@ final class TransactionViewModel: ObservableObject {
 
     // MARK: - Split Transaction Operations
 
-    /// Create or update a split transaction
+    /// Create or update a split transaction (atomic — single save, rollback on failure)
     func createSplitTransaction(from transaction: Transaction, splits: [SplitItem], retainParent: Bool) async {
         isLoading = true
         defer { isLoading = false }
 
         do {
             let totalAmount = splits.reduce(0) { $0 + $1.amount }
+            let children = buildSplitChildren(from: transaction, splits: splits, parentId: retainParent ? transaction.id : nil)
 
-            // Create new splits BEFORE deleting original to prevent data loss on failure
             if retainParent {
                 let parentSummary = Transaction(
                     id: transaction.id,
                     timestamp: transaction.timestamp,
                     transactionDate: transaction.transactionDate,
                     type: transaction.type,
-                    amount: 0, // summary placeholder
+                    amount: 0,
                     category: nil,
                     description: transaction.description,
                     fromAccount: transaction.fromAccount,
@@ -642,14 +663,19 @@ final class TransactionViewModel: ObservableObject {
                     splitTransactions: []
                 )
 
-                // Delete original, then create parent with same ID
-                try await repository.deleteTransaction(transaction)
-                let createdParent = try await repository.createTransaction(parentSummary)
-                try await createSplitChildren(from: transaction, splits: splits, parentId: createdParent.id)
+                // Atomic: delete original, create parent + children
+                try await repository.performAtomicTransactionOperations(
+                    delete: [transaction],
+                    update: [],
+                    create: [parentSummary] + children
+                )
             } else {
-                // Create standalone splits first, then delete original
-                try await createSplitChildren(from: transaction, splits: splits, parentId: nil)
-                try await repository.deleteTransaction(transaction)
+                // Atomic: delete original, create standalone splits
+                try await repository.performAtomicTransactionOperations(
+                    delete: [transaction],
+                    update: [],
+                    create: children
+                )
             }
 
             if retainParent {
@@ -663,19 +689,15 @@ final class TransactionViewModel: ObservableObject {
         }
     }
 
-    /// Update an existing split transaction
+    /// Update an existing split transaction (atomic — single save, rollback on failure)
     func updateSplitTransaction(_ transaction: Transaction, splits: [SplitItem], retainParent: Bool) async {
         isLoading = true
         defer { isLoading = false }
 
         do {
             let totalAmount = splits.reduce(0) { $0 + $1.amount }
-
-            if let existingSplits = transaction.splitTransactions {
-                for split in existingSplits {
-                    try await repository.deleteTransaction(split)
-                }
-            }
+            let existingSplits = transaction.splitTransactions ?? []
+            let newChildren = buildSplitChildren(from: transaction, splits: splits, parentId: retainParent ? transaction.id : nil)
 
             if retainParent {
                 let updatedParent = Transaction(
@@ -692,12 +714,19 @@ final class TransactionViewModel: ObservableObject {
                     splitTransactions: []
                 )
 
-                _ = try await repository.updateTransaction(updatedParent)
-                try await createSplitChildren(from: transaction, splits: splits, parentId: transaction.id)
+                // Atomic: delete old children, update parent, create new children
+                try await repository.performAtomicTransactionOperations(
+                    delete: existingSplits,
+                    update: [updatedParent],
+                    create: newChildren
+                )
             } else {
-                // Create standalone splits first, then delete parent
-                try await createSplitChildren(from: transaction, splits: splits, parentId: nil)
-                try await repository.deleteTransaction(transaction)
+                // Atomic: delete old children + parent, create standalone splits
+                try await repository.performAtomicTransactionOperations(
+                    delete: existingSplits + [transaction],
+                    update: [],
+                    create: newChildren
+                )
             }
 
             if retainParent {
@@ -711,10 +740,10 @@ final class TransactionViewModel: ObservableObject {
         }
     }
 
-    /// Creates child or standalone transactions from split items (DRY helper for create/update split).
-    private func createSplitChildren(from transaction: Transaction, splits: [SplitItem], parentId: UUID?) async throws {
-        for split in splits {
-            let child = Transaction(
+    /// Builds child Transaction instances from split items (no repository calls).
+    private func buildSplitChildren(from transaction: Transaction, splits: [SplitItem], parentId: UUID?) -> [Transaction] {
+        splits.map { split in
+            Transaction(
                 timestamp: transaction.timestamp,
                 transactionDate: transaction.transactionDate,
                 type: transaction.type,
@@ -726,25 +755,17 @@ final class TransactionViewModel: ObservableObject {
                 parentTransactionId: parentId,
                 splitTransactions: nil
             )
-            _ = try await repository.createTransaction(child)
         }
     }
 
-    /// Convert a split transaction back to a regular transaction
+    /// Convert a split transaction back to a regular transaction (atomic)
     func convertSplitToRegular(_ transaction: Transaction, category: Category, description: String? = nil) async {
         isLoading = true
         defer { isLoading = false }
 
         do {
-            // Delete all split transactions
-            if let splits = transaction.splitTransactions {
-                for split in splits {
-                    try await repository.deleteTransaction(split)
-                }
-            }
-
-            // Update the parent to be a regular transaction with a category
             let totalAmount = transaction.effectiveAmount
+            let existingSplits = transaction.splitTransactions ?? []
 
             let regularTransaction = Transaction(
                 id: transaction.id,
@@ -760,7 +781,12 @@ final class TransactionViewModel: ObservableObject {
                 splitTransactions: nil
             )
 
-            _ = try await repository.updateTransaction(regularTransaction)
+            // Atomic: delete children, update parent to regular
+            try await repository.performAtomicTransactionOperations(
+                delete: existingSplits,
+                update: [regularTransaction],
+                create: []
+            )
 
             analyticsService.trackEvent(.transactionAdded(amount: totalAmount, category: category.name))
         } catch {
@@ -768,27 +794,34 @@ final class TransactionViewModel: ObservableObject {
         }
     }
 
-    /// Delete a split transaction (parent and all children)
+    /// Delete a split transaction (parent and all children) — atomic
     func deleteSplitTransaction(_ transaction: Transaction, cascade: Bool) async {
         isLoading = true
         defer { isLoading = false }
 
         do {
-            // Delete split transactions first
-            if let splits = transaction.splitTransactions {
-                for split in splits {
-                    if cascade {
-                        try await repository.deleteTransaction(split)
-                    } else {
-                        var standalone = split
-                        standalone.parentTransactionId = nil
-                        _ = try await repository.updateTransaction(standalone)
-                    }
-                }
-            }
+            let existingSplits = transaction.splitTransactions ?? []
 
-            // Delete parent
-            try await repository.deleteTransaction(transaction)
+            if cascade {
+                // Atomic: delete all children + parent
+                try await repository.performAtomicTransactionOperations(
+                    delete: existingSplits + [transaction],
+                    update: [],
+                    create: []
+                )
+            } else {
+                // Detach children (make standalone), then delete parent
+                let standaloneChildren = existingSplits.map { split -> Transaction in
+                    var standalone = split
+                    standalone.parentTransactionId = nil
+                    return standalone
+                }
+                try await repository.performAtomicTransactionOperations(
+                    delete: [transaction],
+                    update: standaloneChildren,
+                    create: []
+                )
+            }
 
             analyticsService.trackEvent(.transactionDeleted)
             expandedSplitParentIds.remove(transaction.id)

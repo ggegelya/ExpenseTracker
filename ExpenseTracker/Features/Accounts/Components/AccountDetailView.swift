@@ -28,7 +28,7 @@ struct AccountDetailView: View {
                 VStack(alignment: .center, spacing: Spacing.xs) {
                     Text(account.formattedBalance())
                         .font(.system(size: 52, weight: .ultraLight, design: .rounded))
-                        .foregroundColor(balanceColor)
+                        .foregroundColor(account.balanceColor)
                         .frame(maxWidth: .infinity)
 
                     // Metadata pills
@@ -40,17 +40,17 @@ struct AccountDetailView: View {
                             Text(account.accountType.localizedName)
                                 .font(.system(size: 13, weight: .medium))
                         }
-                        .foregroundColor(accountTypeColor)
+                        .foregroundColor(account.accountType.swiftUIColor)
                         .padding(.horizontal, Spacing.pillHorizontal)
                         .padding(.vertical, Spacing.pillVertical)
-                        .background(accountTypeColor.opacity(0.1))
+                        .background(account.accountType.swiftUIColor.opacity(0.1))
                         .cornerRadius(12)
 
                         // Account name pill
                         HStack(spacing: Spacing.xxs) {
                             Image(systemName: "building.columns")
                                 .font(.system(size: 10))
-                            Text(account.name)
+                            Text(account.displayName)
                                 .font(.system(size: 13, weight: .medium))
                         }
                         .foregroundColor(.primary)
@@ -223,37 +223,14 @@ struct AccountDetailView: View {
                 deleteAccount()
             }
         } message: {
-            Text(String(localized: "account.deleteConfirm.message \(account.name)"))
+            Text(String(localized: "account.deleteConfirm.message \(account.displayName)"))
         }
     }
 
     // MARK: - Computed Properties
 
-    private var accountTypeColor: Color {
-        switch account.accountType {
-        case .cash: return .green
-        case .card: return .blue
-        case .savings: return .orange
-        case .investment: return .purple
-        }
-    }
-
-    private var balanceColor: Color {
-        if account.balance > 0 {
-            return .green
-        } else if account.balance < 0 {
-            return .red
-        } else {
-            return .primary
-        }
-    }
-
     private var accountTransactions: [Transaction] {
-        transactionViewModel.transactions.filter { transaction in
-            (transaction.fromAccount?.id == account.id ||
-            transaction.toAccount?.id == account.id) &&
-            transaction.parentTransactionId == nil
-        }.sorted { $0.transactionDate > $1.transactionDate }
+        transactionViewModel.transactions(for: account)
     }
 
     // MARK: - Methods
@@ -363,10 +340,6 @@ struct AccountTransactionsView: View {
     }
 
     private var accountTransactions: [Transaction] {
-        transactionViewModel.transactions.filter { transaction in
-            (transaction.fromAccount?.id == account.id ||
-            transaction.toAccount?.id == account.id) &&
-            transaction.parentTransactionId == nil
-        }.sorted { $0.transactionDate > $1.transactionDate }
+        transactionViewModel.transactions(for: account)
     }
 }

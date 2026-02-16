@@ -126,7 +126,7 @@ final class MockExportService: ExportServiceProtocol {
             let amount = "\(transaction.amount)"
             let category = transaction.category?.name ?? ""
             let description = transaction.description.replacingOccurrences(of: ",", with: ";")
-            let account = transaction.fromAccount?.name ?? transaction.toAccount?.name ?? ""
+            let account = transaction.fromAccount?.displayName ?? transaction.toAccount?.displayName ?? ""
 
             csvContent += "\(date),\(type),\(amount),\(category),\(description),\(account)\n"
         }

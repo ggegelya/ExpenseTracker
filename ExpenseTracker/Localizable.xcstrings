@@ -187,6 +187,22 @@
         }
       }
     },
+    "account.default_card" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Main Card"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Основна картка"
+          }
+        }
+      }
+    },
     "account.defaultAccountDescription" : {
       "localizations" : {
         "en" : {

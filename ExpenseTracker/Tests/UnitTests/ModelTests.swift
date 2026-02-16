@@ -70,10 +70,8 @@ struct AccountValidationTests {
         }
     }
 
-    @Test("validate passes when excluding current account's tag")
-    func validatePassesWhenExcludingCurrentAccount() throws {
-        // Note: The excludeAccountId param is available but tag matching is by string
-        // This tests that non-duplicate tags pass
+    @Test("validate passes when tag does not duplicate existing tags")
+    func validatePassesWhenTagIsUnique() throws {
         try Account.validate(name: "Test", tag: "#unique", existingTags: ["#other"])
     }
 
@@ -407,5 +405,37 @@ struct CategoryModelTests {
         let category = Category(id: UUID(), name: "test_nonexistent_key", icon: "tag.fill", colorHex: "#FF0000")
         // If the localization key doesn't match, displayName should return something non-empty
         #expect(!category.displayName.isEmpty)
+    }
+}
+
+// MARK: - Account DisplayName Tests
+
+@Suite("Account DisplayName Tests")
+struct AccountDisplayNameTests {
+
+    @Test("displayName falls back to raw name for unknown key")
+    func displayNameFallsBackToRawName() {
+        let account = Account(name: "my_custom_account", tag: "#custom")
+        // "account.my_custom_account" has no localization → should fall back to raw name
+        #expect(account.displayName == "my_custom_account")
+    }
+
+    @Test("displayName returns localized string for known key")
+    func displayNameReturnsLocalizedForKnownKey() {
+        let account = Account(name: "default_card", tag: "#main")
+        // "account.default_card" is a known localization key
+        // displayName should NOT equal the raw key "account.default_card"
+        #expect(account.displayName != "account.default_card")
+        // It should also be non-empty
+        #expect(!account.displayName.isEmpty)
+    }
+
+    @Test("defaultAccount uses displayName correctly")
+    func defaultAccountDisplayName() {
+        let account = Account.defaultAccount
+        // The default account name is "default_card"
+        // displayName should resolve to something other than the key path
+        #expect(account.displayName != "account.default_card")
+        #expect(!account.displayName.isEmpty)
     }
 }
