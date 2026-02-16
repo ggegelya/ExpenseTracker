@@ -21,19 +21,20 @@ struct AnalyticsView: View {
         NavigationStack {
             Group {
                 if transactionViewModel.transactions.count < AppConstants.analyticsMinTransactions {
-                    VStack(spacing: 16) {
+                    VStack(spacing: Spacing.lg) {
                         Spacer()
                         Image(systemName: "chart.pie")
                             .font(.system(size: 60))
                             .foregroundColor(.secondary)
                         Text(String(localized: "analytics.empty.title"))
                             .font(.headline)
-                        Text("analytics.empty.subtitle \(transactionViewModel.transactions.count)")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                        ProgressView(value: Double(transactionViewModel.transactions.count), total: Double(AppConstants.analyticsMinTransactions))
-                            .padding(.horizontal, 40)
+                        VStack(spacing: Spacing.sm) {
+                            ProgressView(value: Double(transactionViewModel.transactions.count), total: Double(AppConstants.analyticsMinTransactions))
+                            Text("\(transactionViewModel.transactions.count) / \(AppConstants.analyticsMinTransactions)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.horizontal, Spacing.hero)
                         Spacer()
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
