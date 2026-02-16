@@ -19,29 +19,50 @@ struct AnalyticsView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    // Date range selector
-                    DateRangeSelectorView(viewModel: analyticsViewModel, showCustomDatePicker: $showCustomDatePicker)
+            Group {
+                if transactionViewModel.transactions.count < AppConstants.analyticsMinTransactions {
+                    VStack(spacing: 16) {
+                        Spacer()
+                        Image(systemName: "chart.pie")
+                            .font(.system(size: 60))
+                            .foregroundColor(.secondary)
+                        Text(String(localized: "analytics.empty.title"))
+                            .font(.headline)
+                        Text("analytics.empty.subtitle \(transactionViewModel.transactions.count)")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                        ProgressView(value: Double(transactionViewModel.transactions.count), total: Double(AppConstants.analyticsMinTransactions))
+                            .padding(.horizontal, 40)
+                        Spacer()
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    ScrollView {
+                        VStack(spacing: 16) {
+                            // Date range selector
+                            DateRangeSelectorView(viewModel: analyticsViewModel, showCustomDatePicker: $showCustomDatePicker)
 
-                    // Month overview
-                    MonthOverviewCard(viewModel: analyticsViewModel)
+                            // Month overview
+                            MonthOverviewCard(viewModel: analyticsViewModel)
 
-                    // Category breakdown
-                    CategoryBreakdownCard(
-                        viewModel: analyticsViewModel,
-                        onCategoryTap: { category in
-                            transactionViewModel.filterCategories = [category]
+                            // Category breakdown
+                            CategoryBreakdownCard(
+                                viewModel: analyticsViewModel,
+                                onCategoryTap: { category in
+                                    transactionViewModel.filterCategories = [category]
+                                }
+                            )
+
+                            // Spending trends
+                            SpendingTrendsCard(viewModel: analyticsViewModel)
+
+                            // Top merchants
+                            TopMerchantsCard(viewModel: analyticsViewModel)
                         }
-                    )
-
-                    // Spending trends
-                    SpendingTrendsCard(viewModel: analyticsViewModel)
-
-                    // Top merchants
-                    TopMerchantsCard(viewModel: analyticsViewModel)
+                        .padding()
+                    }
                 }
-                .padding()
             }
             .accessibilityIdentifier("AnalyticsView")
             .navigationTitle(String(localized: "tab.analytics"))

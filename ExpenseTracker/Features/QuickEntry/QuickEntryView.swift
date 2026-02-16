@@ -23,6 +23,7 @@ struct QuickEntryView: View {
     @State private var keyboardHeight: CGFloat = 0
 
     // Animation states
+    @State private var showCelebration = false
     @State private var successScale: CGFloat = 1.0
     @State private var pendingBadgeScale: CGFloat = 1.0
     @State private var toggleRotation: Double = 0
@@ -249,6 +250,13 @@ struct QuickEntryView: View {
                 }
             }
         }
+        .overlay {
+            if showCelebration {
+                CelebrationOverlayView {
+                    withAnimation { showCelebration = false }
+                }
+            }
+        }
         .accessibilityIdentifier("QuickEntryView")
         .simultaneousGesture(
             DragGesture()
@@ -303,6 +311,13 @@ struct QuickEntryView: View {
                 dismiss()
                 return
             }
+
+            // First transaction celebration
+            if !UserDefaults.standard.bool(forKey: UserDefaultsKeys.hasShownFirstTransactionCelebration) {
+                UserDefaults.standard.set(true, forKey: UserDefaultsKeys.hasShownFirstTransactionCelebration)
+                showCelebration = true
+            }
+
             // Success animation
             withAnimation(.spring(response: 0.3)) {
                 successScale = 1.1

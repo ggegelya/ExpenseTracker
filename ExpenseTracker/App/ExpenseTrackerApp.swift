@@ -15,8 +15,8 @@ struct ExpenseTrackerApp: App {
     @StateObject private var accountsViewModel: AccountsViewModel
     @StateObject private var pendingViewModel: PendingTransactionsViewModel
 
-    @State private var selectedTab = 0
-    @State private var showPendingBadge = false
+    @AppStorage(UserDefaultsKeys.hasCompletedOnboarding) private var hasCompletedOnboarding = false
+    @State private var selectedTab: AppTab = .quickEntry
 
     init() {
         // Disable animations for UI testing
@@ -58,12 +58,20 @@ struct ExpenseTrackerApp: App {
     }
     var body: some Scene {
         WindowGroup {
-            MainTabView(container: container)
-                .environment(\.managedObjectContext, container.persistenceController.container.viewContext)
-                .environmentObject(transactionViewModel)
+            if (hasCompletedOnboarding || TestingConfiguration.isRunningTests) && !TestingConfiguration.shouldShowOnboarding {
+                MainTabView(container: container, selectedTab: $selectedTab)
+                    .environment(\.managedObjectContext, container.persistenceController.container.viewContext)
+                    .environmentObject(transactionViewModel)
+                    .environmentObject(accountsViewModel)
+                    .environmentObject(pendingViewModel)
+                    .environmentObject(container.errorHandlingServiceInstance)
+            } else {
+                OnboardingView(
+                    container: container,
+                    onComplete: { hasCompletedOnboarding = true }
+                )
                 .environmentObject(accountsViewModel)
-                .environmentObject(pendingViewModel)
-                .environmentObject(container.errorHandlingServiceInstance)
+            }
         }
     }
     
@@ -106,8 +114,9 @@ struct ExpenseTrackerApp: App {
 
 
 #Preview {
+    @Previewable @State var selectedTab: AppTab = .quickEntry
     let previewContainer = DependencyContainer.makeForPreviews()
-    return MainTabView(container: previewContainer)
+    return MainTabView(container: previewContainer, selectedTab: $selectedTab)
         .environmentObject(previewContainer.makeTransactionViewModel())
         .environmentObject(previewContainer.makeAccountsViewModel())
         .environmentObject(previewContainer.makePendingTransactionsViewModel())

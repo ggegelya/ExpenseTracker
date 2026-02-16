@@ -34,4 +34,8 @@ enum TestingConfiguration {
     static var isCoreDataDebugEnabled: Bool {
         ProcessInfo.processInfo.environment["CORE_DATA_DEBUG"] == "1"
     }
+
+    static var shouldShowOnboarding: Bool {
+        ProcessInfo.processInfo.arguments.contains("-ShowOnboarding")
+    }
 }

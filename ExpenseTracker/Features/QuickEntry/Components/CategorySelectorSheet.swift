@@ -73,7 +73,7 @@ struct CategorySelectorSheet: View {
                             GridItem(.flexible(), spacing: 12),
                             GridItem(.flexible(), spacing: 12)
                         ], spacing: 12) {
-                            ForEach(filteredCategories) { category in
+                            ForEach(sortedCategories) { category in
                                 CategoryGridItem(
                                     category: category,
                                     isSelected: selectedCategory?.id == category.id
@@ -100,13 +100,31 @@ struct CategorySelectorSheet: View {
         }
     }
 
-    private var filteredCategories: [Category] {
-        if searchText.isEmpty {
-            return categories
-        } else {
-            return categories.filter { category in
-                category.displayName.localizedCaseInsensitiveContains(searchText)
-            }
+    private var sortedCategories: [Category] {
+        let filtered = searchText.isEmpty
+            ? categories
+            : categories.filter { $0.displayName.localizedCaseInsensitiveContains(searchText) }
+
+        // When not searching, sort favorites first
+        guard searchText.isEmpty else { return filtered }
+
+        let favoriteIds = Self.loadFavoriteCategoryIds()
+        guard !favoriteIds.isEmpty, favoriteIds.count < categories.count else {
+            return filtered
         }
+
+        return filtered.sorted { a, b in
+            let aFav = favoriteIds.contains(a.id)
+            let bFav = favoriteIds.contains(b.id)
+            if aFav != bFav { return aFav }
+            return false // preserve original order within each group
+        }
+    }
+
+    static func loadFavoriteCategoryIds() -> Set<UUID> {
+        guard let strings = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.favoriteCategoryIds) else {
+            return []
+        }
+        return Set(strings.compactMap { UUID(uuidString: $0) })
     }
 }

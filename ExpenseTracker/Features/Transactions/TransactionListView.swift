@@ -13,6 +13,7 @@ import UIKit
 #endif
 struct TransactionListView: View {
     @EnvironmentObject var viewModel: TransactionViewModel
+    @Environment(\.selectedTab) private var selectedTabBinding
     @State private var showFilters = false
     @State private var selectedTransaction: Transaction?
     @State private var parentPendingDeletion: Transaction?
@@ -453,7 +454,9 @@ struct TransactionListView: View {
                         title: String(localized: "transaction.empty.title"),
                         subtitle: viewModel.hasActiveFilters ?
                             String(localized: "transaction.empty.filtered") :
-                            String(localized: "transaction.empty.subtitle")
+                            String(localized: "transaction.empty.subtitle"),
+                        actionTitle: viewModel.hasActiveFilters ? nil : String(localized: "transaction.empty.addFirst"),
+                        action: viewModel.hasActiveFilters ? nil : { selectedTabBinding.wrappedValue = .quickEntry }
                     )
                 }
             }

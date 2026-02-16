@@ -249,7 +249,6 @@ yarn-error.log*
 tmp/
 
 # Personal AI workflow files
-Claude.md
 ai-personal-notes.md
 *-scratch.md
 temp-ai-*.md

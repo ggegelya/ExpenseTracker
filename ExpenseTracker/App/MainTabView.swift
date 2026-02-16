@@ -8,6 +8,19 @@
 
 import SwiftUI
 
+// MARK: - Environment Key for Tab Switching
+
+private struct SelectedTabKey: EnvironmentKey {
+    static let defaultValue: Binding<AppTab> = .constant(.quickEntry)
+}
+
+extension EnvironmentValues {
+    var selectedTab: Binding<AppTab> {
+        get { self[SelectedTabKey.self] }
+        set { self[SelectedTabKey.self] = newValue }
+    }
+}
+
 enum AppTab: Int, CaseIterable, Identifiable {
     case quickEntry = 0
     case transactions
@@ -48,8 +61,8 @@ enum AppTab: Int, CaseIterable, Identifiable {
 
 struct MainTabView: View {
     let container: DependencyContainer
+    @Binding var selectedTab: AppTab
 
-    @State private var selectedTab: AppTab = TestingConfiguration.isRunningTests ? .transactions : .quickEntry
     @State private var showQuickEntrySheet = false
     @EnvironmentObject var pendingViewModel: PendingTransactionsViewModel
     @EnvironmentObject var errorService: ErrorHandlingService
@@ -110,6 +123,7 @@ struct MainTabView: View {
                 }
                 .tag(AppTab.analytics)
         }
+        .environment(\.selectedTab, $selectedTab)
         .accessibilityIdentifier("MainView")
         .tint(.blue)
         .onChange(of: scenePhase) { _, scenePhase in
