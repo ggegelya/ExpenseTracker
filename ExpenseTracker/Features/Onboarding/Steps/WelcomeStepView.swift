@@ -49,8 +49,7 @@ struct WelcomeStepView: View {
             .padding(.top, Spacing.hero)
             .padding(.horizontal, Spacing.hero)
 
-            // Double-weight spacer pushes content above center, giving button breathing room
-            Spacer().frame(minHeight: Spacing.hero)
+            Spacer()
 
             OnboardingPrimaryButton(
                 title: String(localized: "onboarding.welcome.start"),

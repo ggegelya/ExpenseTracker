@@ -188,7 +188,6 @@
       }
     },
     "account.default_card" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3670,6 +3669,54 @@
         }
       }
     },
+    "onboarding.feature.accounts" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Multiple accounts & currencies"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Декілька рахунків та валют"
+          }
+        }
+      }
+    },
+    "onboarding.feature.analytics" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Smart analytics & insights"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Розумна аналітика та статистика"
+          }
+        }
+      }
+    },
+    "onboarding.feature.quick" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quick expense entry in seconds"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Швидкий запис витрат за секунди"
+          }
+        }
+      }
+    },
     "onboarding.next" : {
       "localizations" : {
         "en" : {
@@ -3746,54 +3793,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Пропустити"
-          }
-        }
-      }
-    },
-    "onboarding.feature.accounts" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Multiple accounts & currencies"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Декілька рахунків та валют"
-          }
-        }
-      }
-    },
-    "onboarding.feature.analytics" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Smart analytics & insights"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Розумна аналітика та статистика"
-          }
-        }
-      }
-    },
-    "onboarding.feature.quick" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Quick expense entry in seconds"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Швидкий запис витрат за секунди"
           }
         }
       }
