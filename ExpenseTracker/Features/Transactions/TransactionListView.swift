@@ -434,29 +434,24 @@ struct TransactionListView: View {
             .refreshable {
                 await viewModel.loadData()
             }
-            .onChange(of: viewModel.filteredTransactions.isEmpty) { _, isEmpty in
-                // Mark #5: Swipe hint when transactions appear
-                if !isEmpty {
-                    coachMarkManager.activate(.swipeActionsHint)
-                }
-            }
-            .onAppear {
-                // Mark #5: Also check on appear (onChange only fires on value changes)
-                if !viewModel.filteredTransactions.isEmpty {
+            .onChange(of: selectedTabBinding.wrappedValue) { _, tab in
+                // Mark #5: Activate swipe hint when user arrives on Transactions tab
+                if tab == .transactions && !viewModel.filteredTransactions.isEmpty {
                     coachMarkManager.activate(.swipeActionsHint)
                 }
             }
             .overlay(alignment: .top) {
-                if coachMarkManager.shouldShow(.swipeActionsHint) && !viewModel.filteredTransactions.isEmpty {
+                if coachMarkManager.shouldShow(.swipeActionsHint)
+                    && !viewModel.filteredTransactions.isEmpty
+                    && selectedTabBinding.wrappedValue == .transactions {
                     CoachMarkView(
                         text: String(localized: "coachMark.swipeActions"),
-                        arrowDirection: .up,
-                        autoDismissSeconds: 5,
+                        arrowDirection: .down,
                         onDismiss: {
                             coachMarkManager.deactivate(.swipeActionsHint)
                         }
                     )
-                    .padding(.top, 120)
+                    .padding(.top, 8)
                     .transition(.opacity.combined(with: .scale))
                 }
             }

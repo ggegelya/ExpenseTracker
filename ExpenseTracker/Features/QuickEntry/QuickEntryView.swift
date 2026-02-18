@@ -249,8 +249,9 @@ struct QuickEntryView: View {
             }
         }
         .accessibilityIdentifier("QuickEntryView")
-        .onAppear {
-            // Mark #1: Amount field hint for fresh users (no transactions yet)
+        .task {
+            // Mark #1: Amount field hint for fresh users — wait for data to settle
+            try? await Task.sleep(for: .milliseconds(500))
             if viewModel.transactions.isEmpty {
                 coachMarkManager.activate(.quickEntryAmountField)
             }
