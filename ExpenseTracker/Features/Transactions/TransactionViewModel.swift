@@ -33,6 +33,8 @@ final class TransactionViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var error: AppError?
     @Published var showCelebration = false
+    /// Set to true when first transaction celebration fires; coach mark #2 activates after celebration dismisses.
+    var pendingCoachMark = false
 
     // Filtering (@Published uses willSet — didSet ensures immediate sync for tests)
     @Published var filterDateRange: ClosedRange<Date>? {
@@ -396,13 +398,22 @@ final class TransactionViewModel: ObservableObject {
             return
         }
 
-        isLoading = true
-        defer { isLoading = false }
-        
+        // Optimistic UI removal — makes swipe-to-delete feel instant
+        let snapshot = transactions
+        withAnimation {
+            transactions.removeAll { $0.id == transaction.id }
+        }
+
         do {
             try await repository.deleteTransaction(transaction)
             analyticsService.trackEvent(.transactionDeleted)
         } catch {
+            // Rollback on failure (ignore entityNotFound — already deleted)
+            if case RepositoryError.entityNotFound = error {
+                // Entity was already deleted (e.g. duplicate swipe) — no rollback needed
+                return
+            }
+            transactions = snapshot
             handleError(error, context: "Deleting transaction")
         }
     }
@@ -808,21 +819,29 @@ final class TransactionViewModel: ObservableObject {
 
     /// Delete a split transaction (parent and all children) — atomic
     func deleteSplitTransaction(_ transaction: Transaction, cascade: Bool) async {
-        isLoading = true
-        defer { isLoading = false }
+        let existingSplits = transaction.splitTransactions ?? []
+
+        // Optimistic UI removal
+        let snapshot = transactions
+        let idsToRemove: Set<UUID>
+        if cascade {
+            idsToRemove = Set(existingSplits.map(\.id) + [transaction.id])
+        } else {
+            idsToRemove = [transaction.id]
+        }
+        withAnimation {
+            transactions.removeAll { idsToRemove.contains($0.id) }
+        }
+        expandedSplitParentIds.remove(transaction.id)
 
         do {
-            let existingSplits = transaction.splitTransactions ?? []
-
             if cascade {
-                // Atomic: delete all children + parent
                 try await repository.performAtomicTransactionOperations(
                     delete: existingSplits + [transaction],
                     update: [],
                     create: []
                 )
             } else {
-                // Detach children (make standalone), then delete parent
                 let standaloneChildren = existingSplits.map { split -> Transaction in
                     var standalone = split
                     standalone.parentTransactionId = nil
@@ -836,8 +855,9 @@ final class TransactionViewModel: ObservableObject {
             }
 
             analyticsService.trackEvent(.transactionDeleted)
-            expandedSplitParentIds.remove(transaction.id)
         } catch {
+            // Rollback on failure
+            transactions = snapshot
             handleError(error, context: "Deleting split transaction")
         }
     }

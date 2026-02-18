@@ -122,8 +122,20 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
         return objects
     }
 
+    /// Tracks whether a refresh was requested while one was already in progress.
+    private var pendingRefresh: (transactions: Bool, accounts: Bool, categories: Bool)?
+
     private func refreshPublishers(transactions: Bool, accounts: Bool, categories: Bool) async {
-        guard !isLoadingData else { return }
+        if isLoadingData {
+            // Merge the requested refresh flags with any pending request
+            let prev = pendingRefresh ?? (false, false, false)
+            pendingRefresh = (
+                prev.transactions || transactions,
+                prev.accounts || accounts,
+                prev.categories || categories
+            )
+            return
+        }
         isLoadingData = true
         defer { isLoadingData = false }
 
@@ -138,6 +150,16 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
         if categories {
             do { categoriesSubject.send(try await getAllCategories()) }
             catch { repositoryLogger.error("Failed to refresh categories: \(error.localizedDescription)") }
+        }
+
+        // Drain any pending refresh that was queued during this refresh
+        if let pending = pendingRefresh {
+            pendingRefresh = nil
+            await refreshPublishers(
+                transactions: pending.transactions,
+                accounts: pending.accounts,
+                categories: pending.categories
+            )
         }
     }
     

@@ -12,6 +12,7 @@ struct QuickEntryView: View {
     @EnvironmentObject private var viewModel: TransactionViewModel
     @EnvironmentObject private var pendingViewModel: PendingTransactionsViewModel
     @EnvironmentObject private var errorService: ErrorHandlingService
+    @EnvironmentObject private var coachMarkManager: CoachMarkManager
     @Environment(\.dismiss) private var dismiss
 
     @FocusState private var isAmountFocused: Bool
@@ -78,6 +79,24 @@ struct QuickEntryView: View {
                         accountPillPressed: $accountPillPressed,
                         onMetadataTap: { showMetadataEditor = true }
                     )
+                    .pulsingRing(
+                        color: .blue,
+                        isActive: coachMarkManager.shouldShow(.quickEntryAmountField),
+                        cornerRadius: 16
+                    )
+                    .overlay(alignment: .bottom) {
+                        if coachMarkManager.shouldShow(.quickEntryAmountField) {
+                            CoachMarkView(
+                                text: String(localized: "coachMark.amountField"),
+                                arrowDirection: .up,
+                                onDismiss: {
+                                    coachMarkManager.deactivate(.quickEntryAmountField)
+                                }
+                            )
+                            .offset(y: 44)
+                            .transition(.opacity.combined(with: .scale))
+                        }
+                    }
 
                     Spacer(minLength: 32)
 
@@ -118,6 +137,25 @@ struct QuickEntryView: View {
                         .frame(height: 28)
                         .background(Color(hex: selected.colorHex).opacity(0.15))
                         .cornerRadius(14)
+                        .pulsingRing(
+                            color: Color(hex: selected.colorHex),
+                            isActive: coachMarkManager.shouldShow(.autoCategoryDetected),
+                            cornerRadius: 14
+                        )
+                        .overlay(alignment: .bottom) {
+                            if coachMarkManager.shouldShow(.autoCategoryDetected) {
+                                CoachMarkView(
+                                    text: String(localized: "coachMark.autoCategory"),
+                                    arrowDirection: .up,
+                                    autoDismissSeconds: 3,
+                                    onDismiss: {
+                                        coachMarkManager.deactivate(.autoCategoryDetected)
+                                    }
+                                )
+                                .offset(y: 36)
+                                .transition(.opacity.combined(with: .scale))
+                            }
+                        }
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
                     }
@@ -211,6 +249,26 @@ struct QuickEntryView: View {
             }
         }
         .accessibilityIdentifier("QuickEntryView")
+        .onAppear {
+            // Mark #1: Amount field hint for fresh users (no transactions yet)
+            if viewModel.transactions.isEmpty {
+                coachMarkManager.activate(.quickEntryAmountField)
+            }
+        }
+        .onChange(of: isAmountFocused) { _, focused in
+            // Dismiss mark #1 when user taps the amount field
+            if focused && coachMarkManager.shouldShow(.quickEntryAmountField) {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    coachMarkManager.deactivate(.quickEntryAmountField)
+                }
+            }
+        }
+        .onChange(of: viewModel.categoryWasAutoDetected) { _, detected in
+            // Mark #4: Auto-category detected
+            if detected {
+                coachMarkManager.activate(.autoCategoryDetected)
+            }
+        }
         .simultaneousGesture(
             DragGesture()
                 .onEnded { value in
@@ -270,6 +328,7 @@ struct QuickEntryView: View {
                 UserDefaults.standard.set(true, forKey: UserDefaultsKeys.hasShownFirstTransactionCelebration)
                 errorService.dismissToast()
                 viewModel.showCelebration = true
+                viewModel.pendingCoachMark = true
             }
 
             // Success animation
@@ -305,4 +364,5 @@ struct QuickEntryView: View {
         .environmentObject(container.makeTransactionViewModel())
         .environmentObject(container.makePendingTransactionsViewModel())
         .environmentObject(container.errorHandlingServiceInstance)
+        .environmentObject(container.coachMarkManager)
 }

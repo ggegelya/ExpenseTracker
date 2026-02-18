@@ -21,6 +21,7 @@ protocol DependencyContainerProtocol {
     var analyticsService: AnalyticsServiceProtocol { get }
     var exportService: ExportServiceProtocol { get }
     var errorHandlingService: ErrorHandlingServiceProtocol { get }
+    var coachMarkManager: CoachMarkManager { get }
 
     // ViewModels
     @MainActor func makeTransactionViewModel() -> TransactionViewModel
@@ -39,6 +40,7 @@ final class DependencyContainer: DependencyContainerProtocol {
     let analyticsService: AnalyticsServiceProtocol
     let exportService: ExportServiceProtocol
     let errorHandlingService: ErrorHandlingServiceProtocol
+    let coachMarkManager: CoachMarkManager
 
     /// Concrete ErrorHandlingService instance for SwiftUI environmentObject injection.
     let errorHandlingServiceInstance: ErrorHandlingService
@@ -70,6 +72,8 @@ final class DependencyContainer: DependencyContainerProtocol {
         )
         self.errorHandlingService = errorService
         self.errorHandlingServiceInstance = errorService
+
+        self.coachMarkManager = CoachMarkManager()
 
         // Setup initial data — store the task so callers can await it
         let seeder = DataSeeder(repository: transactionRepository)

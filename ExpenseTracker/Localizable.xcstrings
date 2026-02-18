@@ -1745,6 +1745,102 @@
         }
       }
     },
+    "coachMark.amountField" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter the purchase amount"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Введіть суму покупки"
+          }
+        }
+      }
+    },
+    "coachMark.analyticsReady" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your analytics are ready!"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ваша аналітика готова!"
+          }
+        }
+      }
+    },
+    "coachMark.autoCategory" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category detected automatically. Tap to change"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Категорію підібрано автоматично. Натисніть щоб змінити"
+          }
+        }
+      }
+    },
+    "coachMark.dismiss" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap to dismiss hint"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Натисніть щоб закрити підказку"
+          }
+        }
+      }
+    },
+    "coachMark.swipeActions" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Swipe for quick actions"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Свайпніть для швидких дій"
+          }
+        }
+      }
+    },
+    "coachMark.transactionsTab" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View your transactions here"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перегляньте свої транзакції тут"
+          }
+        }
+      }
+    },
     "chart.average" : {
       "localizations" : {
         "en" : {

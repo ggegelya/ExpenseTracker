@@ -65,7 +65,9 @@ struct MainTabView: View {
 
     @State private var showQuickEntrySheet = false
     @EnvironmentObject var pendingViewModel: PendingTransactionsViewModel
+    @EnvironmentObject var transactionViewModel: TransactionViewModel
     @EnvironmentObject var errorService: ErrorHandlingService
+    @EnvironmentObject var coachMarkManager: CoachMarkManager
     @Environment(\.scenePhase) private var scenePhase
 
     @ViewBuilder
@@ -185,6 +187,22 @@ struct MainTabView: View {
         }
         .sheet(isPresented: $showQuickEntrySheet) {
             QuickEntryView()
+        }
+        .onChange(of: selectedTab) { _, newTab in
+            // Dismiss mark #2 when navigating to transactions
+            if newTab == .transactions && coachMarkManager.shouldShow(.firstTransactionSaved) {
+                coachMarkManager.deactivate(.firstTransactionSaved)
+            }
+            // Dismiss mark #3 when navigating to analytics
+            if newTab == .analytics && coachMarkManager.shouldShow(.analyticsReady) {
+                coachMarkManager.deactivate(.analyticsReady)
+            }
+        }
+        .onChange(of: transactionViewModel.transactions.count) { _, newCount in
+            // Mark #3: Activate analytics tooltip at 3+ transactions
+            if newCount >= AppConstants.analyticsMinTransactions {
+                coachMarkManager.activate(.analyticsReady)
+            }
         }
 
     }

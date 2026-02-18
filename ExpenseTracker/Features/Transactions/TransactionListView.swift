@@ -10,6 +10,7 @@ import SwiftUI
 
 struct TransactionListView: View {
     @EnvironmentObject var viewModel: TransactionViewModel
+    @EnvironmentObject var coachMarkManager: CoachMarkManager
     @Environment(\.selectedTab) private var selectedTabBinding
     @State private var showFilters = false
     @State private var selectedTransaction: Transaction?
@@ -131,6 +132,7 @@ struct TransactionListView: View {
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     if !viewModel.isBulkEditMode {
                         Button(role: .destructive) {
+                            coachMarkManager.deactivate(.swipeActionsHint)
                             Task { @MainActor in
                                 await viewModel.deleteTransaction(transaction)
                             }
@@ -431,6 +433,32 @@ struct TransactionListView: View {
             }
             .refreshable {
                 await viewModel.loadData()
+            }
+            .onChange(of: viewModel.filteredTransactions.isEmpty) { _, isEmpty in
+                // Mark #5: Swipe hint when transactions appear
+                if !isEmpty {
+                    coachMarkManager.activate(.swipeActionsHint)
+                }
+            }
+            .onAppear {
+                // Mark #5: Also check on appear (onChange only fires on value changes)
+                if !viewModel.filteredTransactions.isEmpty {
+                    coachMarkManager.activate(.swipeActionsHint)
+                }
+            }
+            .overlay(alignment: .top) {
+                if coachMarkManager.shouldShow(.swipeActionsHint) && !viewModel.filteredTransactions.isEmpty {
+                    CoachMarkView(
+                        text: String(localized: "coachMark.swipeActions"),
+                        arrowDirection: .up,
+                        autoDismissSeconds: 5,
+                        onDismiss: {
+                            coachMarkManager.deactivate(.swipeActionsHint)
+                        }
+                    )
+                    .padding(.top, 120)
+                    .transition(.opacity.combined(with: .scale))
+                }
             }
             .confirmationDialog(
                 String(localized: "split.deleteParent.title"),

@@ -66,14 +66,26 @@ struct ExpenseTrackerApp: App {
                     if transactionViewModel.showCelebration {
                         CelebrationOverlayView {
                             withAnimation { transactionViewModel.showCelebration = false }
+                            // Mark #2: Activate coach mark after celebration is dismissed
+                            if transactionViewModel.pendingCoachMark {
+                                transactionViewModel.pendingCoachMark = false
+                                Task { @MainActor in
+                                    try? await Task.sleep(for: .seconds(0.5))
+                                    container.coachMarkManager.activate(.firstTransactionSaved)
+                                }
+                            }
                         }
                     }
+
+                    // Coach mark spotlights — rendered above everything including tab bar
+                    CoachMarkSpotlightLayer(coachMarkManager: container.coachMarkManager)
                 }
                 .environment(\.managedObjectContext, container.persistenceController.container.viewContext)
                 .environmentObject(transactionViewModel)
                 .environmentObject(accountsViewModel)
                 .environmentObject(pendingViewModel)
                 .environmentObject(container.errorHandlingServiceInstance)
+                .environmentObject(container.coachMarkManager)
             } else {
                 OnboardingView(
                     container: container,
@@ -130,5 +142,6 @@ struct ExpenseTrackerApp: App {
         .environmentObject(previewContainer.makeAccountsViewModel())
         .environmentObject(previewContainer.makePendingTransactionsViewModel())
         .environmentObject(previewContainer.errorHandlingServiceInstance)
+        .environmentObject(previewContainer.coachMarkManager)
         .environment(\.managedObjectContext, previewContainer.persistenceController.container.viewContext)
 }

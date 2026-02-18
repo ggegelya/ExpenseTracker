@@ -78,6 +78,92 @@ struct CelebrationFlagTests {
     }
 }
 
+// MARK: - Celebration + Coach Mark Coordination Tests
+
+@Suite("Celebration Coach Mark Coordination Tests", .serialized)
+@MainActor
+struct CelebrationCoachMarkTests {
+    let testDefaults: UserDefaults
+
+    init() {
+        testDefaults = UserDefaults(suiteName: "CelebrationCoachMark_\(UUID().uuidString)")!
+    }
+
+    @Test("Coach mark #2 activates only after celebration flag is set")
+    func coachMarkActivatesAfterCelebration() {
+        let coachManager = CoachMarkManager(defaults: testDefaults, suppressInTests: false)
+
+        // Simulate first transaction flow: celebration flag set, then coach mark activated
+        #expect(!testDefaults.bool(forKey: UserDefaultsKeys.hasShownFirstTransactionCelebration))
+
+        testDefaults.set(true, forKey: UserDefaultsKeys.hasShownFirstTransactionCelebration)
+        coachManager.activate(.firstTransactionSaved)
+
+        #expect(coachManager.shouldShow(.firstTransactionSaved))
+    }
+
+    @Test("Coach mark #2 does not re-activate on second transaction")
+    func coachMarkDoesNotReactivateOnSecondTransaction() {
+        let coachManager = CoachMarkManager(defaults: testDefaults, suppressInTests: false)
+
+        // First transaction: activate and dismiss
+        coachManager.activate(.firstTransactionSaved)
+        coachManager.deactivate(.firstTransactionSaved)
+
+        // Second transaction: celebration flag already set, coach mark already shown
+        coachManager.activate(.firstTransactionSaved)
+        #expect(!coachManager.shouldShow(.firstTransactionSaved))
+    }
+
+    @Test("Coach mark #3 activates at analytics threshold")
+    func analyticsCoachMarkAtThreshold() {
+        let coachManager = CoachMarkManager(defaults: testDefaults, suppressInTests: false)
+
+        let transactionCount = AppConstants.analyticsMinTransactions
+        if transactionCount >= AppConstants.analyticsMinTransactions {
+            coachManager.activate(.analyticsReady)
+        }
+
+        #expect(coachManager.shouldShow(.analyticsReady))
+    }
+
+    @Test("Coach marks #2 and #3 are independent — dismissing one keeps the other")
+    func celebrationAndAnalyticsAreIndependent() {
+        let coachManager = CoachMarkManager(defaults: testDefaults, suppressInTests: false)
+
+        coachManager.activate(.firstTransactionSaved)
+        coachManager.activate(.analyticsReady)
+
+        coachManager.deactivate(.firstTransactionSaved)
+
+        #expect(!coachManager.shouldShow(.firstTransactionSaved))
+        #expect(coachManager.shouldShow(.analyticsReady))
+    }
+
+    @Test("App state reset clears both celebration flag and coach marks")
+    func resetClearsBothCelebrationAndCoachMarks() {
+        let suiteName = "CelebrationCoachMark_\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let coachManager = CoachMarkManager(defaults: defaults, suppressInTests: false)
+
+        // Set celebration flag and dismiss coach marks
+        defaults.set(true, forKey: UserDefaultsKeys.hasShownFirstTransactionCelebration)
+        coachManager.activate(.firstTransactionSaved)
+        coachManager.deactivate(.firstTransactionSaved)
+        coachManager.activate(.analyticsReady)
+        coachManager.deactivate(.analyticsReady)
+
+        // Reset
+        defaults.removePersistentDomain(forName: suiteName)
+
+        // Both should be fresh
+        #expect(!defaults.bool(forKey: UserDefaultsKeys.hasShownFirstTransactionCelebration))
+        let freshManager = CoachMarkManager(defaults: defaults, suppressInTests: false)
+        #expect(!freshManager.hasBeenShown(.firstTransactionSaved))
+        #expect(!freshManager.hasBeenShown(.analyticsReady))
+    }
+}
+
 // MARK: - Analytics Empty State Threshold Tests
 
 @Suite("Analytics Empty State Tests", .serialized)
@@ -295,5 +381,18 @@ struct AppConstantsTests {
             UserDefaultsKeys.favoriteCategoryIds
         ]
         #expect(Set(keys).count == keys.count)
+    }
+
+    @Test("Coach mark keys are distinct from static keys")
+    func coachMarkKeysAreDistinctFromStaticKeys() {
+        let staticKeys = [
+            UserDefaultsKeys.hasCompletedOnboarding,
+            UserDefaultsKeys.hasShownFirstTransactionCelebration,
+            UserDefaultsKeys.favoriteCategoryIds
+        ]
+        let coachMarkKeys = CoachMarkID.allCases.map { UserDefaultsKeys.coachMarkShown($0) }
+
+        let allKeys = staticKeys + coachMarkKeys
+        #expect(Set(allKeys).count == allKeys.count)
     }
 }

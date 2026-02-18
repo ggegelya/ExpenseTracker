@@ -41,6 +41,7 @@
 			membershipExceptions = (
 				Tests/IntegrationTests/TransactionFlowIntegrationTests.swift,
 				Tests/PerformanceTests/RepositoryPerformanceTests.swift,
+				Tests/TestUtilities/Mocks/MockCoachMarkManager.swift,
 				Tests/UITests/AccountsUITests.swift,
 				Tests/UITests/AnalyticsUITests.swift,
 				Tests/UITests/ExpenseTrackerUITests.swift,
@@ -54,6 +55,7 @@
 				Tests/UnitTests/AppErrorTests.swift,
 				Tests/UnitTests/CategorizationServiceTests.swift,
 				Tests/UnitTests/CategoryMigrationServiceTests.swift,
+				Tests/UnitTests/CoachMarkManagerTests.swift,
 				Tests/UnitTests/ColorHexTests.swift,
 				Tests/UnitTests/DataSeederTests.swift,
 				Tests/UnitTests/EnvironmentTests.swift,
@@ -81,6 +83,7 @@
 				Tests/UnitTests/AppErrorTests.swift,
 				Tests/UnitTests/CategorizationServiceTests.swift,
 				Tests/UnitTests/CategoryMigrationServiceTests.swift,
+				Tests/UnitTests/CoachMarkManagerTests.swift,
 				Tests/UnitTests/ColorHexTests.swift,
 				Tests/UnitTests/DataSeederTests.swift,
 				Tests/UnitTests/EnvironmentTests.swift,
