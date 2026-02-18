@@ -8,16 +8,12 @@
 import Foundation
 import SwiftUI
 
-#if canImport(UIKit)
-import UIKit
-#endif
 struct TransactionListView: View {
     @EnvironmentObject var viewModel: TransactionViewModel
     @Environment(\.selectedTab) private var selectedTabBinding
     @State private var showFilters = false
     @State private var selectedTransaction: Transaction?
     @State private var parentPendingDeletion: Transaction?
-    @State private var didTapTransactionForTests = false
 
     @ViewBuilder
     private func attachCellIdentifier<Content: View>(_ content: Content) -> some View {
@@ -98,16 +94,15 @@ struct TransactionListView: View {
             .contentShape(Rectangle())
             let rowContent = attachCellIdentifier(
                 row
-                    .accessibilityElement(children: TestingConfiguration.isRunningTests ? .ignore : .contain)
+                    .accessibilityElement(children: .contain)
                     .accessibilityLabel(transaction.description)
                     .accessibilityValue(transaction.formattedAmount)
                     .accessibilityIdentifier("TransactionCell")
-                    .accessibilitySortPriority(TestingConfiguration.isRunningTests ? 1 : 0)
+                    .accessibilitySortPriority(1)
             )
             if TestingConfiguration.isRunningTests && !viewModel.isBulkEditMode {
                 Button {
                     selectedTransaction = transaction
-                    didTapTransactionForTests = true
                 } label: {
                     rowContent
                 }
@@ -215,16 +210,15 @@ struct TransactionListView: View {
             .contentShape(Rectangle())
             let parentContent = attachCellIdentifier(
                 parentRow
-                    .accessibilityElement(children: TestingConfiguration.isRunningTests ? .ignore : .contain)
+                    .accessibilityElement(children: .contain)
                     .accessibilityLabel(transaction.description)
                     .accessibilityValue(transaction.formattedAmount)
                     .accessibilityIdentifier("TransactionCell")
-                    .accessibilitySortPriority(TestingConfiguration.isRunningTests ? 1 : 0)
+                    .accessibilitySortPriority(1)
             )
             if TestingConfiguration.isRunningTests && !viewModel.isBulkEditMode {
                 Button {
                     selectedTransaction = transaction
-                    didTapTransactionForTests = true
                 } label: {
                     parentContent
                 }
@@ -268,16 +262,15 @@ struct TransactionListView: View {
             .contentShape(Rectangle())
             let rowContent = attachCellIdentifier(
                 row
-                    .accessibilityElement(children: TestingConfiguration.isRunningTests ? .ignore : .contain)
+                    .accessibilityElement(children: .contain)
                     .accessibilityLabel(child.description)
                     .accessibilityValue(child.formattedAmount)
                     .accessibilityIdentifier("TransactionCell")
-                    .accessibilitySortPriority(TestingConfiguration.isRunningTests ? 1 : 0)
+                    .accessibilitySortPriority(1)
             )
             if TestingConfiguration.isRunningTests && !viewModel.isBulkEditMode {
                 Button {
                     selectedTransaction = child
-                    didTapTransactionForTests = true
                 } label: {
                     rowContent
                 }
@@ -365,31 +358,7 @@ struct TransactionListView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                if TestingConfiguration.isRunningTests {
-                    TransactionListTestTableView()
-                        .frame(width: 1, height: 1)
-                        .opacity(0.01)
-                        .allowsHitTesting(false)
-                        .accessibilityIdentifier("TransactionList")
-                }
                 transactionList
-                if TestingConfiguration.isRunningTests && didTapTransactionForTests {
-                    Text("TransactionDetailView")
-                        .font(.system(size: 1))
-                        .opacity(0.01)
-                        .frame(width: 1, height: 1)
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("TransactionDetailView")
-                        .accessibilityIdentifier("TransactionDetailView")
-                }
-                if TestingConfiguration.isRunningTests, let dateLabel = activeDateRangeLabel {
-                    Text(dateLabel)
-                        .font(.system(size: 1))
-                        .opacity(0.01)
-                        .frame(width: 1, height: 1)
-                        .accessibilityLabel(dateLabel)
-                        .accessibilityIdentifier("ActiveDateRangeFilterLabel")
-                }
 
                 // Bulk Actions Bar
                 if viewModel.isBulkEditMode {
@@ -516,18 +485,28 @@ struct TransactionListView: View {
     }
 }
 
-#if canImport(UIKit)
-private struct TransactionListTestTableView: UIViewRepresentable {
-    func makeUIView(context: Context) -> UITableView {
-        let tableView = UITableView(frame: .zero, style: .plain)
-        tableView.isUserInteractionEnabled = false
-        tableView.accessibilityIdentifier = "TransactionList"
-        return tableView
-    }
+// MARK: - Test Accessibility Helpers
 
-    func updateUIView(_ uiView: UITableView, context: Context) {}
+/// Amount + type markers for UI test accessibility within transaction rows.
+struct TestAmountMarker: View {
+    let plainAmount: String
+    let isExpense: Bool
+
+    var body: some View {
+        // Use .foregroundColor(.clear) to keep elements in the accessibility tree
+        // while remaining visually invisible. Avoid .opacity() which can remove
+        // elements from the accessibility hierarchy.
+        Text(plainAmount)
+            .font(.system(size: 1))
+            .foregroundColor(.clear)
+            .allowsHitTesting(false)
+        Image(systemName: isExpense ? "minus" : "plus")
+            .font(.system(size: 1))
+            .foregroundColor(.clear)
+            .allowsHitTesting(false)
+            .accessibilityIdentifier(isExpense ? "ExpenseIcon" : "IncomeIcon")
+    }
 }
-#endif
 
 // MARK: - Transaction Row with Selection
 
@@ -588,14 +567,10 @@ struct TransactionRowWithSelection: View {
                 .fontWeight(.medium)
                 .foregroundColor(transaction.type == .expense ? .red : .green)
             if TestingConfiguration.isRunningTests {
-                Text(plainAmountString)
-                    .font(.system(size: 1))
-                    .opacity(0.01)
-                    .frame(width: 1, height: 1)
-                Image(systemName: transaction.type == .expense ? "minus" : "plus")
-                    .opacity(0.01)
-                    .frame(width: 1, height: 1)
-                    .accessibilityIdentifier(transaction.type == .expense ? "ExpenseIcon" : "IncomeIcon")
+                TestAmountMarker(
+                    plainAmount: plainAmountString,
+                    isExpense: transaction.type == .expense
+                )
             }
         }
         .padding(.vertical, 8)

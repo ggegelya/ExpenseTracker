@@ -120,25 +120,19 @@ final class QuickEntryUITests: XCTestCase {
 
         // Default should be expense
         let expenseIndicator = app.staticTexts["ExpenseIndicator"]
-        if expenseIndicator.exists {
-            XCTAssertTrue(expenseIndicator.exists, "Should default to expense")
-        }
+        XCTAssertTrue(expenseIndicator.waitForExistence(timeout: 2), "Should default to expense")
 
         // Toggle to income
         typeToggle.tap()
 
         // Verify switched to income
         let incomeIndicator = app.staticTexts["IncomeIndicator"]
-        if incomeIndicator.exists {
-            XCTAssertTrue(incomeIndicator.exists, "Should switch to income")
-        }
+        XCTAssertTrue(incomeIndicator.waitForExistence(timeout: 2), "Should switch to income")
 
         // Toggle back to expense
         typeToggle.tap()
 
-        if expenseIndicator.exists {
-            XCTAssertTrue(expenseIndicator.exists, "Should switch back to expense")
-        }
+        XCTAssertTrue(expenseIndicator.waitForExistence(timeout: 2), "Should switch back to expense")
     }
 
     @MainActor

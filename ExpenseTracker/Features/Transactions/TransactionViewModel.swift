@@ -32,6 +32,7 @@ final class TransactionViewModel: ObservableObject {
     // UI State
     @Published var isLoading = false
     @Published var error: AppError?
+    @Published var showCelebration = false
 
     // Filtering (@Published uses willSet — didSet ensures immediate sync for tests)
     @Published var filterDateRange: ClosedRange<Date>? {
@@ -411,9 +412,16 @@ final class TransactionViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
+            var allToDelete: [Transaction] = []
             for transaction in transactions {
-                try await deleteSingleOrSplitTransaction(transaction)
+                if transaction.isSplitParent, let splits = transaction.splitTransactions {
+                    allToDelete.append(contentsOf: splits)
+                }
+                allToDelete.append(transaction)
             }
+            try await repository.performAtomicTransactionOperations(
+                delete: allToDelete, update: [], create: []
+            )
             analyticsService.trackEvent(.transactionDeleted)
         } catch {
             handleError(error, context: "Deleting transactions")
@@ -466,7 +474,6 @@ final class TransactionViewModel: ObservableObject {
         let transactionsToDelete = filteredTransactions
             .filter { selectedTransactionIds.contains($0.id) }
             .filter { transaction in
-                // Skip children whose parent is also selected (cascade will handle them)
                 if let parentId = transaction.parentTransactionId, parentIds.contains(parentId) {
                     return false
                 }
@@ -481,20 +488,23 @@ final class TransactionViewModel: ObservableObject {
             isBulkEditMode = false
         }
 
-        var deletedCount = 0
         do {
-            // Process parents first (their cascade deletes children)
+            // Collect all transactions to delete (parents + their split children)
+            var allToDelete: [Transaction] = []
             let sorted = transactionsToDelete.sorted { $0.isSplitParent && !$1.isSplitParent }
             for transaction in sorted {
-                try await deleteSingleOrSplitTransaction(transaction)
-                deletedCount += 1
+                if transaction.isSplitParent, let splits = transaction.splitTransactions {
+                    allToDelete.append(contentsOf: splits)
+                }
+                allToDelete.append(transaction)
             }
+
+            try await repository.performAtomicTransactionOperations(
+                delete: allToDelete, update: [], create: []
+            )
             analyticsService.trackEvent(.transactionDeleted)
             errorHandler.showToast(String(localized: "toast.deletedCount \(transactionsToDelete.count)"), type: .success)
         } catch {
-            if deletedCount > 0 {
-                errorHandler.showToast(String(localized: "toast.deletedPartial \(deletedCount) \(transactionsToDelete.count)"), type: .warning)
-            }
             handleError(error, context: "Bulk deleting transactions")
         }
     }
@@ -511,9 +521,8 @@ final class TransactionViewModel: ObservableObject {
         }
 
         do {
-            for transaction in transactionsToUpdate {
-                // Create new transaction with updated category (since category is immutable)
-                let updatedTransaction = Transaction(
+            let updated = transactionsToUpdate.map { transaction in
+                Transaction(
                     id: transaction.id,
                     timestamp: transaction.timestamp,
                     transactionDate: transaction.transactionDate,
@@ -524,8 +533,10 @@ final class TransactionViewModel: ObservableObject {
                     fromAccount: transaction.fromAccount,
                     toAccount: transaction.toAccount
                 )
-                _ = try await repository.updateTransaction(updatedTransaction)
             }
+            try await repository.performAtomicTransactionOperations(
+                delete: [], update: updated, create: []
+            )
             errorHandler.showToast(String(localized: "toast.categorizedCount \(transactionsToUpdate.count)"), type: .success)
         } catch {
             handleError(error, context: "Bulk categorizing transactions")
@@ -571,6 +582,7 @@ final class TransactionViewModel: ObservableObject {
         do {
             _ = try await repository.createCategory(category)
             analyticsService.trackEvent(.categoryCreated)
+            categorizationService.invalidateCategoryCache()
         } catch {
             handleError(error, context: "Creating category")
         }

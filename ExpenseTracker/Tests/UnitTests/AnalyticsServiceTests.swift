@@ -11,10 +11,14 @@ import Foundation
 
 @Suite("Analytics Service Tests")
 struct AnalyticsServiceTests {
-    var sut: AnalyticsService
+    // Use MockAnalyticsService for event/error tracking tests (tracks calls)
+    var mockSut: MockAnalyticsService
+    // Use real AnalyticsService for business analytics tests (pure computations)
+    var realSut: AnalyticsService
 
     init() {
-        sut = AnalyticsService()
+        mockSut = MockAnalyticsService()
+        realSut = AnalyticsService()
     }
 
     // MARK: - Event Tracking Tests
@@ -24,9 +28,12 @@ struct AnalyticsServiceTests {
         // Given
         let event = AnalyticsEvent.transactionAdded(amount: 100, category: "продукти")
 
-        // When/Then - should not crash
-        sut.trackEvent(event)
-        #expect(true)
+        // When
+        mockSut.trackEvent(event)
+
+        // Then
+        #expect(mockSut.eventCount == 1)
+        #expect(mockSut.wasTransactionAdded(amount: 100))
     }
 
     @Test("Track transaction added event")
@@ -34,9 +41,13 @@ struct AnalyticsServiceTests {
         // Given
         let event = AnalyticsEvent.transactionAdded(amount: 250.50, category: "кафе")
 
-        // When/Then
-        sut.trackEvent(event)
-        #expect(true)
+        // When
+        mockSut.trackEvent(event)
+
+        // Then
+        #expect(mockSut.eventCount == 1)
+        #expect(mockSut.wasTransactionAdded(amount: 250.50))
+        #expect(mockSut.wasTransactionAdded(category: "кафе"))
     }
 
     @Test("Track transaction deleted event")
@@ -44,9 +55,12 @@ struct AnalyticsServiceTests {
         // Given
         let event = AnalyticsEvent.transactionDeleted
 
-        // When/Then
-        sut.trackEvent(event)
-        #expect(true)
+        // When
+        mockSut.trackEvent(event)
+
+        // Then
+        #expect(mockSut.eventCount == 1)
+        #expect(mockSut.wasTransactionDeleted())
     }
 
     @Test("Track account connected event")
@@ -54,9 +68,12 @@ struct AnalyticsServiceTests {
         // Given
         let event = AnalyticsEvent.accountConnected(bankName: "Monobank")
 
-        // When/Then
-        sut.trackEvent(event)
-        #expect(true)
+        // When
+        mockSut.trackEvent(event)
+
+        // Then
+        #expect(mockSut.eventCount == 1)
+        #expect(mockSut.wasAccountConnected(bankName: "Monobank"))
     }
 
     @Test("Track category created event")
@@ -64,9 +81,12 @@ struct AnalyticsServiceTests {
         // Given
         let event = AnalyticsEvent.categoryCreated
 
-        // When/Then
-        sut.trackEvent(event)
-        #expect(true)
+        // When
+        mockSut.trackEvent(event)
+
+        // Then
+        #expect(mockSut.eventCount == 1)
+        #expect(mockSut.wasCategoryCreated())
     }
 
     @Test("Track export completed event")
@@ -74,9 +94,12 @@ struct AnalyticsServiceTests {
         // Given
         let event = AnalyticsEvent.exportCompleted(format: "CSV")
 
-        // When/Then
-        sut.trackEvent(event)
-        #expect(true)
+        // When
+        mockSut.trackEvent(event)
+
+        // Then
+        #expect(mockSut.eventCount == 1)
+        #expect(mockSut.wasExportCompleted(format: "CSV"))
     }
 
     @Test("Track multiple events in sequence")
@@ -89,11 +112,16 @@ struct AnalyticsServiceTests {
             .exportCompleted(format: "CSV")
         ]
 
-        // When/Then
+        // When
         for event in events {
-            sut.trackEvent(event)
+            mockSut.trackEvent(event)
         }
-        #expect(true)
+
+        // Then
+        #expect(mockSut.eventCount == 4)
+        #expect(mockSut.eventCount(for: .transactionAdded) == 2)
+        #expect(mockSut.wasCategoryCreated())
+        #expect(mockSut.wasExportCompleted(format: "CSV"))
     }
 
     @Test("Track transaction with nil category")
@@ -101,9 +129,12 @@ struct AnalyticsServiceTests {
         // Given
         let event = AnalyticsEvent.transactionAdded(amount: 100, category: nil)
 
-        // When/Then
-        sut.trackEvent(event)
-        #expect(true)
+        // When
+        mockSut.trackEvent(event)
+
+        // Then
+        #expect(mockSut.eventCount == 1)
+        #expect(mockSut.wasTransactionAdded(amount: 100))
     }
 
     @Test("Track transaction with large amount")
@@ -111,9 +142,12 @@ struct AnalyticsServiceTests {
         // Given
         let event = AnalyticsEvent.transactionAdded(amount: 999999.99, category: "зарплата")
 
-        // When/Then
-        sut.trackEvent(event)
-        #expect(true)
+        // When
+        mockSut.trackEvent(event)
+
+        // Then
+        #expect(mockSut.eventCount == 1)
+        #expect(mockSut.wasTransactionAdded(amount: 999999.99))
     }
 
     @Test("Track transaction with zero amount")
@@ -121,9 +155,12 @@ struct AnalyticsServiceTests {
         // Given
         let event = AnalyticsEvent.transactionAdded(amount: 0, category: "інше")
 
-        // When/Then
-        sut.trackEvent(event)
-        #expect(true)
+        // When
+        mockSut.trackEvent(event)
+
+        // Then
+        #expect(mockSut.eventCount == 1)
+        #expect(mockSut.wasTransactionAdded(amount: 0))
     }
 
     // MARK: - Error Tracking Tests
@@ -136,9 +173,12 @@ struct AnalyticsServiceTests {
         ])
         let context = "Transaction creation"
 
-        // When/Then
-        sut.trackError(error, context: context)
-        #expect(true)
+        // When
+        mockSut.trackError(error, context: context)
+
+        // Then
+        #expect(mockSut.errorCount == 1)
+        #expect(mockSut.wasErrorTracked(withContext: "Transaction creation"))
     }
 
     @Test("Track error with nil context")
@@ -146,9 +186,12 @@ struct AnalyticsServiceTests {
         // Given
         let error = NSError(domain: "TestDomain", code: 456)
 
-        // When/Then
-        sut.trackError(error, context: nil)
-        #expect(true)
+        // When
+        mockSut.trackError(error, context: nil)
+
+        // Then
+        #expect(mockSut.errorCount == 1)
+        #expect(mockSut.lastErrorContext == nil)
     }
 
     @Test("Track error with empty context")
@@ -156,9 +199,12 @@ struct AnalyticsServiceTests {
         // Given
         let error = NSError(domain: "TestDomain", code: 789)
 
-        // When/Then
-        sut.trackError(error, context: "")
-        #expect(true)
+        // When
+        mockSut.trackError(error, context: "")
+
+        // Then
+        #expect(mockSut.errorCount == 1)
+        #expect(mockSut.wasErrorTracked(withContext: ""))
     }
 
     @Test("Track multiple errors")
@@ -170,11 +216,16 @@ struct AnalyticsServiceTests {
             NSError(domain: "Domain3", code: 3)
         ]
 
-        // When/Then
+        // When
         for (index, error) in errors.enumerated() {
-            sut.trackError(error, context: "Error \(index + 1)")
+            mockSut.trackError(error, context: "Error \(index + 1)")
         }
-        #expect(true)
+
+        // Then
+        #expect(mockSut.errorCount == 3)
+        #expect(mockSut.wasErrorTracked(withContext: "Error 1"))
+        #expect(mockSut.wasErrorTracked(withContext: "Error 2"))
+        #expect(mockSut.wasErrorTracked(withContext: "Error 3"))
     }
 
     @Test("Track repository error")
@@ -182,9 +233,12 @@ struct AnalyticsServiceTests {
         // Given
         let repositoryError = RepositoryError.saveFailed(underlying: NSError(domain: "CoreData", code: 1))
 
-        // When/Then
-        sut.trackError(repositoryError, context: "Saving transaction")
-        #expect(true)
+        // When
+        mockSut.trackError(repositoryError, context: "Saving transaction")
+
+        // Then
+        #expect(mockSut.errorCount == 1)
+        #expect(mockSut.wasErrorTracked(withContext: "Saving transaction"))
     }
 
     @Test("Track custom error types")
@@ -196,11 +250,16 @@ struct AnalyticsServiceTests {
             case authenticationFailed
         }
 
-        // When/Then
-        sut.trackError(CustomError.invalidInput, context: "Validation")
-        sut.trackError(CustomError.networkFailure, context: "API call")
-        sut.trackError(CustomError.authenticationFailed, context: "Login")
-        #expect(true)
+        // When
+        mockSut.trackError(CustomError.invalidInput, context: "Validation")
+        mockSut.trackError(CustomError.networkFailure, context: "API call")
+        mockSut.trackError(CustomError.authenticationFailed, context: "Login")
+
+        // Then
+        #expect(mockSut.errorCount == 3)
+        #expect(mockSut.wasErrorTracked(withContext: "Validation"))
+        #expect(mockSut.wasErrorTracked(withContext: "API call"))
+        #expect(mockSut.wasErrorTracked(withContext: "Login"))
     }
 
     // MARK: - Integration Tests
@@ -211,11 +270,17 @@ struct AnalyticsServiceTests {
         let event = AnalyticsEvent.transactionAdded(amount: 100, category: "продукти")
         let error = NSError(domain: "TestDomain", code: 1)
 
-        // When/Then
-        sut.trackEvent(event)
-        sut.trackError(error, context: "After event")
-        sut.trackEvent(.categoryCreated)
-        #expect(true)
+        // When
+        mockSut.trackEvent(event)
+        mockSut.trackError(error, context: "After event")
+        mockSut.trackEvent(.categoryCreated)
+
+        // Then
+        #expect(mockSut.eventCount == 2)
+        #expect(mockSut.errorCount == 1)
+        #expect(mockSut.wasTransactionAdded())
+        #expect(mockSut.wasCategoryCreated())
+        #expect(mockSut.wasErrorTracked(withContext: "After event"))
     }
 
     @Test("Analytics events are Equatable")
@@ -259,7 +324,7 @@ struct AnalyticsServiceTests {
         ]
 
         // When
-        let results = sut.spendingByCategory(transactions: transactions)
+        let results = realSut.spendingByCategory(transactions: transactions)
 
         // Then
         let groceriesResult = results.first { $0.category.id == groceries.id }
@@ -276,7 +341,7 @@ struct AnalyticsServiceTests {
     @Test("Calculate spending trends handles empty data")
     func calculateSpendingTrendsEmptyData() async throws {
         // When
-        let results = sut.spendingTrends(transactions: [])
+        let results = realSut.spendingTrends(transactions: [])
 
         // Then
         #expect(results.isEmpty)
@@ -305,7 +370,7 @@ struct AnalyticsServiceTests {
         let transactions = [decExpense, decIncome, janExpense, janIncome]
 
         // When
-        let comparison = sut.monthlyComparison(
+        let comparison = realSut.monthlyComparison(
             transactions: transactions,
             referenceDate: DateGenerator.date(year: 2025, month: 1, day: 20)
         )
@@ -328,7 +393,7 @@ struct AnalyticsServiceTests {
         ]
 
         // When
-        let results = sut.topMerchants(transactions: transactions, limit: 2)
+        let results = realSut.topMerchants(transactions: transactions, limit: 2)
 
         // Then
         #expect(results.count == 2)
@@ -353,7 +418,7 @@ struct AnalyticsServiceTests {
         let januaryRange = janDate...DateGenerator.date(year: 2025, month: 1, day: 31)
 
         // When
-        let results = sut.spendingByCategory(transactions: transactions, dateRange: januaryRange)
+        let results = realSut.spendingByCategory(transactions: transactions, dateRange: januaryRange)
 
         // Then
         #expect(results.count == 1)
@@ -371,7 +436,7 @@ struct AnalyticsServiceTests {
         ]
 
         // When
-        let results = sut.spendingByCategory(transactions: transactions)
+        let results = realSut.spendingByCategory(transactions: transactions)
 
         // Then
         let groceriesResult = results.first { $0.category.id == groceries.id }
@@ -390,7 +455,7 @@ struct AnalyticsServiceTests {
         ]
 
         // When
-        let average = sut.averageTransactionAmount(transactions: transactions)
+        let average = realSut.averageTransactionAmount(transactions: transactions)
 
         // Then
         #expect(DecimalComparison.areEqual(average, 200))
@@ -407,7 +472,7 @@ struct AnalyticsServiceTests {
         ]
 
         // When
-        let anomalies = sut.identifySpendingAnomalies(transactions: transactions, sigmaThreshold: 1.0)
+        let anomalies = realSut.identifySpendingAnomalies(transactions: transactions, sigmaThreshold: 1.0)
 
         // Then
         #expect(anomalies.count == 1)
@@ -428,7 +493,7 @@ struct AnalyticsServiceTests {
         let range = day1...day3
 
         // When
-        let forecast = sut.generateSpendingForecast(transactions: transactions, days: 5, dateRange: range)
+        let forecast = realSut.generateSpendingForecast(transactions: transactions, days: 5, dateRange: range)
 
         // Then
         #expect(forecast.count == 5)
@@ -446,7 +511,7 @@ struct AnalyticsServiceTests {
         ]
 
         // When
-        let rate = sut.savingsRate(transactions: transactions)
+        let rate = realSut.savingsRate(transactions: transactions)
 
         // Then
         #expect(abs(rate - 0.6) < 0.01)
@@ -467,7 +532,7 @@ struct AnalyticsServiceTests {
         ]
 
         // When
-        let results = sut.budgetPerformance(transactions: transactions, budgets: budgets)
+        let results = realSut.budgetPerformance(transactions: transactions, budgets: budgets)
 
         // Then
         let groceriesResult = results.first { $0.categoryId == groceries.id }
@@ -491,7 +556,7 @@ struct AnalyticsServiceTests {
         ]
 
         // When
-        let velocity = sut.expenseVelocity(transactions: transactions)
+        let velocity = realSut.expenseVelocity(transactions: transactions)
 
         // Then
         #expect(DecimalComparison.areEqual(velocity, 100))
@@ -510,11 +575,11 @@ struct AnalyticsServiceTests {
                 amount: Decimal(i),
                 category: "category_\(i % 10)"
             )
-            sut.trackEvent(event)
+            mockSut.trackEvent(event)
         }
 
         // Then
-        #expect(true)
+        #expect(mockSut.eventCount == 1000)
     }
 
     @Test("Track large number of errors performs efficiently")
@@ -525,10 +590,10 @@ struct AnalyticsServiceTests {
         // When
         for i in 0..<errorCount {
             let error = NSError(domain: "Domain\(i)", code: i)
-            sut.trackError(error, context: "Context \(i)")
+            mockSut.trackError(error, context: "Context \(i)")
         }
 
         // Then
-        #expect(true)
+        #expect(mockSut.errorCount == 100)
     }
 }

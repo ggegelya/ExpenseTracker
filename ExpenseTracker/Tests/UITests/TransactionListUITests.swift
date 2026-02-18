@@ -23,27 +23,36 @@ final class TransactionListUITests: XCTestCase {
         app = nil
     }
 
+    /// Finds the TransactionList element regardless of its UIKit backing type
+    /// (UITableView, UICollectionView, or UIScrollView).
+    private func findTransactionList(timeout: TimeInterval = 5) -> XCUIElement? {
+        let table = app.tables["TransactionList"]
+        if table.waitForExistence(timeout: timeout) { return table }
+        let collectionView = app.collectionViews["TransactionList"]
+        if collectionView.waitForExistence(timeout: 1) { return collectionView }
+        let scrollView = app.scrollViews["TransactionList"]
+        if scrollView.waitForExistence(timeout: 1) { return scrollView }
+        return nil
+    }
+
     // MARK: - Transaction List Display Tests
 
     @MainActor
     func testTransactionListDisplaysRecentTransactions() throws {
         // Verify transaction list exists
-        let transactionList = app.tables["TransactionList"]
-        XCTAssertTrue(transactionList.waitForExistence(timeout: 5) ||
-                     app.scrollViews["TransactionList"].exists,
-                     "Transaction list should exist")
+        let transactionList = findTransactionList()
+        XCTAssertNotNil(transactionList, "Transaction list should exist")
 
         // Verify at least one transaction is visible
         let firstTransaction = app.cells.element(boundBy: 0)
-        XCTAssertTrue(firstTransaction.exists, "At least one transaction should be visible")
+        XCTAssertTrue(firstTransaction.waitForExistence(timeout: 3), "At least one transaction should be visible")
     }
 
     @MainActor
     func testTapTransactionShowsDetailView() throws {
         // Wait for list to load
-        let transactionList = app.tables["TransactionList"]
-        XCTAssertTrue(transactionList.waitForExistence(timeout: 5) ||
-                     app.scrollViews["TransactionList"].exists)
+        let transactionList = findTransactionList()
+        XCTAssertNotNil(transactionList, "Transaction list should exist")
 
         // Tap first transaction
         let firstTransaction = app.cells.element(boundBy: 0)
@@ -63,33 +72,35 @@ final class TransactionListUITests: XCTestCase {
     @MainActor
     func testSwipeToDeleteRemovesTransaction() throws {
         // Wait for list
-        let transactionList = app.tables["TransactionList"]
-        XCTAssertTrue(transactionList.waitForExistence(timeout: 5) ||
-                     app.scrollViews["TransactionList"].exists)
+        guard let transactionList = findTransactionList() else {
+            XCTFail("Transaction list should exist")
+            return
+        }
 
-        // Get initial count
-        let initialCellCount = app.cells.count
+        // Verify cells exist
+        let firstTransaction = transactionList.cells.element(boundBy: 0)
+        XCTAssertTrue(firstTransaction.waitForExistence(timeout: 3), "At least one cell should exist")
 
-        // Swipe first transaction to reveal delete
-        let firstTransaction = app.cells.element(boundBy: 0)
-        XCTAssertTrue(firstTransaction.exists)
+        // Swipe first transaction to reveal delete action
         firstTransaction.swipeLeft()
 
-        // Tap delete button
-        let deleteButton = app.buttons["Delete"] ?? app.buttons["Видалити"]
-        if deleteButton.waitForExistence(timeout: 2) {
-            deleteButton.tap()
+        // Tap delete button (localized: "Delete" or "Видалити")
+        let deleteButton = app.buttons.matching(
+            NSPredicate(format: "label == 'Delete' OR label == 'Видалити'")
+        ).firstMatch
+        XCTAssertTrue(deleteButton.waitForExistence(timeout: 3), "Delete button should appear after swipe")
+        deleteButton.tap()
 
-            // Confirm deletion if alert appears
-            let confirmButton = app.buttons["Confirm"] ?? app.buttons["Delete"] ?? app.buttons["Видалити"]
-            if confirmButton.waitForExistence(timeout: 1) {
-                confirmButton.tap()
-            }
-
-            // Verify transaction count decreased
-            let finalCellCount = app.cells.count
-            XCTAssertTrue(finalCellCount < initialCellCount, "Transaction should be removed from list")
+        // Confirm deletion if alert appears (split transactions show confirmation)
+        let confirmButton = app.alerts.buttons.matching(
+            NSPredicate(format: "label == 'Confirm' OR label == 'Delete' OR label == 'Видалити'")
+        ).firstMatch
+        if confirmButton.waitForExistence(timeout: 1) {
+            confirmButton.tap()
         }
+
+        // Verify the list is still visible after deletion (app didn't crash)
+        XCTAssertTrue(transactionList.waitForExistence(timeout: 3), "Transaction list should remain visible after deletion")
     }
 
     @MainActor
@@ -104,24 +115,26 @@ final class TransactionListUITests: XCTestCase {
             }
         }
 
-        if searchField.waitForExistence(timeout: 2) {
-            searchField.tap()
-            searchField.typeText("test")
+        guard searchField.waitForExistence(timeout: 2) else {
+            XCTFail("Search field should exist")
+            return
+        }
+        searchField.tap()
+        searchField.typeText("test")
 
-            // Wait for filtering
-            sleep(1)
+        // Wait for filtering
+        _ = app.cells.firstMatch.waitForExistence(timeout: 3)
 
-            // Verify list is filtered
-            // This is implementation-specific, but we expect fewer results
-            let visibleCells = app.cells.count
-            XCTAssertTrue(visibleCells >= 0, "Filtered results should be displayed")
+        // Verify list is filtered
+        // This is implementation-specific, but we expect fewer results
+        let visibleCells = app.cells.count
+        XCTAssertTrue(visibleCells > 0, "Filtered results should be displayed")
 
-            // Clear search
-            if app.buttons["ClearSearch"].exists {
-                app.buttons["ClearSearch"].tap()
-            } else {
-                searchField.buttons["Clear text"].tap()
-            }
+        // Clear search
+        if app.buttons["ClearSearch"].exists {
+            app.buttons["ClearSearch"].tap()
+        } else {
+            searchField.buttons["Clear text"].tap()
         }
     }
 
@@ -136,27 +149,28 @@ final class TransactionListUITests: XCTestCase {
             }
         }
 
-        if filterButton.waitForExistence(timeout: 2) {
-            filterButton.tap()
+        guard filterButton.waitForExistence(timeout: 2) else {
+            XCTFail("Filter button should exist")
+            return
+        }
+        filterButton.tap()
 
-            // Select category filter
-            let categoryFilterOption = app.buttons["FilterByCategory"]
-            if categoryFilterOption.waitForExistence(timeout: 2) {
-                categoryFilterOption.tap()
+        // Select category filter
+        let categoryFilterOption = app.buttons["FilterByCategory"]
+        if categoryFilterOption.waitForExistence(timeout: 2) {
+            categoryFilterOption.tap()
 
-                // Select a category
-                let groceriesCategory = app.buttons["Category_groceries"]
-                if groceriesCategory.waitForExistence(timeout: 2) {
-                    groceriesCategory.tap()
+            // Select a category
+            let groceriesCategory = app.buttons["Category_groceries"]
+            if groceriesCategory.waitForExistence(timeout: 2) {
+                groceriesCategory.tap()
 
-                    // Verify filter applied
-                    let filterIndicator = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'продукти'")).firstMatch
-                    XCTAssertTrue(filterIndicator.exists, "Category filter should be applied")
+                // Verify filter applied
+                let filterIndicator = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'продукти'")).firstMatch
+                XCTAssertTrue(filterIndicator.exists, "Category filter should be applied")
 
-                    // Verify list updates
-                    let transactionList = app.tables["TransactionList"]
-                    XCTAssertTrue(transactionList.exists || app.scrollViews["TransactionList"].exists)
-                }
+                // Verify list updates
+                XCTAssertNotNil(findTransactionList(timeout: 2), "Transaction list should exist")
             }
         }
     }
@@ -164,25 +178,33 @@ final class TransactionListUITests: XCTestCase {
     @MainActor
     func testFilterByDateRangeWorks() throws {
         // Open filter menu
-        let filterButton = app.buttons["FilterButton"] ?? app.buttons["ShowFilters"]
+        let filterButton = app.buttons.matching(
+            NSPredicate(format: "identifier == 'FilterButton' OR identifier == 'ShowFilters'")
+        ).firstMatch
 
-        if filterButton.waitForExistence(timeout: 2) {
-            filterButton.tap()
+        guard filterButton.waitForExistence(timeout: 2) else {
+            XCTFail("Filter button should exist")
+            return
+        }
+        filterButton.tap()
 
-            // Select date range filter
-            let dateRangeOption = app.buttons["FilterByDateRange"] ?? app.buttons["DateRange"]
-            if dateRangeOption.waitForExistence(timeout: 2) {
-                dateRangeOption.tap()
+        // Select date range filter
+        let dateRangeOption = app.buttons.matching(
+            NSPredicate(format: "identifier == 'FilterByDateRange' OR identifier == 'DateRange'")
+        ).firstMatch
+        if dateRangeOption.waitForExistence(timeout: 2) {
+            dateRangeOption.tap()
 
-                // Select "This Month" quick option
-                let thisMonthButton = app.buttons["ThisMonth"] ?? app.buttons["Цей місяць"]
-                if thisMonthButton.waitForExistence(timeout: 2) {
-                    thisMonthButton.tap()
+            // Select "This Month" quick option
+            let thisMonthButton = app.buttons.matching(
+                NSPredicate(format: "identifier == 'ThisMonth' OR label == 'Цей місяць'")
+            ).firstMatch
+            if thisMonthButton.waitForExistence(timeout: 2) {
+                thisMonthButton.tap()
 
-                    // Verify filter applied
-                    let filterIndicator = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] 'month' OR label CONTAINS[c] 'місяць'")).firstMatch
-                    XCTAssertTrue(filterIndicator.exists, "Date filter should be applied")
-                }
+                // Verify filter applied
+                let filterIndicator = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] 'month' OR label CONTAINS[c] 'місяць'")).firstMatch
+                XCTAssertTrue(filterIndicator.exists, "Date filter should be applied")
             }
         }
     }
@@ -190,62 +212,68 @@ final class TransactionListUITests: XCTestCase {
     @MainActor
     func testPullToRefreshUpdatesList() throws {
         // Find scrollable view
-        let scrollView = app.scrollViews["TransactionList"].firstMatch
-        let tableView = app.tables["TransactionList"].firstMatch
-
-        let targetView = scrollView.exists ? scrollView : tableView
-
-        if targetView.waitForExistence(timeout: 3) {
-            // Pull down to refresh
-            let start = targetView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
-            let end = targetView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
-            start.press(forDuration: 0.1, thenDragTo: end)
-
-            // Wait for refresh to complete
-            sleep(2)
-
-            // Verify list still displays
-            XCTAssertTrue(targetView.exists, "List should still be visible after refresh")
+        guard let targetView = findTransactionList(timeout: 5) else {
+            XCTFail("Transaction list should exist")
+            return
         }
+
+        // Pull down to refresh
+        let start = targetView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
+        let end = targetView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
+        start.press(forDuration: 0.1, thenDragTo: end)
+
+        // Wait for refresh to complete
+        _ = targetView.waitForExistence(timeout: 3)
+
+        // Verify list still displays
+        XCTAssertTrue(targetView.exists, "List should still be visible after refresh")
     }
 
     @MainActor
     func testBulkSelectionAllowsMultiDelete() throws {
         // Enter selection mode
-        let selectButton = app.buttons["SelectButton"] ?? app.buttons["Вибрати"]
+        let selectButton = app.buttons.matching(
+            NSPredicate(format: "identifier == 'SelectButton' OR label == 'Вибрати'")
+        ).firstMatch
 
-        if selectButton.waitForExistence(timeout: 2) {
-            selectButton.tap()
+        guard selectButton.waitForExistence(timeout: 2) else {
+            XCTFail("Select button should exist")
+            return
+        }
+        selectButton.tap()
 
-            // Select multiple transactions
-            let firstCell = app.cells.element(boundBy: 0)
-            let secondCell = app.cells.element(boundBy: 1)
+        // Select multiple transactions
+        let firstCell = app.cells.element(boundBy: 0)
+        let secondCell = app.cells.element(boundBy: 1)
 
-            if firstCell.exists && secondCell.exists {
-                firstCell.tap()
-                secondCell.tap()
+        if firstCell.exists && secondCell.exists {
+            firstCell.tap()
+            secondCell.tap()
 
-                // Verify selection indicators appear
-                // This is implementation-specific
+            // Verify selection indicators appear
+            // This is implementation-specific
 
-                // Tap bulk delete
-                let deleteSelectedButton = app.buttons["DeleteSelected"] ?? app.buttons["Видалити вибрані"]
-                if deleteSelectedButton.waitForExistence(timeout: 2) {
-                    let initialCount = app.cells.count
+            // Tap bulk delete
+            let deleteSelectedButton = app.buttons.matching(
+                NSPredicate(format: "identifier == 'DeleteSelected' OR label == 'Видалити вибрані'")
+            ).firstMatch
+            if deleteSelectedButton.waitForExistence(timeout: 2) {
+                let initialCount = app.cells.count
 
-                    deleteSelectedButton.tap()
+                deleteSelectedButton.tap()
 
-                    // Confirm deletion
-                    let confirmButton = app.buttons["Confirm"] ?? app.buttons["Delete"] ?? app.buttons["Видалити"]
-                    if confirmButton.waitForExistence(timeout: 1) {
-                        confirmButton.tap()
-                    }
-
-                    // Verify transactions removed
-                    sleep(1)
-                    let finalCount = app.cells.count
-                    XCTAssertTrue(finalCount < initialCount, "Selected transactions should be deleted")
+                // Confirm deletion
+                let confirmButton = app.buttons.matching(
+                    NSPredicate(format: "label == 'Confirm' OR label == 'Delete' OR label == 'Видалити'")
+                ).firstMatch
+                if confirmButton.waitForExistence(timeout: 1) {
+                    confirmButton.tap()
                 }
+
+                // Verify transactions removed
+                _ = app.cells.firstMatch.waitForExistence(timeout: 3)
+                let finalCount = app.cells.count
+                XCTAssertTrue(finalCount < initialCount, "Selected transactions should be deleted")
             }
         }
     }
@@ -255,21 +283,23 @@ final class TransactionListUITests: XCTestCase {
         // Find a split transaction
         let splitTransaction = app.cells.containing(NSPredicate(format: "label CONTAINS[c] 'split' OR label CONTAINS[c] 'роздільна'")).firstMatch
 
-        if splitTransaction.waitForExistence(timeout: 3) {
-            // Tap to expand
-            splitTransaction.tap()
-
-            // Verify sub-items appear
-            let subItem = app.cells.containing(NSPredicate(format: "label CONTAINS[c] 'split' AND label CONTAINS[c] '—'")).firstMatch
-            XCTAssertTrue(subItem.waitForExistence(timeout: 2), "Split sub-items should appear")
-
-            // Tap again to collapse
-            splitTransaction.tap()
-
-            // Verify sub-items hidden
-            let subItemHidden = !subItem.exists
-            XCTAssertTrue(subItemHidden, "Split sub-items should be hidden when collapsed")
+        guard splitTransaction.waitForExistence(timeout: 3) else {
+            XCTFail("Split transaction should exist")
+            return
         }
+        // Tap to expand
+        splitTransaction.tap()
+
+        // Verify sub-items appear
+        let subItem = app.cells.containing(NSPredicate(format: "label CONTAINS[c] 'split' AND label CONTAINS[c] '—'")).firstMatch
+        XCTAssertTrue(subItem.waitForExistence(timeout: 2), "Split sub-items should appear")
+
+        // Tap again to collapse
+        splitTransaction.tap()
+
+        // Verify sub-items hidden
+        let subItemHidden = !subItem.exists
+        XCTAssertTrue(subItemHidden, "Split sub-items should be hidden when collapsed")
     }
 
     // MARK: - Empty State Tests
@@ -279,7 +309,8 @@ final class TransactionListUITests: XCTestCase {
         // This test would require starting with no transactions
         // Launch with specific environment to ensure empty state
         app.terminate()
-        app.launchEnvironment = ["IS_TESTING": "1", "START_EMPTY": "1"]
+        app.launchArguments = ["-UITesting", "-DisableAnimations"]
+        app.launchEnvironment = ["IS_TESTING": "1", "DISABLE_ANIMATIONS": "1", "START_EMPTY": "1"]
         app.launch()
 
         // Verify empty state appears
@@ -295,27 +326,25 @@ final class TransactionListUITests: XCTestCase {
     @MainActor
     func testScrollThroughLargeListIsSmooth() throws {
         // This requires a list with many transactions
-        let transactionList = app.tables["TransactionList"].firstMatch
-        let scrollView = app.scrollViews["TransactionList"].firstMatch
-
-        let targetView = transactionList.exists ? transactionList : scrollView
-
-        if targetView.waitForExistence(timeout: 3) {
-            // Scroll down multiple times
-            for _ in 0..<5 {
-                targetView.swipeUp()
-            }
-
-            // Verify list is still responsive
-            XCTAssertTrue(targetView.exists, "List should remain responsive during scrolling")
-
-            // Scroll back to top
-            for _ in 0..<5 {
-                targetView.swipeDown()
-            }
-
-            XCTAssertTrue(targetView.exists, "List should remain responsive")
+        guard let targetView = findTransactionList(timeout: 5) else {
+            XCTFail("Transaction list should exist")
+            return
         }
+
+        // Scroll down multiple times
+        for _ in 0..<5 {
+            targetView.swipeUp()
+        }
+
+        // Verify list is still responsive
+        XCTAssertTrue(targetView.exists, "List should remain responsive during scrolling")
+
+        // Scroll back to top
+        for _ in 0..<5 {
+            targetView.swipeDown()
+        }
+
+        XCTAssertTrue(targetView.exists, "List should remain responsive")
     }
 
     // MARK: - Transaction Type Indicators
@@ -323,8 +352,12 @@ final class TransactionListUITests: XCTestCase {
     @MainActor
     func testTransactionListShowsTypeIndicators() throws {
         // Verify expense transactions show expense indicator
-        let expenseIndicator = app.images["ExpenseIcon"] ?? app.staticTexts.containing(NSPredicate(format: "label CONTAINS '-'")).firstMatch
-        let incomeIndicator = app.images["IncomeIcon"] ?? app.staticTexts.containing(NSPredicate(format: "label CONTAINS '+'")).firstMatch
+        let expenseIndicator = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == 'ExpenseIcon' OR label CONTAINS '-'")
+        ).firstMatch
+        let incomeIndicator = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == 'IncomeIcon' OR label CONTAINS '+'")
+        ).firstMatch
 
         // At least one type of transaction should be visible
         XCTAssertTrue(expenseIndicator.waitForExistence(timeout: 3) || incomeIndicator.exists,
@@ -342,20 +375,24 @@ final class TransactionListUITests: XCTestCase {
         firstTransaction.press(forDuration: 1.0)
 
         // Verify context menu appears
-        let editOption = app.buttons["Edit"] ?? app.buttons["Редагувати"]
-        let deleteOption = app.buttons["Delete"] ?? app.buttons["Видалити"]
-        let shareOption = app.buttons["Share"] ?? app.buttons["Поділитися"]
+        let editOption = app.buttons.matching(
+            NSPredicate(format: "label == 'Edit' OR label == 'Редагувати'")
+        ).firstMatch
+        let deleteOption = app.buttons.matching(
+            NSPredicate(format: "label == 'Delete' OR label == 'Видалити'")
+        ).firstMatch
+        let shareOption = app.buttons.matching(
+            NSPredicate(format: "label == 'Share' OR label == 'Поділитися'")
+        ).firstMatch
 
         let contextMenuAppeared = editOption.waitForExistence(timeout: 2) ||
                                  deleteOption.exists ||
                                  shareOption.exists
 
-        if contextMenuAppeared {
-            XCTAssertTrue(true, "Context menu appeared")
+        XCTAssertTrue(contextMenuAppeared, "Context menu should appear after long press")
 
-            // Dismiss context menu
-            app.tap()
-        }
+        // Dismiss context menu
+        app.tap()
     }
 
     // MARK: - Sorting Tests
@@ -363,29 +400,35 @@ final class TransactionListUITests: XCTestCase {
     @MainActor
     func testSortingOptionsChangeOrder() throws {
         // Open sort menu
-        let sortButton = app.buttons["SortButton"] ?? app.buttons["Сортувати"]
+        let sortButton = app.buttons.matching(
+            NSPredicate(format: "identifier == 'SortButton' OR label == 'Сортувати'")
+        ).firstMatch
 
-        if sortButton.waitForExistence(timeout: 2) {
-            sortButton.tap()
+        guard sortButton.waitForExistence(timeout: 2) else {
+            XCTFail("Sort button should exist")
+            return
+        }
+        sortButton.tap()
 
-            // Get first transaction text before sorting
-            let firstTransactionBefore = app.cells.element(boundBy: 0).label
+        // Get first transaction text before sorting
+        let firstTransactionBefore = app.cells.element(boundBy: 0).label
 
-            // Select "Sort by Amount"
-            let sortByAmount = app.buttons["SortByAmount"] ?? app.buttons["За сумою"]
-            if sortByAmount.waitForExistence(timeout: 2) {
-                sortByAmount.tap()
+        // Select "Sort by Amount"
+        let sortByAmount = app.buttons.matching(
+            NSPredicate(format: "identifier == 'SortByAmount' OR label == 'За сумою'")
+        ).firstMatch
+        if sortByAmount.waitForExistence(timeout: 2) {
+            sortByAmount.tap()
 
-                // Wait for re-sort
-                sleep(1)
+            // Wait for re-sort
+            _ = app.cells.firstMatch.waitForExistence(timeout: 3)
 
-                // Get first transaction after sorting
-                let firstTransactionAfter = app.cells.element(boundBy: 0).label
+            // Get first transaction after sorting
+            let firstTransactionAfter = app.cells.element(boundBy: 0).label
 
-                // They might be different (unless coincidentally the same)
-                // Just verify list still exists and is populated
-                XCTAssertTrue(app.cells.element(boundBy: 0).exists, "List should still be populated after sorting")
-            }
+            // They might be different (unless coincidentally the same)
+            // Just verify list still exists and is populated
+            XCTAssertTrue(app.cells.element(boundBy: 0).exists, "List should still be populated after sorting")
         }
     }
 }

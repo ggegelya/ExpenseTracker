@@ -28,22 +28,28 @@ final class AnalyticsUITests: XCTestCase {
     @MainActor
     func testAnalyticsTabNavigatesToAnalyticsView() throws {
         // Navigate to analytics tab
-        let analyticsTab = app.buttons["AnalyticsTab"] ?? app.tabBars.buttons.element(boundBy: 2)
+        let analyticsTab = app.buttons.matching(
+            NSPredicate(format: "identifier == 'AnalyticsTab'")
+        ).firstMatch.exists
+            ? app.buttons["AnalyticsTab"]
+            : app.tabBars.buttons.element(boundBy: 2)
 
-        if analyticsTab.waitForExistence(timeout: 3) {
-            analyticsTab.tap()
-
-            // Verify analytics view loads
-            let analyticsView = app.otherElements["AnalyticsView"]
-            let analyticsContent = app.staticTexts.containing(
-                NSPredicate(format: "label CONTAINS[c] 'analytics' OR label CONTAINS[c] 'аналітика'")
-            ).firstMatch
-
-            XCTAssertTrue(
-                analyticsView.waitForExistence(timeout: 3) || analyticsContent.exists,
-                "Analytics view should load after tapping analytics tab"
-            )
+        guard analyticsTab.waitForExistence(timeout: 3) else {
+            XCTFail("Analytics tab should exist")
+            return
         }
+        analyticsTab.tap()
+
+        // Verify analytics view loads
+        let analyticsView = app.otherElements["AnalyticsView"]
+        let analyticsContent = app.staticTexts.containing(
+            NSPredicate(format: "label CONTAINS[c] 'analytics' OR label CONTAINS[c] 'аналітика'")
+        ).firstMatch
+
+        XCTAssertTrue(
+            analyticsView.waitForExistence(timeout: 3) || analyticsContent.exists,
+            "Analytics view should load after tapping analytics tab"
+        )
     }
 
     // MARK: - Date Range Tests
@@ -51,55 +57,80 @@ final class AnalyticsUITests: XCTestCase {
     @MainActor
     func testDateRangeSelectorShowsAllOptions() throws {
         // Navigate to analytics
-        let analyticsTab = app.buttons["AnalyticsTab"] ?? app.tabBars.buttons.element(boundBy: 2)
-        guard analyticsTab.waitForExistence(timeout: 3) else { return }
+        let analyticsTab = app.buttons.matching(
+            NSPredicate(format: "identifier == 'AnalyticsTab'")
+        ).firstMatch.exists
+            ? app.buttons["AnalyticsTab"]
+            : app.tabBars.buttons.element(boundBy: 2)
+        guard analyticsTab.waitForExistence(timeout: 3) else {
+            XCTFail("Analytics tab should exist")
+            return
+        }
         analyticsTab.tap()
 
         // Find and tap date range selector
-        let dateRangeSelector = app.buttons["DateRangeSelector"] ?? app.segmentedControls.firstMatch
+        let dateRangeSelector = app.buttons.matching(
+            NSPredicate(format: "identifier == 'DateRangeSelector'")
+        ).firstMatch.exists
+            ? app.buttons["DateRangeSelector"]
+            : app.segmentedControls.firstMatch
 
-        if dateRangeSelector.waitForExistence(timeout: 3) {
-            dateRangeSelector.tap()
-
-            // Verify date range options exist
-            let options = app.buttons.matching(
-                NSPredicate(format: "label CONTAINS[c] 'month' OR label CONTAINS[c] 'місяць' OR label CONTAINS[c] 'custom' OR label CONTAINS[c] 'довільний'")
-            )
-
-            XCTAssertTrue(options.count > 0, "Date range selector should show options")
+        guard dateRangeSelector.waitForExistence(timeout: 3) else {
+            XCTFail("Date range selector should exist")
+            return
         }
+        dateRangeSelector.tap()
+
+        // Verify date range options exist
+        let options = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS[c] 'month' OR label CONTAINS[c] 'місяць' OR label CONTAINS[c] 'custom' OR label CONTAINS[c] 'довільний'")
+        )
+
+        XCTAssertTrue(options.count > 0, "Date range selector should show options")
     }
 
     @MainActor
     func testSwitchingDateRangeUpdatesDisplayedData() throws {
         // Navigate to analytics
-        let analyticsTab = app.buttons["AnalyticsTab"] ?? app.tabBars.buttons.element(boundBy: 2)
-        guard analyticsTab.waitForExistence(timeout: 3) else { return }
+        let analyticsTab = app.buttons.matching(
+            NSPredicate(format: "identifier == 'AnalyticsTab'")
+        ).firstMatch.exists
+            ? app.buttons["AnalyticsTab"]
+            : app.tabBars.buttons.element(boundBy: 2)
+        guard analyticsTab.waitForExistence(timeout: 3) else {
+            XCTFail("Analytics tab should exist")
+            return
+        }
         analyticsTab.tap()
 
         // Wait for analytics content to load
-        sleep(1)
+        let _ = app.staticTexts.firstMatch.waitForExistence(timeout: 2)
 
         // Find date range selector
         let dateRangeSelector = app.segmentedControls.firstMatch
 
-        if dateRangeSelector.waitForExistence(timeout: 3) {
-            // Switch to a different date range
-            let segments = dateRangeSelector.buttons
-            if segments.count > 1 {
-                segments.element(boundBy: 1).tap()
-
-                // Wait for data refresh
-                sleep(1)
-
-                // Analytics view should still be showing data
-                let analyticsView = app.otherElements["AnalyticsView"]
-                XCTAssertTrue(
-                    analyticsView.exists || app.scrollViews.firstMatch.exists,
-                    "Analytics should display updated data after switching date range"
-                )
-            }
+        guard dateRangeSelector.waitForExistence(timeout: 3) else {
+            XCTFail("Date range selector should exist")
+            return
         }
+
+        // Switch to a different date range
+        let segments = dateRangeSelector.buttons
+        guard segments.count > 1 else {
+            XCTFail("Date range selector should have more than one segment")
+            return
+        }
+        segments.element(boundBy: 1).tap()
+
+        // Wait for data refresh
+        let analyticsView = app.otherElements["AnalyticsView"]
+        let _ = analyticsView.waitForExistence(timeout: 3)
+
+        // Analytics view should still be showing data
+        XCTAssertTrue(
+            analyticsView.exists || app.scrollViews.firstMatch.exists,
+            "Analytics should display updated data after switching date range"
+        )
     }
 
     // MARK: - Category Breakdown Tests
@@ -107,12 +138,19 @@ final class AnalyticsUITests: XCTestCase {
     @MainActor
     func testCategoryBreakdownCardDisplaysCategories() throws {
         // Navigate to analytics
-        let analyticsTab = app.buttons["AnalyticsTab"] ?? app.tabBars.buttons.element(boundBy: 2)
-        guard analyticsTab.waitForExistence(timeout: 3) else { return }
+        let analyticsTab = app.buttons.matching(
+            NSPredicate(format: "identifier == 'AnalyticsTab'")
+        ).firstMatch.exists
+            ? app.buttons["AnalyticsTab"]
+            : app.tabBars.buttons.element(boundBy: 2)
+        guard analyticsTab.waitForExistence(timeout: 3) else {
+            XCTFail("Analytics tab should exist")
+            return
+        }
         analyticsTab.tap()
 
         // Wait for content to load
-        sleep(2)
+        let _ = app.staticTexts.firstMatch.waitForExistence(timeout: 3)
 
         // Scroll down to find category breakdown section
         let scrollView = app.scrollViews.firstMatch
@@ -135,11 +173,19 @@ final class AnalyticsUITests: XCTestCase {
     @MainActor
     func testTappingCategoryInBreakdownNavigatesToTransactions() throws {
         // Navigate to analytics
-        let analyticsTab = app.buttons["AnalyticsTab"] ?? app.tabBars.buttons.element(boundBy: 2)
-        guard analyticsTab.waitForExistence(timeout: 3) else { return }
+        let analyticsTab = app.buttons.matching(
+            NSPredicate(format: "identifier == 'AnalyticsTab'")
+        ).firstMatch.exists
+            ? app.buttons["AnalyticsTab"]
+            : app.tabBars.buttons.element(boundBy: 2)
+        guard analyticsTab.waitForExistence(timeout: 3) else {
+            XCTFail("Analytics tab should exist")
+            return
+        }
         analyticsTab.tap()
 
-        sleep(2)
+        // Wait for content to load
+        let _ = app.staticTexts.firstMatch.waitForExistence(timeout: 3)
 
         // Scroll to find breakdown section
         let scrollView = app.scrollViews.firstMatch
@@ -149,13 +195,17 @@ final class AnalyticsUITests: XCTestCase {
 
         // Find and tap first category in breakdown
         let categoryRow = app.cells.element(boundBy: 0)
-        if categoryRow.waitForExistence(timeout: 3) {
-            categoryRow.tap()
-
-            // Verify navigation occurs (either detail view or filtered transaction list)
-            sleep(1)
-            let navigated = app.navigationBars.count > 0 || app.otherElements.count > 0
-            XCTAssertTrue(navigated, "Tapping category should trigger navigation")
+        guard categoryRow.waitForExistence(timeout: 3) else {
+            XCTFail("Category row should exist in breakdown")
+            return
         }
+        categoryRow.tap()
+
+        // Verify navigation occurs (either detail view or filtered transaction list)
+        let backButton = app.navigationBars.buttons.firstMatch
+        XCTAssertTrue(
+            backButton.waitForExistence(timeout: 3),
+            "Tapping category should trigger navigation to a detail view"
+        )
     }
 }

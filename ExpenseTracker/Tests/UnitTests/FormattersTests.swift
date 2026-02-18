@@ -20,7 +20,7 @@ struct FormattersTests {
         let result = Formatters.currencyString(amount: 1000, currency: .usd)
         #expect(result.contains("$"))
         #expect(result.contains("1"))
-        #expect(result.contains("000") || result.contains("0"))
+        #expect(result.contains("000") || result.contains(",000") || result.contains(" 000"))
     }
 
     @Test("currencyString with EUR currency")
@@ -36,6 +36,7 @@ struct FormattersTests {
         #expect(result.contains("₴"))
         #expect(result.contains("1"))
         #expect(result.contains("234"))
+        #expect(result.contains("56"))
     }
 
     @Test("currencyString with zero amount")
@@ -59,6 +60,7 @@ struct FormattersTests {
         let result = Formatters.decimalString(100.5, minFractionDigits: 2, maxFractionDigits: 2)
         // Should include exactly 2 decimal places
         #expect(result.contains("100"))
+        #expect(result.contains("50"))
     }
 
     @Test("decimalString with zero fraction digits")
@@ -66,6 +68,7 @@ struct FormattersTests {
         let result = Formatters.decimalString(100.567, minFractionDigits: 0, maxFractionDigits: 0)
         #expect(result.contains("10"))
         // Should not have decimal separator with 0 max fraction digits
+        #expect(!result.contains(".") || !result.contains(","), "Should not contain decimal portion")
     }
 
     // MARK: - Percent String Tests

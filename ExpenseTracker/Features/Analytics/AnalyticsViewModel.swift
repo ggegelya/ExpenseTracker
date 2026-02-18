@@ -104,6 +104,7 @@ struct MonthComparison {
 final class AnalyticsViewModel: ObservableObject {
     // MARK: - Dependencies
     private let repository: TransactionRepositoryProtocol
+    private let analyticsService: AnalyticsServiceProtocol
     private let errorHandler: ErrorHandlingServiceProtocol
 
     // MARK: - Published Properties
@@ -150,8 +151,10 @@ final class AnalyticsViewModel: ObservableObject {
     // MARK: - Initialization
 
     init(repository: TransactionRepositoryProtocol,
+         analyticsService: AnalyticsServiceProtocol,
          errorHandler: ErrorHandlingServiceProtocol) {
         self.repository = repository
+        self.analyticsService = analyticsService
         self.errorHandler = errorHandler
         setupSubscriptions()
         Task { @MainActor in
@@ -202,102 +205,45 @@ final class AnalyticsViewModel: ObservableObject {
         currentMonthIncome = flattened.filter { $0.type == .income }.reduce(0) { $0 + $1.effectiveAmount }
 
         // Month comparison (always uses full transactions, not filtered)
-        monthComparison = computeMonthComparison()
+        let comparison = analyticsService.monthlyComparison(transactions: transactions, referenceDate: Date())
+        monthComparison = MonthComparison(
+            currentExpenses: comparison.currentExpenses,
+            currentIncome: comparison.currentIncome,
+            previousExpenses: comparison.previousExpenses,
+            previousIncome: comparison.previousIncome
+        )
 
         // Category breakdown
-        categoryBreakdown = computeCategoryBreakdown(expenses: expenses)
+        let categoryResults = analyticsService.spendingByCategory(
+            transactions: filteredTransactions, dateRange: nil, types: [.expense]
+        )
+        categoryBreakdown = categoryResults.map {
+            CategorySpending(category: $0.category, amount: $0.total, percentage: $0.percentage, transactionCount: $0.transactionCount)
+        }
 
         // Top merchants
-        topMerchants = computeTopMerchants(expenses: expenses)
+        let merchantResults = analyticsService.topMerchants(
+            transactions: filteredTransactions, limit: .max, dateRange: nil
+        )
+        topMerchants = merchantResults.map {
+            MerchantSpending(merchantName: $0.merchant, amount: $0.total, transactionCount: $0.transactionCount)
+        }
 
-        // Daily spending
-        let daily = computeDailySpending(expenses: expenses)
+        // Daily spending — use service trends + fill gaps for chart
+        let trendResults = analyticsService.spendingTrends(
+            transactions: filteredTransactions, dateRange: nil, types: [.expense]
+        )
+        let daily = fillDailyGaps(from: trendResults)
         dailySpending = daily
         averageDailySpending = daily.isEmpty ? 0 : daily.reduce(0) { $0 + $1.amount } / Decimal(daily.count)
     }
 
-    private func computeMonthComparison() -> MonthComparison {
-        let calendar = Calendar.current
-        let now = Date()
-
-        guard let currentMonthStart = calendar.dateInterval(of: .month, for: now)?.start else {
-            return MonthComparison(currentExpenses: 0, currentIncome: 0, previousExpenses: 0, previousIncome: 0)
-        }
-
-        let currentMonthTransactions = transactions.filter { $0.transactionDate >= currentMonthStart }
-        let flattenedCurrent: [Transaction] = currentMonthTransactions.flatMap { $0.isSplitParent ? $0.effectiveSplits : [$0] }
-
-        let currentExpenses = flattenedCurrent.filter { $0.type == .expense }.reduce(0 as Decimal) { $0 + $1.effectiveAmount }
-        let currentIncome = flattenedCurrent.filter { $0.type == .income }.reduce(0 as Decimal) { $0 + $1.effectiveAmount }
-
-        guard let previousMonthDate = calendar.date(byAdding: .month, value: -1, to: now),
-              let previousMonthInterval = calendar.dateInterval(of: .month, for: previousMonthDate) else {
-            return MonthComparison(currentExpenses: currentExpenses, currentIncome: currentIncome, previousExpenses: 0, previousIncome: 0)
-        }
-
-        let previousMonthTransactions = transactions.filter {
-            $0.transactionDate >= previousMonthInterval.start && $0.transactionDate < currentMonthStart
-        }
-        let flattenedPrevious: [Transaction] = previousMonthTransactions.flatMap { $0.isSplitParent ? $0.effectiveSplits : [$0] }
-
-        let previousExpenses = flattenedPrevious.filter { $0.type == .expense }.reduce(0 as Decimal) { $0 + $1.effectiveAmount }
-        let previousIncome = flattenedPrevious.filter { $0.type == .income }.reduce(0 as Decimal) { $0 + $1.effectiveAmount }
-
-        return MonthComparison(currentExpenses: currentExpenses, currentIncome: currentIncome, previousExpenses: previousExpenses, previousIncome: previousIncome)
-    }
-
-    private func computeCategoryBreakdown(expenses: [Transaction]) -> [CategorySpending] {
-        let totalExpenses = expenses.reduce(0) { $0 + $1.effectiveAmount }
-        guard totalExpenses > 0 else { return [] }
-
-        let uncategorizedId = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
-        let uncategorizedCategory = Category(id: uncategorizedId, name: "uncategorized", icon: "questionmark.circle", colorHex: "#9E9E9E")
-        var categoryTotals: [UUID: (category: Category, amount: Decimal, count: Int)] = [:]
-
-        for transaction in expenses {
-            let category = transaction.category ?? uncategorizedCategory
-            if let existing = categoryTotals[category.id] {
-                categoryTotals[category.id] = (category: category, amount: existing.amount + transaction.effectiveAmount, count: existing.count + 1)
-            } else {
-                categoryTotals[category.id] = (category: category, amount: transaction.effectiveAmount, count: 1)
-            }
-        }
-
-        return categoryTotals.values.map { item in
-            CategorySpending(
-                category: item.category,
-                amount: item.amount,
-                percentage: Double(truncating: NSDecimalNumber(decimal: item.amount / totalExpenses)) * 100,
-                transactionCount: item.count
-            )
-        }.sorted { $0.amount > $1.amount }
-    }
-
-    private func computeTopMerchants(expenses: [Transaction]) -> [MerchantSpending] {
-        var merchantTotals: [String: (amount: Decimal, count: Int)] = [:]
-
-        for transaction in expenses {
-            let merchant = (transaction.merchantName ?? transaction.description).trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !merchant.isEmpty else { continue }
-            if let existing = merchantTotals[merchant] {
-                merchantTotals[merchant] = (amount: existing.amount + transaction.effectiveAmount, count: existing.count + 1)
-            } else {
-                merchantTotals[merchant] = (amount: transaction.effectiveAmount, count: 1)
-            }
-        }
-
-        return merchantTotals.map { merchant, data in
-            MerchantSpending(merchantName: merchant, amount: data.amount, transactionCount: data.count)
-        }.sorted { $0.amount > $1.amount }
-    }
-
-    private func computeDailySpending(expenses: [Transaction]) -> [DailySpending] {
+    /// Fills missing days with zero amounts for continuous chart display.
+    private func fillDailyGaps(from trends: [AnalyticsService.DailySpendingSummary]) -> [DailySpending] {
         let calendar = Calendar.current
         var dailyTotals: [Date: Decimal] = [:]
-
-        for transaction in expenses {
-            let day = calendar.startOfDay(for: transaction.transactionDate)
-            dailyTotals[day, default: 0] += transaction.effectiveAmount
+        for entry in trends {
+            dailyTotals[calendar.startOfDay(for: entry.date)] = entry.total
         }
 
         let start = calendar.startOfDay(for: dateRange.lowerBound)

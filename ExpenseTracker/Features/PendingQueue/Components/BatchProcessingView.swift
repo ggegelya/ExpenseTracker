@@ -79,7 +79,7 @@ struct BatchProcessingView: View {
                 }
             }
             .alert(String(localized: "error.title"), isPresented: $showError) {
-                Button("OK", role: .cancel) { }
+                Button(String(localized: "common.ok"), role: .cancel) { }
             } message: {
                 Text(errorMessage)
             }

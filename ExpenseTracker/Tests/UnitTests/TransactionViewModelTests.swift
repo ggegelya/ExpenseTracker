@@ -495,7 +495,7 @@ struct TransactionViewModelTests {
         await AsyncTestUtilities.wait(seconds: 0.2)
 
         // Then
-        #expect(mockRepository.callCount(for: "deleteTransaction(_:)") == 2)
+        #expect(mockRepository.wasCalled("performAtomicTransactionOperations(delete:update:create:)"))
         #expect(sut.selectedTransactionIds.isEmpty)
         #expect(!sut.isBulkEditMode)
     }
@@ -522,7 +522,7 @@ struct TransactionViewModelTests {
         await sut.bulkCategorizeSelectedTransactions(to: newCategory)
 
         // Then
-        #expect(mockRepository.callCount(for: "updateTransaction(_:)") == 2)
+        #expect(mockRepository.wasCalled("performAtomicTransactionOperations(delete:update:create:)"))
         #expect(sut.selectedTransactionIds.isEmpty)
         #expect(!sut.isBulkEditMode)
     }
@@ -808,7 +808,7 @@ struct TransactionViewModelTests {
         // Then — no error was triggered, and delete was called
         // The parent delete cascades to children in deleteSingleOrSplitTransaction
         #expect(sut.error == nil)
-        #expect(mockRepository.wasCalled("deleteTransaction(_:)"))
+        #expect(mockRepository.wasCalled("performAtomicTransactionOperations(delete:update:create:)"))
         #expect(sut.selectedTransactionIds.isEmpty)
         #expect(!sut.isBulkEditMode)
     }
@@ -1111,6 +1111,6 @@ struct TransactionViewModelTests {
         await AsyncTestUtilities.wait(seconds: 0.2)
 
         // Then
-        #expect(mockRepository.callCount(for: "deleteTransaction(_:)") == 2)
+        #expect(mockRepository.wasCalled("performAtomicTransactionOperations(delete:update:create:)"))
     }
 }

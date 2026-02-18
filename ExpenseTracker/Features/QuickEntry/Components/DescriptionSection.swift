@@ -9,9 +9,7 @@ struct DescriptionSection: View {
     @Binding var description: String
     @FocusState var isDescriptionFocused: Bool
     @Binding var selectedCategory: Category?
-    let suggestedCategory: Category?
     let onShowCategoryPicker: () -> Void
-    @EnvironmentObject private var viewModel: TransactionViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -27,17 +25,6 @@ struct DescriptionSection: View {
                     .accessibilityIdentifier("DescriptionField")
                     .onSubmit {
                         isDescriptionFocused = false
-                    }
-                    .onChange(of: description) { oldValue, newValue in
-                        // Auto-select category when strong suggestion appears
-                        if newValue.count >= 3,
-                           let suggested = suggestedCategory,
-                           selectedCategory == nil {
-                            withAnimation(.spring(response: 0.3)) {
-                                selectedCategory = suggested
-                                viewModel.categoryWasAutoDetected = true
-                            }
-                        }
                     }
 
                 Divider()

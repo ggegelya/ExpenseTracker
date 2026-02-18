@@ -13,6 +13,12 @@ private let analyticsLogger = Logger(subsystem: "com.expensetracker", category: 
 protocol AnalyticsServiceProtocol {
     func trackEvent(_ event: AnalyticsEvent)
     func trackError(_ error: Error, context: String?)
+
+    // Business analytics — pure computations over transaction data
+    func spendingByCategory(transactions: [Transaction], dateRange: ClosedRange<Date>?, types: Set<TransactionType>) -> [AnalyticsService.CategorySpendingSummary]
+    func spendingTrends(transactions: [Transaction], dateRange: ClosedRange<Date>?, types: Set<TransactionType>) -> [AnalyticsService.DailySpendingSummary]
+    func monthlyComparison(transactions: [Transaction], referenceDate: Date) -> AnalyticsService.MonthlyComparisonSummary
+    func topMerchants(transactions: [Transaction], limit: Int, dateRange: ClosedRange<Date>?) -> [AnalyticsService.MerchantSpendingSummary]
 }
 
 enum AnalyticsEvent {

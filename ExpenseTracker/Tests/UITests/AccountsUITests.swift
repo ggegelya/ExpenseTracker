@@ -28,27 +28,33 @@ final class AccountsUITests: XCTestCase {
     @MainActor
     func testAccountsTabShowsAccountList() throws {
         // Navigate to accounts tab
-        let accountsTab = app.buttons["AccountsTab"] ?? app.tabBars.buttons.element(boundBy: 1)
+        let accountsTab = app.buttons.matching(
+            NSPredicate(format: "identifier == 'AccountsTab'")
+        ).firstMatch.exists
+            ? app.buttons["AccountsTab"]
+            : app.tabBars.buttons.element(boundBy: 1)
 
-        if accountsTab.waitForExistence(timeout: 3) {
-            accountsTab.tap()
-
-            // Verify accounts list is displayed
-            let accountsList = app.tables.firstMatch
-            let scrollView = app.scrollViews.firstMatch
-
-            XCTAssertTrue(
-                accountsList.waitForExistence(timeout: 3) || scrollView.exists,
-                "Accounts list should be displayed"
-            )
-
-            // Verify at least one account is visible
-            let firstAccount = app.cells.element(boundBy: 0)
-            XCTAssertTrue(
-                firstAccount.waitForExistence(timeout: 2),
-                "At least one account should be visible"
-            )
+        guard accountsTab.waitForExistence(timeout: 3) else {
+            XCTFail("Accounts tab should exist")
+            return
         }
+        accountsTab.tap()
+
+        // Verify accounts list is displayed
+        let accountsList = app.tables.firstMatch
+        let scrollView = app.scrollViews.firstMatch
+
+        XCTAssertTrue(
+            accountsList.waitForExistence(timeout: 3) || scrollView.exists,
+            "Accounts list should be displayed"
+        )
+
+        // Verify at least one account is visible
+        let firstAccount = app.cells.element(boundBy: 0)
+        XCTAssertTrue(
+            firstAccount.waitForExistence(timeout: 2),
+            "At least one account should be visible"
+        )
     }
 
     // MARK: - Add Account Tests
@@ -56,8 +62,15 @@ final class AccountsUITests: XCTestCase {
     @MainActor
     func testAddAccountFormValidatesInput() throws {
         // Navigate to accounts tab
-        let accountsTab = app.buttons["AccountsTab"] ?? app.tabBars.buttons.element(boundBy: 1)
-        guard accountsTab.waitForExistence(timeout: 3) else { return }
+        let accountsTab = app.buttons.matching(
+            NSPredicate(format: "identifier == 'AccountsTab'")
+        ).firstMatch.exists
+            ? app.buttons["AccountsTab"]
+            : app.tabBars.buttons.element(boundBy: 1)
+        guard accountsTab.waitForExistence(timeout: 3) else {
+            XCTFail("Accounts tab should exist")
+            return
+        }
         accountsTab.tap()
 
         // Open add account form
@@ -66,52 +79,60 @@ final class AccountsUITests: XCTestCase {
         addButton.tap()
 
         // Try to save without filling required fields
-        let saveButton = app.buttons["SaveButton"] ?? app.buttons["Зберегти"]
-        if saveButton.waitForExistence(timeout: 2) {
-            saveButton.tap()
+        let saveButton = app.buttons.matching(
+            NSPredicate(format: "identifier == 'SaveButton' OR label == 'Зберегти'")
+        ).firstMatch
+        guard saveButton.waitForExistence(timeout: 2) else {
+            XCTFail("Save button should exist")
+            return
+        }
+        saveButton.tap()
 
-            // Verify validation error appears
-            let errorAlert = app.alerts.firstMatch
-            let errorText = app.staticTexts.containing(
-                NSPredicate(format: "label CONTAINS[c] 'name' OR label CONTAINS[c] 'tag' OR label CONTAINS[c] 'назва' OR label CONTAINS[c] 'тег'")
+        // Verify validation error appears
+        let errorAlert = app.alerts.firstMatch
+        let errorText = app.staticTexts.containing(
+            NSPredicate(format: "label CONTAINS[c] 'name' OR label CONTAINS[c] 'tag' OR label CONTAINS[c] 'назва' OR label CONTAINS[c] 'тег'")
+        ).firstMatch
+
+        XCTAssertTrue(
+            errorAlert.waitForExistence(timeout: 2) || errorText.exists,
+            "Validation error should appear for empty form"
+        )
+
+        // Dismiss error if alert
+        if errorAlert.exists {
+            let okButton = app.buttons.matching(
+                NSPredicate(format: "label == 'OK' OR label == 'Гаразд'")
             ).firstMatch
-
-            XCTAssertTrue(
-                errorAlert.waitForExistence(timeout: 2) || errorText.exists,
-                "Validation error should appear for empty form"
-            )
-
-            // Dismiss error if alert
-            if errorAlert.exists {
-                let okButton = app.buttons["OK"] ?? app.buttons["Гаразд"]
-                if okButton.exists {
-                    okButton.tap()
-                }
+            if okButton.exists {
+                okButton.tap()
             }
         }
 
         // Now fill valid data and save
         let nameField = app.textFields["AccountNameField"]
-        if nameField.waitForExistence(timeout: 2) {
-            nameField.tap()
-            nameField.typeText("UI Test Account")
+        guard nameField.waitForExistence(timeout: 2) else {
+            XCTFail("Account name field should exist")
+            return
+        }
+        nameField.tap()
+        nameField.typeText("UI Test Account")
 
-            let tagField = app.textFields["AccountTagField"]
-            if tagField.exists {
-                tagField.tap()
-                tagField.typeText("#uitest")
-            }
+        let tagField = app.textFields["AccountTagField"]
+        if tagField.exists {
+            tagField.tap()
+            tagField.typeText("#uitest")
+        }
 
-            if saveButton.exists {
-                saveButton.tap()
+        if saveButton.exists {
+            saveButton.tap()
 
-                // Verify account was created
-                let newAccount = app.staticTexts["UI Test Account"]
-                XCTAssertTrue(
-                    newAccount.waitForExistence(timeout: 3),
-                    "New account should appear in list after saving"
-                )
-            }
+            // Verify account was created
+            let newAccount = app.staticTexts["UI Test Account"]
+            XCTAssertTrue(
+                newAccount.waitForExistence(timeout: 3),
+                "New account should appear in list after saving"
+            )
         }
     }
 }

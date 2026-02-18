@@ -24,6 +24,7 @@ struct AnalyticsViewModelTests {
 
         sut = AnalyticsViewModel(
             repository: mockRepository,
+            analyticsService: MockAnalyticsService(),
             errorHandler: mockErrorHandler
         )
     }
@@ -64,7 +65,7 @@ struct AnalyticsViewModelTests {
         // Then
         #expect(sut.error != nil)
         #expect(!sut.isLoading)
-        #expect(mockErrorHandler.handledErrors.count >= 1)
+        #expect(mockErrorHandler.handledErrors.count == 1)
     }
 
     // MARK: - Date Range Filtering Tests
@@ -112,7 +113,7 @@ struct AnalyticsViewModelTests {
         await AsyncTestUtilities.wait(seconds: 0.2)
 
         // Then - should include transactions within last 3 months
-        #expect(sut.filteredTransactions.count >= 2)
+        #expect(sut.filteredTransactions.count == 2)
     }
 
     @Test("custom date range uses customStartDate and customEndDate")
@@ -480,7 +481,7 @@ struct AnalyticsViewModelTests {
         await AsyncTestUtilities.wait(seconds: 0.2)
 
         // Then - total 300 across 2 days = average 150
-        #expect(sut.averageDailySpending > 0)
+        #expect(DecimalComparison.areEqual(sut.averageDailySpending, 150))
     }
 
     // MARK: - Format Tests

@@ -11,6 +11,7 @@ import Combine
 struct QuickEntryView: View {
     @EnvironmentObject private var viewModel: TransactionViewModel
     @EnvironmentObject private var pendingViewModel: PendingTransactionsViewModel
+    @EnvironmentObject private var errorService: ErrorHandlingService
     @Environment(\.dismiss) private var dismiss
 
     @FocusState private var isAmountFocused: Bool
@@ -18,40 +19,17 @@ struct QuickEntryView: View {
 
     @State private var showMetadataEditor = false
     @State private var showCategoryPicker = false
-    @State private var showSuccessFeedback = false
     @State private var showErrorAlert = false
     @State private var keyboardHeight: CGFloat = 0
 
     // Animation states
-    @State private var showCelebration = false
     @State private var successScale: CGFloat = 1.0
     @State private var pendingBadgeScale: CGFloat = 1.0
     @State private var toggleRotation: Double = 0
     @State private var datePillPressed = false
     @State private var accountPillPressed = false
-    @State private var showCategorySuggestion = false
 
     private let hapticFeedback = UIImpactFeedbackGenerator(style: .medium)
-
-    // Best suggested category based on description (single match)
-    private var bestSuggestedCategory: Category? {
-        let description = viewModel.entryDescription.trimmingCharacters(in: .whitespaces).lowercased()
-
-        // Only suggest if description has 3+ characters
-        guard description.count >= 3 else {
-            return nil
-        }
-
-        // Find best match using fuzzy matching
-        let matches = viewModel.categories.filter { category in
-            let categoryName = category.name.lowercased()
-            // Match if description contains category name OR category name starts with description
-            return description.contains(categoryName) || categoryName.hasPrefix(description)
-        }
-
-        // Return first strong match
-        return matches.first
-    }
 
     private var recentCategories: [Category] {
         if !viewModel.recentCategories.isEmpty {
@@ -108,7 +86,6 @@ struct QuickEntryView: View {
                         description: $viewModel.entryDescription,
                         isDescriptionFocused: _isDescriptionFocused,
                         selectedCategory: $viewModel.selectedCategory,
-                        suggestedCategory: bestSuggestedCategory,
                         onShowCategoryPicker: { showCategoryPicker = true }
                     )
 
@@ -214,16 +191,10 @@ struct QuickEntryView: View {
                 )
             }
             .alert(String(localized: "error.title"), isPresented: $showErrorAlert) {
-                Button("OK") { }
+                Button(String(localized: "common.ok")) { }
             } message: {
                 if let error = viewModel.error {
                     Text(error.localizedDescription)
-                }
-            }
-            .overlay(alignment: .top) {
-                if showSuccessFeedback {
-                    SuccessFeedbackView()
-                        .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
         }
@@ -237,24 +208,6 @@ struct QuickEntryView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             withAnimation {
                 keyboardHeight = 0
-            }
-        }
-        .onChange(of: bestSuggestedCategory) { _, newValue in
-            if newValue != nil && !showCategorySuggestion {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    showCategorySuggestion = true
-                }
-            } else if newValue == nil && showCategorySuggestion {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    showCategorySuggestion = false
-                }
-            }
-        }
-        .overlay {
-            if showCelebration {
-                CelebrationOverlayView {
-                    withAnimation { showCelebration = false }
-                }
             }
         }
         .accessibilityIdentifier("QuickEntryView")
@@ -312,16 +265,16 @@ struct QuickEntryView: View {
                 return
             }
 
-            // First transaction celebration
+            // First transaction celebration — suppress toast, show full overlay instead
             if !UserDefaults.standard.bool(forKey: UserDefaultsKeys.hasShownFirstTransactionCelebration) {
                 UserDefaults.standard.set(true, forKey: UserDefaultsKeys.hasShownFirstTransactionCelebration)
-                showCelebration = true
+                errorService.dismissToast()
+                viewModel.showCelebration = true
             }
 
             // Success animation
             withAnimation(.spring(response: 0.3)) {
                 successScale = 1.1
-                showSuccessFeedback = true
             }
 
             // Reset after delay
@@ -329,14 +282,6 @@ struct QuickEntryView: View {
                 try? await Task.sleep(for: .milliseconds(300))
                 withAnimation(.spring(response: 0.3)) {
                     successScale = 1.0
-                }
-            }
-
-            // Hide success feedback
-            Task { @MainActor in
-                try? await Task.sleep(for: .seconds(2))
-                withAnimation {
-                    showSuccessFeedback = false
                 }
             }
 
@@ -355,7 +300,9 @@ struct QuickEntryView: View {
 }
 
 #Preview {
+    let container = DependencyContainer.makeForPreviews()
     QuickEntryView()
-        .environmentObject(DependencyContainer.makeForPreviews().makeTransactionViewModel())
-        .environmentObject(DependencyContainer.makeForPreviews().makePendingTransactionsViewModel())
+        .environmentObject(container.makeTransactionViewModel())
+        .environmentObject(container.makePendingTransactionsViewModel())
+        .environmentObject(container.errorHandlingServiceInstance)
 }

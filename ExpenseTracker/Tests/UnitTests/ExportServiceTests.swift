@@ -322,7 +322,7 @@ struct ExportServiceTests {
     // MARK: - Google Sheets Export Tests (Placeholders)
     // Note: Google Sheets export is not fully implemented yet (placeholder implementation)
 
-    @Test("Export to Google Sheets completes without error - PLACEHOLDER")
+    @Test("Export to Google Sheets completes without error - PLACEHOLDER", .disabled("Google Sheets export not yet implemented"))
     func exportToGoogleSheetsCompletes() async throws {
         // Given
         let transactions = [MockTransaction.makeExpense()]
@@ -332,14 +332,14 @@ struct ExportServiceTests {
         #expect(true)
     }
 
-    @Test("Export to Google Sheets handles empty list - PLACEHOLDER")
+    @Test("Export to Google Sheets handles empty list - PLACEHOLDER", .disabled("Google Sheets export not yet implemented"))
     func exportToGoogleSheetsHandlesEmptyList() async throws {
         // When/Then
         try await sut.exportToGoogleSheets(transactions: [])
         #expect(true)
     }
 
-    @Test("Export to Google Sheets handles large lists - PLACEHOLDER")
+    @Test("Export to Google Sheets handles large lists - PLACEHOLDER", .disabled("Google Sheets export not yet implemented"))
     func exportToGoogleSheetsHandlesLargeLists() async throws {
         // Given
         let transactions = MockTransaction.makeMultiple(count: 100)

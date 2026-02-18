@@ -60,38 +60,89 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
     }
 
     private func setupObservers() {
-        // Observe Core Data changes
+        // Observe Core Data changes — only reload affected entity types
         NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange, object: context)
             .debounce(for: .milliseconds(250), scheduler: RunLoop.main)
-            .sink { [weak self] _ in
+            .sink { [weak self] notification in
                 Task { @MainActor [weak self] in
-                    await self?.loadInitialData()
+                    self?.handleContextChange(notification)
                 }
             }
             .store(in: &cancellables)
     }
-    
-    private func loadInitialData() async {
+
+    private func handleContextChange(_ notification: Notification) {
+        let changedObjects = extractChangedObjects(from: notification)
+
+        var needsTransactions = false
+        var needsAccounts = false
+        var needsCategories = false
+
+        for object in changedObjects {
+            switch object {
+            case is TransactionEntity:
+                needsTransactions = true
+            case is AccountEntity:
+                needsAccounts = true
+            case is CategoryEntity:
+                needsCategories = true
+            case is PendingTransactionEntity:
+                // Pending changes don't affect the main publishers
+                break
+            default:
+                // Unknown entity — reload everything to be safe
+                needsTransactions = true
+                needsAccounts = true
+                needsCategories = true
+            }
+            if needsTransactions && needsAccounts && needsCategories { break }
+        }
+
+        // Transaction changes may affect account balances
+        if needsTransactions {
+            needsAccounts = true
+        }
+
+        Task {
+            await refreshPublishers(transactions: needsTransactions, accounts: needsAccounts, categories: needsCategories)
+        }
+    }
+
+    private func extractChangedObjects(from notification: Notification) -> Set<NSManagedObject> {
+        var objects = Set<NSManagedObject>()
+        if let inserted = notification.userInfo?[NSInsertedObjectsKey] as? Set<NSManagedObject> {
+            objects.formUnion(inserted)
+        }
+        if let updated = notification.userInfo?[NSUpdatedObjectsKey] as? Set<NSManagedObject> {
+            objects.formUnion(updated)
+        }
+        if let deleted = notification.userInfo?[NSDeletedObjectsKey] as? Set<NSManagedObject> {
+            objects.formUnion(deleted)
+        }
+        return objects
+    }
+
+    private func refreshPublishers(transactions: Bool, accounts: Bool, categories: Bool) async {
         guard !isLoadingData else { return }
         isLoadingData = true
         defer { isLoadingData = false }
 
-        // Load each independently so one failure doesn't block the others
-        do {
-            transactionsSubject.send(try await getAllTransactions())
-        } catch {
-            repositoryLogger.error("Failed to load transactions: \(error.localizedDescription)")
+        if transactions {
+            do { transactionsSubject.send(try await getAllTransactions()) }
+            catch { repositoryLogger.error("Failed to refresh transactions: \(error.localizedDescription)") }
         }
-        do {
-            accountsSubject.send(try await getAllAccounts())
-        } catch {
-            repositoryLogger.error("Failed to load accounts: \(error.localizedDescription)")
+        if accounts {
+            do { accountsSubject.send(try await getAllAccounts()) }
+            catch { repositoryLogger.error("Failed to refresh accounts: \(error.localizedDescription)") }
         }
-        do {
-            categoriesSubject.send(try await getAllCategories())
-        } catch {
-            repositoryLogger.error("Failed to load categories: \(error.localizedDescription)")
+        if categories {
+            do { categoriesSubject.send(try await getAllCategories()) }
+            catch { repositoryLogger.error("Failed to refresh categories: \(error.localizedDescription)") }
         }
+    }
+    
+    private func loadInitialData() async {
+        await refreshPublishers(transactions: true, accounts: true, categories: true)
     }
 
     private func refreshPublishersIfNeeded() async {

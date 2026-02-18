@@ -86,9 +86,6 @@ struct PendingTransactionsView: View {
                 .refreshable {
                     await viewModel.loadPendingTransactions()
                 }
-                .task {
-                    await viewModel.loadPendingTransactions()
-                }
 
                 // Undo Toast
                 if showUndoToast {

@@ -71,45 +71,48 @@ final class OnboardingUITests: XCTestCase {
             NSPredicate(format: "label CONTAINS[c] 'Почати' OR label CONTAINS[c] 'Started'")
         ).firstMatch
 
-        if startButton.waitForExistence(timeout: 5) {
-            startButton.tap()
-        } else {
-            // Try swiping left to advance
-            app.swipeLeft()
+        guard startButton.waitForExistence(timeout: 5) else {
+            XCTFail("Start button should exist on welcome screen")
+            return
         }
+        startButton.tap()
 
         // Step 2: Account setup — verify and advance
         let accountTitle = app.staticTexts.containing(
             NSPredicate(format: "label CONTAINS[c] 'рахунок' OR label CONTAINS[c] 'Account'")
         ).firstMatch
 
-        if accountTitle.waitForExistence(timeout: 3) {
-            // Tap Next button to advance
-            let nextButton = app.buttons.containing(
-                NSPredicate(format: "label CONTAINS[c] 'Далі' OR label CONTAINS[c] 'Next'")
-            ).firstMatch
-            if nextButton.exists {
-                nextButton.tap()
-            } else {
-                app.swipeLeft()
-            }
+        guard accountTitle.waitForExistence(timeout: 3) else {
+            XCTFail("Account setup title should exist")
+            return
         }
+        // Tap Next button to advance
+        let nextButton = app.buttons.containing(
+            NSPredicate(format: "label CONTAINS[c] 'Далі' OR label CONTAINS[c] 'Next'")
+        ).firstMatch
+        guard nextButton.waitForExistence(timeout: 3) else {
+            XCTFail("Next button should exist on account setup screen")
+            return
+        }
+        nextButton.tap()
 
         // Step 3: Category setup — verify and advance
         let categoryTitle = app.staticTexts.containing(
             NSPredicate(format: "label CONTAINS[c] 'категорії' OR label CONTAINS[c] 'Categories'")
         ).firstMatch
 
-        if categoryTitle.waitForExistence(timeout: 3) {
-            let nextButton = app.buttons.containing(
-                NSPredicate(format: "label CONTAINS[c] 'Далі' OR label CONTAINS[c] 'Next'")
-            ).firstMatch
-            if nextButton.exists {
-                nextButton.tap()
-            } else {
-                app.swipeLeft()
-            }
+        guard categoryTitle.waitForExistence(timeout: 3) else {
+            XCTFail("Category setup title should exist")
+            return
         }
+        let nextButton2 = app.buttons.containing(
+            NSPredicate(format: "label CONTAINS[c] 'Далі' OR label CONTAINS[c] 'Next'")
+        ).firstMatch
+        guard nextButton2.waitForExistence(timeout: 3) else {
+            XCTFail("Next button should exist on category setup screen")
+            return
+        }
+        nextButton2.tap()
 
         // Step 4: Ready screen
         let readyTitle = app.staticTexts.containing(
@@ -132,46 +135,55 @@ final class OnboardingUITests: XCTestCase {
             NSPredicate(format: "label CONTAINS[c] 'Почати' OR label CONTAINS[c] 'Started'")
         ).firstMatch
 
-        if startButton.waitForExistence(timeout: 5) {
-            startButton.tap()
+        guard startButton.waitForExistence(timeout: 5) else {
+            XCTFail("Start button should exist on welcome screen")
+            return
         }
+        startButton.tap()
 
         // Step 2: Account setup — tap next
-        sleep(1)
         let nextButton1 = app.buttons.containing(
             NSPredicate(format: "label CONTAINS[c] 'Далі' OR label CONTAINS[c] 'Next'")
         ).firstMatch
-        if nextButton1.waitForExistence(timeout: 3) {
-            nextButton1.tap()
+        guard nextButton1.waitForExistence(timeout: 5) else {
+            XCTFail("Next button should exist on account setup screen")
+            return
         }
+        nextButton1.tap()
 
         // Step 3: Categories — tap next
-        sleep(1)
         let nextButton2 = app.buttons.containing(
             NSPredicate(format: "label CONTAINS[c] 'Далі' OR label CONTAINS[c] 'Next'")
         ).firstMatch
-        if nextButton2.waitForExistence(timeout: 3) {
-            nextButton2.tap()
+        guard nextButton2.waitForExistence(timeout: 5) else {
+            XCTFail("Next button should exist on category setup screen")
+            return
         }
+        nextButton2.tap()
 
         // Step 4: Ready — tap start
-        sleep(1)
         let finalButton = app.buttons.containing(
             NSPredicate(format: "label CONTAINS[c] 'Почати' OR label CONTAINS[c] 'Started'")
         ).firstMatch
-        if finalButton.waitForExistence(timeout: 3) {
-            finalButton.tap()
+        guard finalButton.waitForExistence(timeout: 5) else {
+            XCTFail("Final start button should exist on ready screen")
+            return
         }
+        finalButton.tap()
 
         // Verify main app appears (MainView or QuickEntryView or transaction tabs)
         let mainView = app.otherElements["MainView"]
         let quickEntry = app.otherElements["QuickEntryView"]
         let transactionList = app.tables["TransactionList"]
+        let transactionCollectionView = app.collectionViews["TransactionList"]
+        let transactionScrollView = app.scrollViews["TransactionList"]
 
         XCTAssertTrue(
-            mainView.waitForExistence(timeout: 5) ||
-            quickEntry.waitForExistence(timeout: 5) ||
-            transactionList.waitForExistence(timeout: 5),
+            mainView.waitForExistence(timeout: 10) ||
+            quickEntry.waitForExistence(timeout: 3) ||
+            transactionList.waitForExistence(timeout: 3) ||
+            transactionCollectionView.waitForExistence(timeout: 3) ||
+            transactionScrollView.waitForExistence(timeout: 3),
             "Main app should appear after completing onboarding"
         )
     }
@@ -194,11 +206,15 @@ final class OnboardingUITests: XCTestCase {
         let mainView = app.otherElements["MainView"]
         let quickEntry = app.otherElements["QuickEntryView"]
         let transactionList = app.tables["TransactionList"]
+        let transactionCollectionView = app.collectionViews["TransactionList"]
+        let transactionScrollView = app.scrollViews["TransactionList"]
 
         XCTAssertTrue(
-            mainView.waitForExistence(timeout: 5) ||
-            quickEntry.waitForExistence(timeout: 5) ||
-            transactionList.waitForExistence(timeout: 5),
+            mainView.waitForExistence(timeout: 10) ||
+            quickEntry.waitForExistence(timeout: 3) ||
+            transactionList.waitForExistence(timeout: 3) ||
+            transactionCollectionView.waitForExistence(timeout: 3) ||
+            transactionScrollView.waitForExistence(timeout: 3),
             "Main app should appear after skipping onboarding"
         )
     }
@@ -214,9 +230,11 @@ final class OnboardingUITests: XCTestCase {
             NSPredicate(format: "label CONTAINS[c] 'Почати' OR label CONTAINS[c] 'Started'")
         ).firstMatch
 
-        if startButton.waitForExistence(timeout: 5) {
-            startButton.tap()
+        guard startButton.waitForExistence(timeout: 5) else {
+            XCTFail("Start button should exist on welcome screen")
+            return
         }
+        startButton.tap()
 
         // Verify presets are visible
         let monobankPreset = app.buttons.containing(
@@ -246,28 +264,34 @@ final class OnboardingUITests: XCTestCase {
             NSPredicate(format: "label CONTAINS[c] 'Почати' OR label CONTAINS[c] 'Started'")
         ).firstMatch
 
-        if startButton.waitForExistence(timeout: 5) {
-            startButton.tap()
+        guard startButton.waitForExistence(timeout: 5) else {
+            XCTFail("Start button should exist on welcome screen")
+            return
         }
+        startButton.tap()
 
         // Tap a preset
         let monobankPreset = app.buttons.containing(
             NSPredicate(format: "label CONTAINS[c] 'Монобанк' OR label CONTAINS[c] 'Monobank'")
         ).firstMatch
 
-        if monobankPreset.waitForExistence(timeout: 3) {
-            monobankPreset.tap()
-
-            // Verify the text field was updated
-            let textField = app.textFields.firstMatch
-            if textField.exists {
-                let value = textField.value as? String ?? ""
-                XCTAssertTrue(
-                    value.contains("Монобанк") || value.contains("Monobank"),
-                    "Tapping preset should fill the name field"
-                )
-            }
+        guard monobankPreset.waitForExistence(timeout: 3) else {
+            XCTFail("Monobank preset should exist on account setup screen")
+            return
         }
+        monobankPreset.tap()
+
+        // Verify the text field was updated
+        let textField = app.textFields.firstMatch
+        guard textField.waitForExistence(timeout: 3) else {
+            XCTFail("Text field should exist after tapping preset")
+            return
+        }
+        let value = textField.value as? String ?? ""
+        XCTAssertTrue(
+            value.contains("Монобанк") || value.contains("Monobank"),
+            "Tapping preset should fill the name field"
+        )
     }
 
     // MARK: - Category Setup Tests
@@ -281,18 +305,21 @@ final class OnboardingUITests: XCTestCase {
         let startButton = app.buttons.containing(
             NSPredicate(format: "label CONTAINS[c] 'Почати' OR label CONTAINS[c] 'Started'")
         ).firstMatch
-        if startButton.waitForExistence(timeout: 5) {
-            startButton.tap()
+        guard startButton.waitForExistence(timeout: 5) else {
+            XCTFail("Start button should exist on welcome screen")
+            return
         }
+        startButton.tap()
 
         // Step 2: Account setup
-        sleep(1)
         let nextButton = app.buttons.containing(
             NSPredicate(format: "label CONTAINS[c] 'Далі' OR label CONTAINS[c] 'Next'")
         ).firstMatch
-        if nextButton.waitForExistence(timeout: 3) {
-            nextButton.tap()
+        guard nextButton.waitForExistence(timeout: 3) else {
+            XCTFail("Next button should exist on account setup screen")
+            return
         }
+        nextButton.tap()
 
         // Verify categories are visible
         let categoryTitle = app.staticTexts.containing(

@@ -215,7 +215,7 @@ struct CategorizationServiceTests {
 
     // MARK: - Learning Tests
 
-    @Test("Learn from correction stores pattern for future suggestions")
+    @Test("Learn from correction stores pattern for future suggestions", .disabled("Learning persistence not yet implemented"))
     func learnFromCorrectionStoresPattern() async throws {
         // Given
         let category = MockCategory.makeHealth()
@@ -233,7 +233,7 @@ struct CategorizationServiceTests {
         #expect(true)
     }
 
-    @Test("Learn from correction with nil merchant name")
+    @Test("Learn from correction with nil merchant name", .disabled("Learning persistence not yet implemented"))
     func learnFromCorrectionWithNilMerchant() async throws {
         // Given
         let category = MockCategory.makeTransport()

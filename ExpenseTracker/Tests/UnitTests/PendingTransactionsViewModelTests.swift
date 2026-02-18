@@ -445,11 +445,13 @@ struct PendingTransactionsViewModelTests {
     func startMonitoringBeginsPolling() async throws {
         // When
         sut.startMonitoring()
+        // Allow polling task to execute
+        try await AsyncTestUtilities.wait(seconds: 0.1)
 
-        // Note: Monitoring is async, so we can't easily test the polling
-        // But we can verify it doesn't crash
+        // Then - monitoring should have triggered a load
+        #expect(mockRepository.wasCalled("getPendingTransactions(for:)"))
 
-        // Then - cleanup
+        // Cleanup
         sut.stopMonitoring()
     }
 
@@ -457,26 +459,37 @@ struct PendingTransactionsViewModelTests {
     func stopMonitoringHaltsPolling() async throws {
         // Given
         sut.startMonitoring()
+        try await AsyncTestUtilities.wait(seconds: 0.1)
+        let callCountBeforeStop = mockRepository.callCount(for: "getPendingTransactions(for:)")
 
         // When
         sut.stopMonitoring()
+        try await AsyncTestUtilities.wait(seconds: 0.1)
 
-        // Then - monitoring should be stopped
-        // Hard to verify directly, but method should execute without error
+        // Then - no additional calls after stop
+        let callCountAfterStop = mockRepository.callCount(for: "getPendingTransactions(for:)")
+        #expect(callCountAfterStop == callCountBeforeStop)
     }
 
     @Test("Pause and resume monitoring")
     func pauseAndResumeMonitoring() async throws {
         // Given
         sut.startMonitoring()
+        try await AsyncTestUtilities.wait(seconds: 0.1)
+        let callCountAfterStart = mockRepository.callCount(for: "getPendingTransactions(for:)")
+        #expect(callCountAfterStart >= 1)
 
-        // When
+        // When - pause
         sut.pauseMonitoring()
-        // Then - should pause
+        try await AsyncTestUtilities.wait(seconds: 0.1)
 
-        // When
+        // When - resume
         sut.resumeMonitoring()
-        // Then - should resume
+        try await AsyncTestUtilities.wait(seconds: 0.1)
+
+        // Then - resume should trigger another load
+        let callCountAfterResume = mockRepository.callCount(for: "getPendingTransactions(for:)")
+        #expect(callCountAfterResume > callCountAfterStart)
 
         // Cleanup
         sut.stopMonitoring()

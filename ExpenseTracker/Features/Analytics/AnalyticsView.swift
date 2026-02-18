@@ -11,33 +11,26 @@ import SwiftUI
 struct AnalyticsView: View {
     @StateObject private var analyticsViewModel: AnalyticsViewModel
     @EnvironmentObject var transactionViewModel: TransactionViewModel
+    @Environment(\.selectedTab) private var selectedTabBinding
     @State private var showCustomDatePicker = false
 
     init(container: DependencyContainer) {
         _analyticsViewModel = StateObject(wrappedValue: container.makeAnalyticsViewModel())
     }
 
+    private var transactionCount: Int {
+        transactionViewModel.transactions.count
+    }
+
+    private var remaining: Int {
+        max(0, AppConstants.analyticsMinTransactions - transactionCount)
+    }
+
     var body: some View {
         NavigationStack {
             Group {
-                if transactionViewModel.transactions.count < AppConstants.analyticsMinTransactions {
-                    VStack(spacing: Spacing.lg) {
-                        Spacer()
-                        Image(systemName: "chart.pie")
-                            .font(.system(size: 60))
-                            .foregroundColor(.secondary)
-                        Text(String(localized: "analytics.empty.title"))
-                            .font(.headline)
-                        VStack(spacing: Spacing.sm) {
-                            ProgressView(value: Double(transactionViewModel.transactions.count), total: Double(AppConstants.analyticsMinTransactions))
-                            Text("\(transactionViewModel.transactions.count) / \(AppConstants.analyticsMinTransactions)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.horizontal, Spacing.hero)
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                if transactionCount < AppConstants.analyticsMinTransactions {
+                    analyticsEmptyState
                 } else {
                     ScrollView {
                         VStack(spacing: 16) {
@@ -75,6 +68,70 @@ struct AnalyticsView: View {
                 CustomDateRangePicker(viewModel: analyticsViewModel)
             }
         }
+    }
+
+    // MARK: - Empty State
+
+    private var analyticsEmptyState: some View {
+        VStack(spacing: Spacing.lg) {
+            Spacer()
+
+            Image(systemName: "chart.pie")
+                .font(.system(size: 60))
+                .foregroundColor(.secondary)
+
+            VStack(spacing: Spacing.sm) {
+                Text(transactionCount == 0
+                    ? String(localized: "analytics.empty.zeroTitle")
+                    : String(localized: "analytics.empty.unlockTitle \(remaining)"))
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+
+                Text(String(localized: "analytics.empty.explanation"))
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            VStack(spacing: Spacing.sm) {
+                ProgressView(
+                    value: Double(transactionCount),
+                    total: Double(AppConstants.analyticsMinTransactions)
+                )
+                Text(String(localized: "analytics.empty.progress \(transactionCount) \(AppConstants.analyticsMinTransactions)"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal, Spacing.hero)
+
+            VStack(spacing: Spacing.sm) {
+                Button {
+                    selectedTabBinding.wrappedValue = .quickEntry
+                } label: {
+                    Text(String(localized: "analytics.empty.addTransaction"))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(Color.accentColor)
+                        .cornerRadius(20)
+                }
+
+                Button {
+                    selectedTabBinding.wrappedValue = .transactions
+                } label: {
+                    Text(String(localized: "analytics.empty.goToTransactions"))
+                        .font(.subheadline)
+                        .foregroundColor(.accentColor)
+                }
+            }
+            .padding(.top, Spacing.sm)
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, Spacing.lg)
     }
 }
 

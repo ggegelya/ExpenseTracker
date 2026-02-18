@@ -131,6 +131,7 @@ final class DependencyContainer: DependencyContainerProtocol {
     func makeAnalyticsViewModel() -> AnalyticsViewModel {
         return AnalyticsViewModel(
             repository: transactionRepository,
+            analyticsService: analyticsService,
             errorHandler: errorHandlingService
         )
     }

@@ -74,8 +74,9 @@ struct CelebrationOverlayView: View {
                 }
             }
             .padding(Spacing.betweenSections)
-            .background(.ultraThinMaterial)
+            .background(Color(.systemBackground))
             .cornerRadius(20)
+            .shadow(color: .black.opacity(0.2), radius: 20, x: 0, y: 8)
             .padding(.horizontal, Spacing.paddingXL)
         }
         .accessibilityIdentifier("CelebrationOverlay")
@@ -104,8 +105,8 @@ struct CelebrationOverlayView: View {
             }
         }
         .task {
-            // Auto-dismiss after 3 seconds (cancelled if view disappears)
-            try? await Task.sleep(for: .seconds(3))
+            // Auto-dismiss after 4 seconds (cancelled if view disappears)
+            try? await Task.sleep(for: .seconds(4))
             dismissOnce()
         }
     }

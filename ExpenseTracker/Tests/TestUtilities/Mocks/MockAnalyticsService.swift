@@ -27,6 +27,26 @@ final class MockAnalyticsService: AnalyticsServiceProtocol {
     private(set) var eventRecords: [EventRecord] = []
     private(set) var errorRecords: [ErrorRecord] = []
 
+    // MARK: - Business Analytics (delegate to real service for pure computations)
+
+    private let computeDelegate = AnalyticsService()
+
+    func spendingByCategory(transactions: [Transaction], dateRange: ClosedRange<Date>?, types: Set<TransactionType>) -> [AnalyticsService.CategorySpendingSummary] {
+        computeDelegate.spendingByCategory(transactions: transactions, dateRange: dateRange, types: types)
+    }
+
+    func spendingTrends(transactions: [Transaction], dateRange: ClosedRange<Date>?, types: Set<TransactionType>) -> [AnalyticsService.DailySpendingSummary] {
+        computeDelegate.spendingTrends(transactions: transactions, dateRange: dateRange, types: types)
+    }
+
+    func monthlyComparison(transactions: [Transaction], referenceDate: Date) -> AnalyticsService.MonthlyComparisonSummary {
+        computeDelegate.monthlyComparison(transactions: transactions, referenceDate: referenceDate)
+    }
+
+    func topMerchants(transactions: [Transaction], limit: Int, dateRange: ClosedRange<Date>?) -> [AnalyticsService.MerchantSpendingSummary] {
+        computeDelegate.topMerchants(transactions: transactions, limit: limit, dateRange: dateRange)
+    }
+
     // MARK: - Configuration
 
     /// Whether to print tracked events to console (useful for debugging tests)

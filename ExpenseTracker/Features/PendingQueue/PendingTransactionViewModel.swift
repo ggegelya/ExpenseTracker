@@ -84,10 +84,10 @@ final class PendingTransactionsViewModel: ObservableObject {
     }
     
     func resumeMonitoring() {
-        isActive = true
-        if pollingTask?.isCancelled != false {
-            startMonitoring()
-        }
+        guard !isActive else { return }
+        pollingTask?.cancel()
+        pollingTask = nil
+        startMonitoring()
     }
     
     func loadPendingTransactions(for account: Account? = nil) async {

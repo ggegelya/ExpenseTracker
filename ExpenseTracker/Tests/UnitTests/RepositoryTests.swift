@@ -1426,4 +1426,207 @@ struct RepositoryTests {
        // Then
        #expect(result == nil)
    }
+
+    // MARK: - Atomic Transaction Operation Tests
+
+    @Test("Atomic delete+update+create in single operation with balance adjustments")
+    func atomicDeleteUpdateCreate() async throws {
+        // Given
+        let account = Account(id: UUID(), name: "Atomic Test", tag: "#atomic", balance: 1000, isDefault: true)
+        _ = try await sut.createAccount(account)
+
+        let toDelete = Transaction(
+            transactionDate: Date(),
+            type: .expense,
+            amount: 100,
+            category: nil,
+            description: "To delete",
+            fromAccount: account,
+            toAccount: nil
+        )
+        let toUpdate = Transaction(
+            transactionDate: Date(),
+            type: .expense,
+            amount: 200,
+            category: nil,
+            description: "To update",
+            fromAccount: account,
+            toAccount: nil
+        )
+
+        let createdDelete = try await sut.createTransaction(toDelete)
+        let createdUpdate = try await sut.createTransaction(toUpdate)
+
+        // When - atomic: delete first, update second, create third
+        var updatedTransaction = createdUpdate
+        updatedTransaction.amount = 300
+        updatedTransaction.description = "Updated"
+
+        let toCreate = Transaction(
+            transactionDate: Date(),
+            type: .expense,
+            amount: 50,
+            category: nil,
+            description: "Newly created",
+            fromAccount: account,
+            toAccount: nil
+        )
+
+        try await sut.performAtomicTransactionOperations(
+            delete: [createdDelete],
+            update: [updatedTransaction],
+            create: [toCreate]
+        )
+
+        // Then
+        let allTransactions = try await sut.getAllTransactions()
+        #expect(allTransactions.count == 2)
+        #expect(allTransactions.contains { $0.description == "Updated" })
+        #expect(allTransactions.contains { $0.description == "Newly created" })
+        #expect(!allTransactions.contains { $0.description == "To delete" })
+
+        // Balance: 1000 - 100 - 200 (initial creates) + 100 (delete reversal) + 200 - 300 (update reversal+apply) - 50 (create) = 650
+        let accounts = try await sut.getAllAccounts()
+        let updatedAccount = accounts.first { $0.id == account.id }
+        #expect(updatedAccount?.balance == 650)
+    }
+
+    @Test("Atomic operation with empty arrays is a no-op")
+    func atomicEmptyArraysNoOp() async throws {
+        // Given
+        let account = Account(id: UUID(), name: "NoOp Test", tag: "#noop", balance: 500, isDefault: true)
+        _ = try await sut.createAccount(account)
+
+        // When - empty arrays
+        try await sut.performAtomicTransactionOperations(
+            delete: [],
+            update: [],
+            create: []
+        )
+
+        // Then - balance unchanged
+        let accounts = try await sut.getAllAccounts()
+        let updatedAccount = accounts.first { $0.id == account.id }
+        #expect(updatedAccount?.balance == 500)
+    }
+
+    @Test("Atomic delete throws entityNotFound for non-existent transaction")
+    func atomicDeleteThrowsForNonExistent() async throws {
+        // Given
+        let account = Account(id: UUID(), name: "Test", tag: "#test", balance: 1000, isDefault: true)
+        _ = try await sut.createAccount(account)
+
+        let nonExistent = Transaction(
+            id: UUID(),
+            transactionDate: Date(),
+            type: .expense,
+            amount: 100,
+            category: nil,
+            description: "Non-existent",
+            fromAccount: account,
+            toAccount: nil
+        )
+
+        // When/Then
+        await #expect(throws: RepositoryError.self) {
+            try await sut.performAtomicTransactionOperations(
+                delete: [nonExistent],
+                update: [],
+                create: []
+            )
+        }
+    }
+
+    @Test("Atomic update throws entityNotFound for non-existent transaction")
+    func atomicUpdateThrowsForNonExistent() async throws {
+        // Given
+        let account = Account(id: UUID(), name: "Test", tag: "#test", balance: 1000, isDefault: true)
+        _ = try await sut.createAccount(account)
+
+        let nonExistent = Transaction(
+            id: UUID(),
+            transactionDate: Date(),
+            type: .expense,
+            amount: 100,
+            category: nil,
+            description: "Non-existent",
+            fromAccount: account,
+            toAccount: nil
+        )
+
+        // When/Then
+        await #expect(throws: RepositoryError.self) {
+            try await sut.performAtomicTransactionOperations(
+                delete: [],
+                update: [nonExistent],
+                create: []
+            )
+        }
+    }
+
+    @Test("Split parent cascade delete with correct balance reversal")
+    func splitParentCascadeDelete() async throws {
+        // Given
+        let account = Account(id: UUID(), name: "Split Test", tag: "#split", balance: 1000, isDefault: true)
+        let category1 = Category(id: UUID(), name: "Food", icon: "cart", colorHex: "#FF0000")
+        let category2 = Category(id: UUID(), name: "Health", icon: "heart", colorHex: "#00FF00")
+
+        _ = try await sut.createAccount(account)
+        _ = try await sut.createCategory(category1)
+        _ = try await sut.createCategory(category2)
+
+        let parentId = UUID()
+        let parent = Transaction(
+            id: parentId,
+            transactionDate: Date(),
+            type: .expense,
+            amount: 500,
+            category: nil,
+            description: "Split Parent",
+            fromAccount: account,
+            toAccount: nil
+        )
+        _ = try await sut.createTransaction(parent)
+
+        let child1 = Transaction(
+            transactionDate: Date(),
+            type: .expense,
+            amount: 300,
+            category: category1,
+            description: "Child 1",
+            fromAccount: account,
+            toAccount: nil,
+            parentTransactionId: parentId
+        )
+        let child2 = Transaction(
+            transactionDate: Date(),
+            type: .expense,
+            amount: 200,
+            category: category2,
+            description: "Child 2",
+            fromAccount: account,
+            toAccount: nil,
+            parentTransactionId: parentId
+        )
+        _ = try await sut.createTransaction(child1)
+        _ = try await sut.createTransaction(child2)
+
+        // Get the parent with children populated
+        let fetchedParent = try await sut.getTransaction(by: parentId)
+        #expect(fetchedParent != nil)
+
+        // When - delete parent atomically (should cascade to children)
+        try await sut.performAtomicTransactionOperations(
+            delete: [fetchedParent!],
+            update: [],
+            create: []
+        )
+
+        // Then - parent and children should be gone
+        let remaining = try await sut.getAllTransactions()
+        #expect(remaining.isEmpty)
+
+        let fetchedAfterDelete = try await sut.getTransaction(by: parentId)
+        #expect(fetchedAfterDelete == nil)
+    }
 }

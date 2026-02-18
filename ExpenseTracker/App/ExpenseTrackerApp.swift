@@ -16,7 +16,7 @@ struct ExpenseTrackerApp: App {
     @StateObject private var pendingViewModel: PendingTransactionsViewModel
 
     @AppStorage(UserDefaultsKeys.hasCompletedOnboarding) private var hasCompletedOnboarding = false
-    @State private var selectedTab: AppTab = .quickEntry
+    @State private var selectedTab: AppTab = TestingConfiguration.isRunningTests ? .transactions : .quickEntry
 
     init() {
         // Disable animations for UI testing
@@ -36,13 +36,14 @@ struct ExpenseTrackerApp: App {
 #endif
         }
 
-        // Setup dependency container
-        self.container = DependencyContainer(environment: environment)
-
-        // Reset app state if requested (for UI tests)
+        // Reset app state if requested (for UI tests) — must happen before container creation
+        // so @AppStorage properties pick up the cleared UserDefaults
         if TestingConfiguration.shouldResetAppState {
             Self.resetAppState()
         }
+
+        // Setup dependency container
+        self.container = DependencyContainer(environment: environment)
 
         // Create view models
         let transactionVM = container.makeTransactionViewModel()
@@ -58,13 +59,21 @@ struct ExpenseTrackerApp: App {
     }
     var body: some Scene {
         WindowGroup {
-            if (hasCompletedOnboarding || TestingConfiguration.isRunningTests) && !TestingConfiguration.shouldShowOnboarding {
-                MainTabView(container: container, selectedTab: $selectedTab)
-                    .environment(\.managedObjectContext, container.persistenceController.container.viewContext)
-                    .environmentObject(transactionViewModel)
-                    .environmentObject(accountsViewModel)
-                    .environmentObject(pendingViewModel)
-                    .environmentObject(container.errorHandlingServiceInstance)
+            if hasCompletedOnboarding || (TestingConfiguration.isRunningTests && !TestingConfiguration.shouldShowOnboarding) {
+                ZStack {
+                    MainTabView(container: container, selectedTab: $selectedTab)
+
+                    if transactionViewModel.showCelebration {
+                        CelebrationOverlayView {
+                            withAnimation { transactionViewModel.showCelebration = false }
+                        }
+                    }
+                }
+                .environment(\.managedObjectContext, container.persistenceController.container.viewContext)
+                .environmentObject(transactionViewModel)
+                .environmentObject(accountsViewModel)
+                .environmentObject(pendingViewModel)
+                .environmentObject(container.errorHandlingServiceInstance)
             } else {
                 OnboardingView(
                     container: container,
