@@ -47,7 +47,7 @@
         <attribute name="type" optional="YES" attributeType="String"/>
         <relationship name="category" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CategoryEntity" inverseName="transactions" inverseEntity="CategoryEntity"/>
         <relationship name="fromAccount" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="AccountEntity" inverseName="expenseTransactions" inverseEntity="AccountEntity"/>
-        <relationship name="parentTransaction" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="TransactionEntity" inverseName="splitTransactions" inverseEntity="TransactionEntity"/>
+        <relationship name="parentTransaction" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="TransactionEntity" inverseName="splitTransactions" inverseEntity="TransactionEntity"/>
         <relationship name="splitTransactions" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="TransactionEntity" inverseName="parentTransaction" inverseEntity="TransactionEntity"/>
         <relationship name="toAccount" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="AccountEntity" inverseName="incomeTransactions" inverseEntity="AccountEntity"/>
     </entity>

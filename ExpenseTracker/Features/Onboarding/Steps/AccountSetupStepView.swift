@@ -115,10 +115,24 @@ struct AccountSetupStepView: View {
 
             OnboardingPrimaryButton(
                 title: String(localized: "onboarding.next"),
-                action: onNext
+                action: {
+                    isNameFocused = false
+                    isBalanceFocused = false
+                    onNext()
+                }
             )
         }
         .padding(.horizontal, Spacing.paddingBase)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button(String(localized: "common.done")) {
+                    isNameFocused = false
+                    isBalanceFocused = false
+                }
+                .font(.system(size: 17, weight: .semibold))
+            }
+        }
         .accessibilityIdentifier("AccountSetupStepView")
     }
 }

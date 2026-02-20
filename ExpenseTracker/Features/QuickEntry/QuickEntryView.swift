@@ -184,6 +184,7 @@ struct QuickEntryView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, keyboardHeight)
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle(String(localized: "quickEntry.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

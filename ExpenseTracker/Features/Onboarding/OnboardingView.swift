@@ -92,6 +92,10 @@ struct OnboardingView: View {
         isCompleting = true
 
         Task { @MainActor in
+            // Ensure data is seeded, then reload accounts so the default account is available
+            await container.ensureReady()
+            await accountsViewModel.loadAccounts()
+
             // Update default account with user's chosen settings
             if let defaultAccount = accountsViewModel.accounts.first(where: { $0.isDefault }) {
                 let trimmedName = accountName.trimmingCharacters(in: .whitespacesAndNewlines)

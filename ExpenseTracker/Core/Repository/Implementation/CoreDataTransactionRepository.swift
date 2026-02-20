@@ -643,9 +643,9 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
             guard let self = self else { throw RepositoryError.contextUnavailable }
 
             // 1. Delete
-            // Build a set of IDs being deleted to avoid double balance reversal
-            // when both parent and children are in the delete array
+            // Build sets of IDs being deleted/updated to handle split parents correctly
             let deleteIds = Set(delete.map { $0.id })
+            let updateIds = Set(update.map { $0.id })
 
             for transaction in delete {
                 let request: NSFetchRequest<TransactionEntity> = TransactionEntity.fetchRequest()
@@ -656,15 +656,23 @@ final class CoreDataTransactionRepository: TransactionRepositoryProtocol {
                     throw RepositoryError.entityNotFound
                 }
 
-                // Delete children first if split parent
+                // Handle children if split parent
                 if let children = entity.splitTransactions as? Set<TransactionEntity>, !children.isEmpty {
-                    for child in children {
-                        // Only reverse balance if child is not also in the delete array
-                        // (avoids double reversal when caller includes both parent and children)
-                        if let childId = child.id, !deleteIds.contains(childId) {
-                            try self.updateAccountBalances(for: child, isReversal: true, in: context)
+                    // Snapshot to avoid mutation during iteration (setting parentTransaction
+                    // updates the inverse relationship which mutates the underlying NSSet)
+                    let childrenSnapshot = Array(children)
+                    for child in childrenSnapshot {
+                        if let childId = child.id, updateIds.contains(childId) {
+                            // Child is being updated (e.g. "Delete Summary Only") — detach, don't delete
+                            child.parentTransaction = nil
+                        } else {
+                            // Only reverse balance if child is not also in the delete array
+                            // (avoids double reversal when caller includes both parent and children)
+                            if let childId = child.id, !deleteIds.contains(childId) {
+                                try self.updateAccountBalances(for: child, isReversal: true, in: context)
+                            }
+                            context.delete(child)
                         }
-                        context.delete(child)
                     }
                 }
 
