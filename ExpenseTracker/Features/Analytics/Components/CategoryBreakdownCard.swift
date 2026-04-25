@@ -67,16 +67,15 @@ struct CategoryBreakdownCard: View {
                 .frame(height: 200)
                 .accessibilityIdentifier("ExpenseChart")
             } else {
-                // Pie chart
-                Chart(viewModel.categoryBreakdown.prefix(8)) { item in
-                    SectorMark(
-                        angle: .value("Amount", Double(truncating: NSDecimalNumber(decimal: item.amount))),
-                        innerRadius: .ratio(0.5),
-                        angularInset: 1.5
+                // Apple-Fitness-style nested rings — top 4 categories as
+                // concentric stroked circles. Center shows total + period.
+                NestedCategoryRings(
+                    items: Array(viewModel.categoryBreakdown.prefix(4)),
+                    centerLabel: String(localized: "analytics.totalExpenses"),
+                    centerValue: viewModel.formatAmount(
+                        viewModel.categoryBreakdown.reduce(Decimal(0)) { $0 + $1.amount }
                     )
-                    .cornerRadius(4)
-                    .foregroundStyle(Color(hex: item.category.colorHex))
-                }
+                )
                 .frame(height: 200)
                 .accessibilityIdentifier("ExpenseChart")
 
@@ -139,5 +138,63 @@ struct CategoryBreakdownCard: View {
         .background(Color(.systemBackground))
         .cornerRadius(12)
         .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
+    }
+}
+
+/// Apple Fitness-style nested category rings.
+///
+/// Each item gets one concentric stroked ring sized so the total reads
+/// 0–100% of that category's share of the period total. Background is
+/// the same color at 15% opacity so under-spent rings still register.
+private struct NestedCategoryRings: View {
+    let items: [CategorySpending]
+    let centerLabel: String
+    let centerValue: String
+
+    private let stroke: CGFloat = 10
+    private let gap: CGFloat = 4
+
+    var body: some View {
+        GeometryReader { geo in
+            let size = min(geo.size.width, geo.size.height)
+            let outerRadius = (size - stroke) / 2
+            ZStack {
+                ForEach(Array(items.enumerated()), id: \.element.category.id) { index, item in
+                    let radius = outerRadius - CGFloat(index) * (stroke + gap)
+                    let color = Color(hex: item.category.colorHex)
+                    let progress = min(max(item.percentage / 100.0, 0), 1)
+
+                    ZStack {
+                        Circle()
+                            .stroke(color.opacity(0.15), lineWidth: stroke)
+                        Circle()
+                            .trim(from: 0, to: progress)
+                            .stroke(
+                                color,
+                                style: StrokeStyle(lineWidth: stroke, lineCap: .round)
+                            )
+                            .rotationEffect(.degrees(-90))
+                    }
+                    .frame(width: radius * 2, height: radius * 2)
+                }
+
+                VStack(spacing: 2) {
+                    Text(centerLabel)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .textCase(.uppercase)
+                        .tracking(0.3)
+                    Text(centerValue)
+                        .font(.system(.title3, design: .rounded).weight(.regular))
+                        .monospacedDigit()
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
+                .padding(.horizontal, 12)
+            }
+            .frame(width: size, height: size)
+            .frame(maxWidth: .infinity)
+        }
     }
 }
