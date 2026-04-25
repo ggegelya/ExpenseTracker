@@ -79,6 +79,13 @@ struct CategoryBreakdownCard: View {
                 .frame(height: 200)
                 .accessibilityIdentifier("ExpenseChart")
 
+                // Honey stitch — soft accent between the rings and the
+                // legend table; ties the two halves of the card together
+                // without the visual weight of a solid hairline.
+                StitchSeparator(.honey)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 4)
+
                 // Top 5 list
                 VStack(spacing: 12) {
                     ForEach(viewModel.categoryBreakdown.prefix(5)) { item in
