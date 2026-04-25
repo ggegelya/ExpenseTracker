@@ -70,6 +70,13 @@ struct CelebrationOverlayView: View {
 
                 if showContent {
                     VStack(spacing: Spacing.sm) {
+                        // Vyshyvanka decoration — first use of the motif in
+                        // production. Renders only on the celebration moment,
+                        // never in regular UI. Constrained width so it reads
+                        // as a delicate underline beneath the checkmark.
+                        StitchSeparator(.vyshyvanka)
+                            .frame(width: 96)
+
                         Text(String(localized: "celebration.title"))
                             .font(.system(size: 20, weight: .bold, design: .rounded))
                             .multilineTextAlignment(.center)

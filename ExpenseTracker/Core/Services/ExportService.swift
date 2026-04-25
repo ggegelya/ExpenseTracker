@@ -322,8 +322,56 @@ final class ExportService: ExportServiceProtocol, @unchecked Sendable {
         rule.lineWidth = 2
         pdfInk.setStroke()
         rule.stroke()
+
+        // Vyshyvanka decoration band — small honey motif sits beneath
+        // the rule. Used only in the export PDF header (and the in-app
+        // celebration overlay) — Banka identity without flag clichés.
+        y += 6
+        drawVyshyvankaStripe(
+            in: CGRect(x: margin, y: y, width: page.width - margin * 2, height: 8)
+        )
         y += 16
         return y
+    }
+
+    /// Draws the same diamond/cross repeating motif as VyshyvankaStripe
+    /// but via UIBezierPath so it can be embedded in the PDF.
+    private static func drawVyshyvankaStripe(in rect: CGRect) {
+        let unitWidth: CGFloat = 12
+        let half: CGFloat = 3
+        let arm: CGFloat = 1.4
+        let cy = rect.midY
+        let count = max(0, Int(rect.width / unitWidth))
+        let totalUsed = CGFloat(count) * unitWidth
+        let startX = rect.minX + (rect.width - totalUsed) / 2
+
+        let path = UIBezierPath()
+        for i in 0..<count {
+            let unitCenter = startX + CGFloat(i) * unitWidth + unitWidth / 2
+
+            if i % 2 == 0 {
+                path.move(to: CGPoint(x: unitCenter, y: cy - half))
+                path.addLine(to: CGPoint(x: unitCenter + half, y: cy))
+                path.addLine(to: CGPoint(x: unitCenter, y: cy + half))
+                path.addLine(to: CGPoint(x: unitCenter - half, y: cy))
+                path.close()
+            } else {
+                path.append(UIBezierPath(rect: CGRect(
+                    x: unitCenter - half,
+                    y: cy - arm,
+                    width: half * 2,
+                    height: arm * 2
+                )))
+                path.append(UIBezierPath(rect: CGRect(
+                    x: unitCenter - arm,
+                    y: cy - half,
+                    width: arm * 2,
+                    height: half * 2
+                )))
+            }
+        }
+        pdfHoney.setFill()
+        path.fill()
     }
 
     private static func drawSlimHeader(at startY: CGFloat, in page: CGRect, margin: CGFloat, exportedAt: String) -> CGFloat {
