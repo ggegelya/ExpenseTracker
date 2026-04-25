@@ -11,11 +11,19 @@ import SwiftUI
 struct AnalyticsView: View {
     @StateObject private var analyticsViewModel: AnalyticsViewModel
     @EnvironmentObject var transactionViewModel: TransactionViewModel
+    @EnvironmentObject var errorHandler: ErrorHandlingService
     @Environment(\.selectedTab) private var selectedTabBinding
     @State private var showCustomDatePicker = false
+    @State private var showExportSheet = false
+    @State private var exportShareItem: ShareItem?
+
+    private let exportService: ExportServiceProtocol
+    private let container: DependencyContainer
 
     init(container: DependencyContainer) {
         _analyticsViewModel = StateObject(wrappedValue: container.makeAnalyticsViewModel())
+        self.exportService = container.exportService
+        self.container = container
     }
 
     private var transactionCount: Int {
@@ -64,9 +72,50 @@ struct AnalyticsView: View {
             .refreshable {
                 await analyticsViewModel.loadData()
             }
+            .toolbar {
+                if transactionCount >= AppConstants.analyticsMinTransactions {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button {
+                            showExportSheet = true
+                        } label: {
+                            Text(String(localized: "export.title"))
+                        }
+                        .accessibilityIdentifier("ExportButton")
+                    }
+                }
+            }
+            .exportFormatSheet(isPresented: $showExportSheet) { format in
+                Task { await runExport(format: format) }
+            }
             .sheet(isPresented: $showCustomDatePicker) {
                 CustomDateRangePicker(viewModel: analyticsViewModel)
             }
+            .sheet(item: $exportShareItem) { item in
+                ShareSheet(items: [item.url])
+            }
+        }
+    }
+
+    @MainActor
+    private func runExport(format: ExportFormat) async {
+        switch format {
+        case .csv:
+            // Snapshot the transactions on the main actor before the await.
+            let transactions = transactionViewModel.transactions
+            do {
+                let url = try await exportService.exportToCSV(transactions: transactions)
+                exportShareItem = ShareItem(url: url)
+            } catch {
+                _ = errorHandler.handleAny(error, context: "CSV export")
+            }
+        case .pdf:
+            // PDF generation is the next phase — surface a friendly toast
+            // so the action sheet is wired and users see the option, but
+            // we don't ship a half-baked report.
+            errorHandler.showToast(
+                String(localized: "export.pdf.notReady.title"),
+                type: .info
+            )
         }
     }
 

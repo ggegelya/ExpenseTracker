@@ -10,27 +10,27 @@ import os
 
 private let exportLogger = Logger(subsystem: "com.expensetracker", category: "Export")
 
-protocol ExportServiceProtocol {
+protocol ExportServiceProtocol: Sendable {
     func exportToCSV(transactions: [Transaction]) async throws -> URL
     func exportToGoogleSheets(transactions: [Transaction]) async throws
 }
 
-final class ExportService: ExportServiceProtocol {
+// Stateless — no mutable storage, methods only touch the filesystem and
+// the deterministic output path. Safe to pass across actor boundaries.
+final class ExportService: ExportServiceProtocol, @unchecked Sendable {
 
     func exportToCSV(transactions: [Transaction]) async throws -> URL {
-        // Create a unique, filesystem-safe filename with high precision timestamp and UUID
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        isoFormatter.timeZone = TimeZone(secondsFromGMT: 0)
-        let timestamp = isoFormatter.string(from: Date()) // e.g., 2025-11-22T22:00:05.123Z
-
-        // Sanitize characters that can be problematic in filenames on some systems
-        let safeTimestamp = timestamp
-            .replacingOccurrences(of: ":", with: "-")
-            .replacingOccurrences(of: ".", with: "-")
-
-        let uniqueSuffix = UUID().uuidString
-        let fileName = "transactions_\(safeTimestamp)_\(uniqueSuffix).csv"
+        // Filename per Banka design spec: banka-YYYY-MM.csv (lowercase, ISO
+        // year-month, no spaces). The two formats — PDF and CSV — must share
+        // this scheme. A short UUID disambiguates simultaneous re-exports
+        // without breaking the human-readable prefix.
+        let monthFormatter = DateFormatter()
+        monthFormatter.dateFormat = "yyyy-MM"
+        monthFormatter.locale = Locale(identifier: "en_US_POSIX")
+        monthFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+        let yearMonth = monthFormatter.string(from: Date())
+        let disambiguator = UUID().uuidString.prefix(8)
+        let fileName = "banka-\(yearMonth)-\(disambiguator).csv"
 
         // Write to a dedicated subdirectory in the temporary directory to avoid conflicts
         let tempDir = FileManager.default.temporaryDirectory

@@ -351,18 +351,26 @@ struct ExportServiceTests {
 
     // MARK: - Edge Cases
 
-    @Test("Export filename contains timestamp in ISO8601 format")
-    func exportFilenameContainsTimestamp() async throws {
+    @Test("Export filename uses Banka year-month scheme")
+    func exportFilenameUsesBankaScheme() async throws {
         // Given
         let transactions = [MockTransaction.makeExpense()]
 
         // When
         let fileURL = try await sut.exportToCSV(transactions: transactions)
 
-        // Then
-        #expect(fileURL.lastPathComponent.hasPrefix("transactions_"))
-        #expect(fileURL.lastPathComponent.hasSuffix(".csv"))
+        // Then — filename matches `banka-YYYY-MM-XXXXXXXX.csv` per design spec
+        let name = fileURL.lastPathComponent
+        #expect(name.hasPrefix("banka-"))
+        #expect(name.hasSuffix(".csv"))
         #expect(fileURL.deletingLastPathComponent().lastPathComponent == "exports")
+
+        // Validate the year-month chunk parses
+        let stem = name.replacingOccurrences(of: ".csv", with: "")
+        let parts = stem.split(separator: "-")
+        #expect(parts.count == 4) // banka, YYYY, MM, XXXXXXXX
+        #expect(parts[1].count == 4)
+        #expect(parts[2].count == 2)
 
         // Cleanup
         try? FileManager.default.removeItem(at: fileURL)

@@ -9,7 +9,7 @@ import Foundation
 
 /// Mock implementation of ExportServiceProtocol for testing
 /// Simulates CSV and Google Sheets export operations and tracks calls
-final class MockExportService: ExportServiceProtocol {
+final class MockExportService: ExportServiceProtocol, @unchecked Sendable {
 
     // MARK: - Call Tracking
 
