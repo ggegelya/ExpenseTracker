@@ -28,8 +28,9 @@ struct AmountInputSection: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            // Amount input - Hero layout
-            HStack(alignment: .center, spacing: 8) {
+            // Amount input - Hero layout. Baseline-aligned so the smaller
+            // currency glyph sits on the same line as the digits.
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
                 // Tap-to-toggle -/+ sign only (no background)
                 Button {
                     // Rotate 180° and pulse scale
@@ -79,8 +80,8 @@ struct AmountInputSection: View {
                     }
 
                 Text("₴")
-                    .font(.system(size: 52, weight: .ultraLight, design: .rounded))
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 31, weight: .ultraLight, design: .rounded))
+                    .foregroundColor(.primary.opacity(0.6))
             }
 
             // Metadata pills
