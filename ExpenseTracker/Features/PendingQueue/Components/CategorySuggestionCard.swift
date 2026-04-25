@@ -58,7 +58,7 @@ struct CategorySuggestionCard: View {
                 } label: {
                     HStack {
                         Image(systemName: "questionmark.circle")
-                            .foregroundColor(.orange)
+                            .foregroundColor(.signal)
                             .frame(width: 32, height: 32)
 
                         Text(String(localized: "common.selectCategory"))
@@ -126,7 +126,7 @@ struct CategorySuggestionCard: View {
         if confidence >= 0.8 {
             return .green
         } else if confidence >= 0.5 {
-            return .orange
+            return .signal
         } else {
             return .red
         }
@@ -161,7 +161,7 @@ struct CategoryPickerView: View {
                     VStack(spacing: 16) {
                         Image(systemName: "exclamationmark.triangle")
                             .font(.system(size: 48))
-                            .foregroundColor(.orange)
+                            .foregroundColor(.signal)
 
                         Text(String(localized: "error.loadCategories"))
                             .font(.headline)

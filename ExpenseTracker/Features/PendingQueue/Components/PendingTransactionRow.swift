@@ -59,6 +59,15 @@ struct PendingTransactionRow: View {
             }
             .background(Color(.systemBackground))
             .cornerRadius(12)
+            .overlay(alignment: .leading) {
+                let borderColor: Color = pending.suggestedCategory.map { Color(hex: $0.colorHex) } ?? .signal
+                UnevenRoundedRectangle(
+                    cornerRadii: .init(topLeading: 12, bottomLeading: 12),
+                    style: .continuous
+                )
+                .fill(borderColor.opacity(0.3))
+                .frame(width: 3)
+            }
             .offset(x: offset)
             .gesture(
                 DragGesture()
@@ -116,9 +125,9 @@ struct PendingTransactionRow: View {
             } else {
                 VStack {
                     Image(systemName: "questionmark.circle")
-                        .foregroundColor(.orange)
+                        .foregroundColor(.signal)
                         .frame(width: 40, height: 40)
-                        .background(Color.orange.opacity(0.2))
+                        .background(Color.signal.opacity(0.2))
                         .clipShape(Circle())
                 }
             }
@@ -164,6 +173,7 @@ struct PendingTransactionRow: View {
                     Text(formatAmount(pending.amount))
                         .font(.body)
                         .fontWeight(.semibold)
+                        .monospacedDigit()
                         .foregroundColor(pending.type == .expense ? .red : .green)
 
                     Text(formatDate(pending.transactionDate))

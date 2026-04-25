@@ -30,7 +30,7 @@ struct AccountRow: View {
 
                     if account.isDefault {
                         Image(systemName: "star.fill")
-                            .foregroundColor(.orange)
+                            .foregroundColor(.signal)
                             .font(.system(size: 10))
                     }
                 }

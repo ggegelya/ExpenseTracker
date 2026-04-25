@@ -44,6 +44,7 @@ struct MonthOverviewCard: View {
                     Text(viewModel.formatAmount(viewModel.currentMonthExpenses))
                         .font(.title3)
                         .fontWeight(.semibold)
+                        .monospacedDigit()
                         .foregroundColor(.red)
                         .minimumScaleFactor(0.7)
                         .lineLimit(1)
@@ -68,6 +69,7 @@ struct MonthOverviewCard: View {
                     Text(viewModel.formatAmount(viewModel.currentMonthIncome))
                         .font(.title3)
                         .fontWeight(.semibold)
+                        .monospacedDigit()
                         .foregroundColor(.green)
                         .minimumScaleFactor(0.7)
                         .lineLimit(1)
@@ -94,6 +96,7 @@ struct MonthOverviewCard: View {
                     let balance = viewModel.currentMonthIncome - viewModel.currentMonthExpenses
                     Text(viewModel.formatAmount(balance))
                         .font(.headline)
+                        .monospacedDigit()
                         .foregroundColor(balance >= 0 ? .green : .red)
                 }
 
@@ -254,7 +257,7 @@ struct MonthlyBreakdownSheet: View {
                     StatRow(
                         title: String(localized: "analytics.averageDailySpending"),
                         value: viewModel.formatAmount(viewModel.averageDailySpending),
-                        color: .orange
+                        color: .signal
                     )
                 } header: {
                     Text(String(localized: "analytics.statistics"))
@@ -285,6 +288,7 @@ struct StatRow: View {
             Spacer()
             Text(value)
                 .fontWeight(.semibold)
+                .monospacedDigit()
                 .foregroundColor(color)
         }
     }

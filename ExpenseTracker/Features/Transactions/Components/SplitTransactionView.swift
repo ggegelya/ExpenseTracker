@@ -238,14 +238,14 @@ struct SplitTransactionView: View {
             if let error = validationError {
                 HStack {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.orange)
+                        .foregroundColor(.signal)
                     Text(error)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.orange.opacity(0.1))
+                .background(Color.signal.opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .padding(.horizontal)
             }
@@ -313,7 +313,7 @@ struct SplitTransactionView: View {
                     Text(formatAmount(remainingAmount))
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundColor(isRemainingBalanced ? .green : .orange)
+                        .foregroundColor(isRemainingBalanced ? .green : .signal)
                 }
             }
 

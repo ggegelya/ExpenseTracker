@@ -51,6 +51,7 @@ struct SimpleTransactionRow: View {
             // Amount with color coding
             Text(transaction.formattedAmount)
                 .font(.system(size: 16, weight: .medium))
+                .monospacedDigit()
                 .foregroundColor(transaction.type == .expense ? .red : .green)
             if TestingConfiguration.isRunningTests {
                 Text(plainAmountString)

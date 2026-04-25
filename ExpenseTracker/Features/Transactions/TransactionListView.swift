@@ -331,13 +331,21 @@ struct TransactionListView: View {
                 ForEach(groupedTransactions, id: \.key) { group in
                     let date = group.key
                     let items = group.value
+                    let net = dayNet(for: items)
                     Section {
                         ForEach(items) { item in
                             transactionRow(for: item)
                         }
                     } header: {
-                        Text(date, style: .date)
-                            .font(.headline)
+                        HStack {
+                            Text(date, style: .date)
+                                .font(.headline)
+                            Spacer()
+                            Text(formattedDayNet(net))
+                                .font(.subheadline)
+                                .monospacedDigit()
+                                .foregroundColor(net > 0 ? .green : .secondary)
+                        }
                     }
                 }
             }
@@ -461,6 +469,30 @@ struct TransactionListView: View {
                 Text(String(localized: "split.deleteParent.message"))
             }
         }
+    }
+
+    private func dayNet(for items: [TransactionListItem]) -> Decimal {
+        items.reduce(Decimal(0)) { acc, item in
+            // Skip child rows — the parent already represents the day's flow.
+            guard case .child = item else {
+                let tx = item.transaction
+                let signed: Decimal = (tx.type == .income || tx.type == .transferIn)
+                    ? tx.effectiveAmount
+                    : -tx.effectiveAmount
+                return acc + signed
+            }
+            return acc
+        }
+    }
+
+    private func formattedDayNet(_ net: Decimal) -> String {
+        let prefix = net > 0 ? "+" : (net < 0 ? "−" : "")
+        let magnitude = Formatters.currencyStringUAH(
+            amount: abs(net),
+            minFractionDigits: 0,
+            maxFractionDigits: 2
+        )
+        return "\(prefix)\(magnitude)"
     }
 
     private var groupedTransactions: [(key: Date, value: [TransactionListItem])] {

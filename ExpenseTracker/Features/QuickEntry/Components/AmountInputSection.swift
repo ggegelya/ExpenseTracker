@@ -62,6 +62,7 @@ struct AmountInputSection: View {
 
                 TextField("0", text: $amount)
                     .font(.system(size: 52, weight: .ultraLight, design: .rounded))
+                    .monospacedDigit()
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.center)
                     .focused($isAmountFocused)

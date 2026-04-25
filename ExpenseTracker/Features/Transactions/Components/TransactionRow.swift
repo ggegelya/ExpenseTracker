@@ -69,6 +69,7 @@ struct TransactionRow : View {
                 Text(transaction.formattedAmount)
                     .font(.subheadline)
                     .fontWeight(.medium)
+                    .monospacedDigit()
                     .foregroundColor(transaction.type == .expense ? .red : .green)
 
                 // Show split categories mini visualization
@@ -100,6 +101,16 @@ struct TransactionRow : View {
         .padding(.horizontal, 12)
         .background(Color(.systemGray6))
         .cornerRadius(6)
+        .overlay(alignment: .leading) {
+            if let category = displayCategory {
+                UnevenRoundedRectangle(
+                    cornerRadii: .init(topLeading: 6, bottomLeading: 6),
+                    style: .continuous
+                )
+                .fill(Color(hex: category.colorHex).opacity(0.3))
+                .frame(width: 3)
+            }
+        }
         .contentShape(Rectangle())
         .onTapGesture {
             if transaction.isSplitParent {

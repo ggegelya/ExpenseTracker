@@ -62,4 +62,12 @@ extension Color {
     init(hex: String) {
         self.init(ColorCache.shared.color(for: hex))
     }
+
+    // Banka semantic — honey #E4B34A.
+    // Use for default-account star, pending-state badges, and average lines.
+    // Replaces system orange in the `signal` semantic role; the actual orange
+    // hue is reserved for explicitly orange data (e.g. dining category, savings
+    // account type) that is not a "needs attention" signal.
+    static let signal: Color = Color(hex: "E4B34A")
+    static let signalSoft: Color = Color(hex: "E4B34A").opacity(0.15)
 }

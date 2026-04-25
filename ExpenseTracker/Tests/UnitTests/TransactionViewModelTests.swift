@@ -401,12 +401,15 @@ struct TransactionViewModelTests {
 
     @Test("Format amount returns correct UAH format")
     func formatAmountReturnsCorrectUAHFormat() async throws {
-        // Given
+        // Given — the uk_UA locale emits NBSP (U+00A0) for thousand separators
+        // and before the currency symbol. We preserve those so currency strings
+        // never wrap mid-number in narrow containers.
+        let nbsp = "\u{00A0}"
         let amounts: [(Decimal, String)] = [
-            (Decimal(100), "100,00 ₴"),
-            (Decimal(1234.56), "1 234,56 ₴"),
-            (Decimal(0.50), "0,50 ₴"),
-            (Decimal(999999.99), "999 999,99 ₴")
+            (Decimal(100), "100,00\(nbsp)₴"),
+            (Decimal(1234.56), "1\(nbsp)234,56\(nbsp)₴"),
+            (Decimal(0.50), "0,50\(nbsp)₴"),
+            (Decimal(999999.99), "999\(nbsp)999,99\(nbsp)₴")
         ]
 
         for (amount, expected) in amounts {

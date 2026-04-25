@@ -89,15 +89,15 @@ struct SpendingTrendsCard: View {
                     // Average line
                     if let average = averageSpending, average > 0 {
                         RuleMark(y: .value(String(localized: "chart.average"), Double(truncating: NSDecimalNumber(decimal: average))))
-                            .foregroundStyle(Color.orange.opacity(0.6))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
+                            .foregroundStyle(Color.signal.opacity(0.9))
+                            .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 5]))
                             .annotation(position: .top, alignment: .trailing) {
                                 Text("\(String(localized: "analytics.average")): \(viewModel.formatAmount(average))")
                                     .font(.caption2)
-                                    .foregroundColor(.orange)
+                                    .foregroundColor(.signal)
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
-                                    .background(Color.orange.opacity(0.1))
+                                    .background(Color.signalSoft)
                                     .cornerRadius(4)
                             }
                     }

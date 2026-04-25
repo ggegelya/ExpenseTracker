@@ -19,13 +19,13 @@ struct PendingTransactionsBadge: View {
             Image(systemName: "chevron.right")
                 .font(.caption)
         }
-        .foregroundColor(.orange)
+        .foregroundColor(.signal)
         .padding()
-        .background(Color.orange.opacity(0.1))
+        .background(Color.signal.opacity(0.1))
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                .stroke(Color.signal.opacity(0.3), lineWidth: 1)
         )
         .scaleEffect(scale)
     }
