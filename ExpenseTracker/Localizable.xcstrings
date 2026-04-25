@@ -4098,6 +4098,22 @@
         }
       }
     },
+    "pending.badge.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PENDING"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ОЧІКУЄ"
+          }
+        }
+      }
+    },
     "pending.complete" : {
       "localizations" : {
         "en" : {

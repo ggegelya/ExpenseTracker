@@ -134,10 +134,21 @@ struct PendingTransactionRow: View {
 
             // Transaction details
             VStack(alignment: .leading, spacing: 4) {
-                Text(pending.descriptionText)
-                    .font(.body)
-                    .fontWeight(.medium)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(pending.descriptionText)
+                        .font(.body)
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+
+                    Text(String(localized: "pending.badge.label"))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.signal)
+                        .tracking(0.3)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.signalSoft)
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                }
 
                 HStack(spacing: 8) {
                     if let merchant = pending.merchantName {
