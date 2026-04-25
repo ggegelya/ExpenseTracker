@@ -8,8 +8,10 @@ import SwiftUI
 struct WelcomeStepView: View {
     let onNext: () -> Void
 
+    // ₴ first and tinted in Banka honey — sets the brand tone before the
+    // coin spins through the other supported currencies.
     private static let coinFaces: [(symbol: String, color: Color)] = [
-        ("hryvniasign.circle.fill", .accentColor),
+        ("hryvniasign.circle.fill", .signal),
         ("dollarsign.circle.fill", Color(.systemTeal)),
         ("eurosign.circle.fill", Color(.systemIndigo)),
     ]

@@ -14,16 +14,16 @@ struct ReadyStepView: View {
         VStack(spacing: Spacing.betweenSections) {
             Spacer()
 
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 80))
-                .foregroundColor(.green)
+            // Banka jar — same primitive as the no-transactions empty state.
+            // Pulses softly to read as "ready to fill", not "system success".
+            EmptyJarIllustration()
                 .scaleEffect(pulseScale)
                 .task {
                     withAnimation(
-                        .easeInOut(duration: 1.2)
+                        .easeInOut(duration: 1.6)
                         .repeatForever(autoreverses: true)
                     ) {
-                        pulseScale = 1.1
+                        pulseScale = 1.06
                     }
                 }
 
