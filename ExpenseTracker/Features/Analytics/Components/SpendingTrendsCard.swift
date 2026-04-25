@@ -71,18 +71,21 @@ struct SpendingTrendsCard: View {
                 Chart {
                     // Daily spending line
                     ForEach(filteredDailySpending) { item in
+                        // Daily expense — ink line. Pairs with the honey average
+                        // line below: data in ink, the "moment" in honey.
                         LineMark(
                             x: .value(String(localized: "chart.day"), item.date, unit: .day),
                             y: .value(String(localized: "chart.expenses"), Double(truncating: NSDecimalNumber(decimal: item.amount)))
                         )
-                        .foregroundStyle(Color.red.gradient)
+                        .foregroundStyle(Color.primary.gradient)
                         .interpolationMethod(.catmullRom)
+                        .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
 
                         AreaMark(
                             x: .value(String(localized: "chart.day"), item.date, unit: .day),
                             y: .value(String(localized: "chart.expenses"), Double(truncating: NSDecimalNumber(decimal: item.amount)))
                         )
-                        .foregroundStyle(Color.red.opacity(0.1).gradient)
+                        .foregroundStyle(Color.primary.opacity(0.08).gradient)
                         .interpolationMethod(.catmullRom)
                     }
 
