@@ -125,9 +125,7 @@ struct AnalyticsView: View {
         VStack(spacing: Spacing.lg) {
             Spacer()
 
-            Image(systemName: "chart.pie")
-                .font(.system(size: 60))
-                .foregroundColor(.secondary)
+            LockedAnalyticsIllustration()
 
             VStack(spacing: Spacing.sm) {
                 Text(transactionCount == 0
@@ -142,16 +140,27 @@ struct AnalyticsView: View {
                     .multilineTextAlignment(.center)
             }
 
-            VStack(spacing: Spacing.sm) {
-                ProgressView(
-                    value: Double(transactionCount),
-                    total: Double(AppConstants.analyticsMinTransactions)
+            // Honey 3-dot progress chip if the threshold is exactly 3
+            // (Banka design's locked-analytics pattern); otherwise fall
+            // back to a regular linear ProgressView with caption.
+            if AppConstants.analyticsMinTransactions == 3 {
+                HoneyProgressChip(
+                    current: transactionCount,
+                    total: AppConstants.analyticsMinTransactions,
+                    label: String(localized: "analytics.empty.progress \(transactionCount) \(AppConstants.analyticsMinTransactions)")
                 )
-                Text(String(localized: "analytics.empty.progress \(transactionCount) \(AppConstants.analyticsMinTransactions)"))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            } else {
+                VStack(spacing: Spacing.sm) {
+                    ProgressView(
+                        value: Double(transactionCount),
+                        total: Double(AppConstants.analyticsMinTransactions)
+                    )
+                    Text(String(localized: "analytics.empty.progress \(transactionCount) \(AppConstants.analyticsMinTransactions)"))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, Spacing.hero)
             }
-            .padding(.horizontal, Spacing.hero)
 
             VStack(spacing: Spacing.sm) {
                 Button {
