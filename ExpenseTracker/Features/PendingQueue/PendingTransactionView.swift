@@ -41,7 +41,7 @@ struct PendingTransactionsView: View {
                 .overlay {
                     if viewModel.pendingTransactions.isEmpty {
                         EmptyStateView(
-                            icon: "checkmark.circle.fill",
+                            illustration: ReceiptStampIllustration(),
                             title: String(localized: "pending.empty.title"),
                             subtitle: String(localized: "pending.empty.subtitle")
                         )

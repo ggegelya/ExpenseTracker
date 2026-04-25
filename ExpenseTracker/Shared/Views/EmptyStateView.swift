@@ -8,8 +8,8 @@
 import Foundation
 import SwiftUI
 
-struct EmptyStateView: View {
-    let icon: String
+struct EmptyStateView<Illustration: View>: View {
+    let illustration: Illustration
     let title: String
     let subtitle: String
     var actionTitle: String? = nil
@@ -17,9 +17,7 @@ struct EmptyStateView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Image(systemName: icon)
-                .font(.system(size: 60))
-                .foregroundColor(.secondary)
+            illustration
 
             VStack(spacing: 8) {
                 Text(title)
@@ -48,6 +46,33 @@ struct EmptyStateView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("EmptyStateView")
+    }
+}
+
+// SF Symbol convenience init — preserves existing call sites that pass an `icon` string.
+extension EmptyStateView where Illustration == SFSymbolEmptyIllustration {
+    init(
+        icon: String,
+        title: String,
+        subtitle: String,
+        actionTitle: String? = nil,
+        action: (() -> Void)? = nil
+    ) {
+        self.illustration = SFSymbolEmptyIllustration(name: icon)
+        self.title = title
+        self.subtitle = subtitle
+        self.actionTitle = actionTitle
+        self.action = action
+    }
+}
+
+struct SFSymbolEmptyIllustration: View {
+    let name: String
+
+    var body: some View {
+        Image(systemName: name)
+            .font(.system(size: 60))
+            .foregroundColor(.secondary)
     }
 }
 

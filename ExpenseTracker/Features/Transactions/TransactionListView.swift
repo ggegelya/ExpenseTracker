@@ -426,15 +426,21 @@ struct TransactionListView: View {
             .overlay {
                 let shouldShowEmptyState = viewModel.filteredTransactions.isEmpty && !viewModel.isLoading
                 if shouldShowEmptyState || TestingConfiguration.shouldStartEmpty {
-                    EmptyStateView(
-                        icon: viewModel.hasActiveFilters ? "line.3.horizontal.decrease.circle" : "tray",
-                        title: String(localized: "transaction.empty.title"),
-                        subtitle: viewModel.hasActiveFilters ?
-                            String(localized: "transaction.empty.filtered") :
-                            String(localized: "transaction.empty.subtitle"),
-                        actionTitle: viewModel.hasActiveFilters ? nil : String(localized: "transaction.empty.addFirst"),
-                        action: viewModel.hasActiveFilters ? nil : { selectedTabBinding.wrappedValue = .quickEntry }
-                    )
+                    if viewModel.hasActiveFilters {
+                        EmptyStateView(
+                            icon: "line.3.horizontal.decrease.circle",
+                            title: String(localized: "transaction.empty.title"),
+                            subtitle: String(localized: "transaction.empty.filtered")
+                        )
+                    } else {
+                        EmptyStateView(
+                            illustration: EmptyJarIllustration(),
+                            title: String(localized: "transaction.empty.title"),
+                            subtitle: String(localized: "transaction.empty.subtitle"),
+                            actionTitle: String(localized: "transaction.empty.addFirst"),
+                            action: { selectedTabBinding.wrappedValue = .quickEntry }
+                        )
+                    }
                 }
             }
             .refreshable {

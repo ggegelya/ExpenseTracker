@@ -24,22 +24,21 @@ struct AccountsView: View {
                     VStack(spacing: Spacing.listRowSpacing) {
                         // Accounts list
                         if viewModel.accounts.isEmpty {
-                            // Empty state
+                            // Empty state — Banka coin-stack illustration
                             VStack(spacing: Spacing.lg) {
                                 Spacer()
-                                    .frame(height: 60)
+                                    .frame(height: 40)
 
-                                Image(systemName: "creditcard")
-                                    .font(.system(size: 60))
-                                    .foregroundColor(.secondary)
+                                CoinStackIllustration()
 
                                 Text(String(localized: "account.empty.title"))
                                     .font(.headline)
-                                    .foregroundColor(.secondary)
 
                                 Text(String(localized: "account.empty.subtitle"))
-                                    .font(.caption)
+                                    .font(.subheadline)
                                     .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, Spacing.paddingLG)
 
                                 Button {
                                     showAddAccount = true
