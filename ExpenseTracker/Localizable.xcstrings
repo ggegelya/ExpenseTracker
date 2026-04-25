@@ -2066,6 +2066,22 @@
         }
       }
     },
+    "export.pdf.pageOf %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page %1$lld of %2$lld"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сторінка %1$lld з %2$lld"
+          }
+        }
+      }
+    },
     "export.pdf.spent" : {
       "localizations" : {
         "en" : {
@@ -2078,6 +2094,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Витрачено"
+          }
+        }
+      }
+    },
+    "export.pdf.exported %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exported %@"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Експортовано %@"
           }
         }
       }
@@ -2130,6 +2162,22 @@
         }
       }
     },
+    "export.pdf.avgPerDay %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "avg %@/day"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "у середн. %@/день"
+          }
+        }
+      }
+    },
     "export.pdf.byCategory" : {
       "localizations" : {
         "en" : {
@@ -2142,6 +2190,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "За категоріями"
+          }
+        }
+      }
+    },
+    "export.pdf.continuationSuffix" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : " · cont."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : " · продовження"
           }
         }
       }

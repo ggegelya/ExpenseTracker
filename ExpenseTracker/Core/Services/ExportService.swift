@@ -91,7 +91,15 @@ final class ExportService: ExportServiceProtocol, @unchecked Sendable {
         let totals = Self.totals(for: transactions)
         let categoryStats = Self.categoryBreakdown(for: transactions, total: totals.spent)
         let dailyStats = Self.dailyBreakdown(for: transactions)
-        let displayDate = Formatters.dateString(Date(), dateStyle: .long, timeStyle: .short)
+        // Use the app's effective locale so the PDF header date matches the
+        // localized PDF strings (English bundle → English date, etc.).
+        let exportLocaleId = Bundle.main.preferredLocalizations.first ?? "uk_UA"
+        let displayDate = Formatters.dateString(
+            Date(),
+            dateStyle: .long,
+            timeStyle: .short,
+            localeIdentifier: exportLocaleId
+        )
         let report = PDFReport(
             transactions: transactions.sorted { $0.transactionDate > $1.transactionDate },
             totals: totals,
@@ -256,7 +264,12 @@ final class ExportService: ExportServiceProtocol, @unchecked Sendable {
             ctx.beginPage()
             var py = margin
             py = drawSlimHeader(at: py, in: page, margin: margin, exportedAt: report.exportedAt)
-            py = drawListHeader(at: py, in: page, margin: margin, suffix: " · cont.")
+            py = drawListHeader(
+                at: py,
+                in: page,
+                margin: margin,
+                suffix: NSLocalizedString("export.pdf.continuationSuffix", comment: "")
+            )
             let slice = Array(report.transactions[consumed..<min(consumed + subsequentRows, report.transactions.count)])
             drawTransactionRows(slice, startingAt: py, in: page, margin: margin)
             drawFooter(in: page, margin: margin, page: pageIndex, of: totalPages)
@@ -282,8 +295,10 @@ final class ExportService: ExportServiceProtocol, @unchecked Sendable {
         ))
         monogram.draw(at: CGPoint(x: margin, y: startY))
 
+        let exportedFormat = NSLocalizedString("export.pdf.exported %@", comment: "")
+        let exportedLine = String(format: exportedFormat, exportedAt)
         let exportedText = NSAttributedString(
-            string: "banka.app\nExported \(exportedAt)",
+            string: "banka.app\n\(exportedLine)",
             attributes: [
                 .font: UIFont.systemFont(ofSize: 10),
                 .foregroundColor: pdfSecondary
@@ -323,7 +338,7 @@ final class ExportService: ExportServiceProtocol, @unchecked Sendable {
         mono.draw(at: CGPoint(x: margin, y: startY))
 
         let exported = NSAttributedString(
-            string: "Banka · \(exportedAt)",
+            string: "Banka · \(exportedAt)", // brand wordmark — domain/wordmark stays consistent across locales
             attributes: [.font: UIFont.systemFont(ofSize: 9), .foregroundColor: pdfSecondary]
         )
         let size = exported.size()
@@ -569,8 +584,9 @@ final class ExportService: ExportServiceProtocol, @unchecked Sendable {
             .font: UIFont.systemFont(ofSize: 9, weight: .medium),
             .foregroundColor: pdfHoney
         ]
+        let avgFormat = NSLocalizedString("export.pdf.avgPerDay %@", comment: "")
         let avgCaption = NSAttributedString(
-            string: "avg \(avgString)/day",
+            string: String(format: avgFormat, avgString),
             attributes: captionAttrs
         )
         let captionSize = avgCaption.size()
@@ -607,7 +623,9 @@ final class ExportService: ExportServiceProtocol, @unchecked Sendable {
         in page: CGRect,
         margin: CGFloat
     ) {
-        let dateFormatter = Formatters.dateFormatter(dateStyle: .short, timeStyle: .none)
+        // Match per-row dates to the PDF's localized strings.
+        let exportLocaleId = Bundle.main.preferredLocalizations.first ?? "uk_UA"
+        let dateFormatter = Formatters.dateFormatter(dateStyle: .short, timeStyle: .none, localeIdentifier: exportLocaleId)
         let rowFont = UIFont.systemFont(ofSize: 11)
         let rowAmountFont = UIFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         let rowLineHeight: CGFloat = 16
@@ -657,8 +675,9 @@ final class ExportService: ExportServiceProtocol, @unchecked Sendable {
             .font: pageInfoFont,
             .foregroundColor: pdfSecondary
         ]
+        let pageFormat = NSLocalizedString("export.pdf.pageOf %lld %lld", comment: "")
         let leftCaption = NSAttributedString(
-            string: "Page \(pageNumber) of \(totalPages)",
+            string: String(format: pageFormat, pageNumber, totalPages),
             attributes: pageInfoAttrs
         )
         leftCaption.draw(at: CGPoint(x: margin, y: footerY - 14))
