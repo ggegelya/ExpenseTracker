@@ -2130,6 +2130,38 @@
         }
       }
     },
+    "export.pdf.byCategory" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "By category"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "За категоріями"
+          }
+        }
+      }
+    },
+    "export.pdf.dailySpend" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily spend"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Щоденні витрати"
+          }
+        }
+      }
+    },
     "export.pdf.transactions" : {
       "localizations" : {
         "en" : {
