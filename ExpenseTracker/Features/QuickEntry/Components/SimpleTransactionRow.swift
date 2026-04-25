@@ -23,6 +23,17 @@ struct SimpleTransactionRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            // 3pt category-color edge — same row signature treatment as
+            // TransactionRow / PendingTransactionRow, drawn as a leading
+            // bar instead of an overlay since SimpleTransactionRow has
+            // no rounded card background.
+            Capsule()
+                .fill(
+                    (displayCategory.map { Color(hex: $0.colorHex) } ?? .clear)
+                        .opacity(0.5)
+                )
+                .frame(width: 3, height: 28)
+
             // Category icon and info
             VStack(alignment: .leading, spacing: 4) {
                 Text(transaction.description)
@@ -60,7 +71,8 @@ struct SimpleTransactionRow: View {
                     .frame(width: 1, height: 1)
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.leading, 12)
+        .padding(.trailing, 20)
         .padding(.vertical, 10)
     }
 }
