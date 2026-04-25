@@ -54,10 +54,19 @@ struct CelebrationOverlayView: View {
 
             // Center card
             VStack(spacing: Spacing.lg) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 60))
-                    .foregroundColor(.green)
-                    .scaleEffect(checkmarkScale)
+                // Honey checkmark with a soft halo — Banka tone, quiet
+                // not festive. Replaces the system green tick.
+                ZStack {
+                    Circle()
+                        .fill(Color.signalSoft)
+                        .frame(width: 96, height: 96)
+                        .scaleEffect(checkmarkScale)
+
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 60))
+                        .foregroundColor(.signal)
+                        .scaleEffect(checkmarkScale)
+                }
 
                 if showContent {
                     VStack(spacing: Spacing.sm) {
