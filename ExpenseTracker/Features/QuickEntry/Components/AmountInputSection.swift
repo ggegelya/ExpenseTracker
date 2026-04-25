@@ -84,9 +84,10 @@ struct AmountInputSection: View {
                     .foregroundColor(.primary.opacity(0.6))
             }
 
-            // Metadata pills
-            HStack(spacing: 8) {
-                // Date pill
+            // Merged context bar — single strip with hairline-divided segments.
+            // Replaces two floating pills per Banka design (Add screen).
+            HStack(spacing: 0) {
+                // Date segment
                 Button {
                     withAnimation(.easeOut(duration: 0.15)) {
                         datePillPressed = true
@@ -99,24 +100,28 @@ struct AmountInputSection: View {
                     }
                     onMetadataTap()
                 } label: {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 6) {
                         Image(systemName: "calendar")
-                            .font(.system(size: 10))
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
                         Text(formattedDate)
                             .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
                     }
-                    .foregroundColor(.primary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color(.systemGray6).opacity(0.5))
-                    .cornerRadius(12)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
                 }
                 .accessibilityIdentifier("DatePicker")
                 .buttonStyle(.plain)
-                .scaleEffect(datePillPressed ? 0.95 : 1.0)
+                .scaleEffect(datePillPressed ? 0.97 : 1.0)
 
-                // Account pill (only if multiple accounts)
                 if showAccountSelector, let account = selectedAccount {
+                    Divider()
+                        .frame(width: 0.5, height: 18)
+                        .overlay(Color(.separator))
+
+                    // Account segment
                     Button {
                         withAnimation(.easeOut(duration: 0.15)) {
                             accountPillPressed = true
@@ -129,24 +134,34 @@ struct AmountInputSection: View {
                         }
                         onMetadataTap()
                     } label: {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 6) {
                             Image(systemName: "creditcard")
-                                .font(.system(size: 10))
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
                             Text(account.displayName)
                                 .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.primary)
                                 .lineLimit(1)
+                            if account.isDefault {
+                                Image(systemName: "star.fill")
+                                    .font(.system(size: 8))
+                                    .foregroundColor(.signal)
+                                    .padding(3)
+                                    .background(Color.signalSoft)
+                                    .clipShape(Circle())
+                            }
                         }
-                        .foregroundColor(.primary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color(.systemGray6).opacity(0.5))
-                        .cornerRadius(12)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
                     }
                     .accessibilityIdentifier("AccountSelector")
                     .buttonStyle(.plain)
-                    .scaleEffect(accountPillPressed ? 0.95 : 1.0)
+                    .scaleEffect(accountPillPressed ? 0.97 : 1.0)
                 }
             }
+            .background(Color(.systemGray6).opacity(0.7))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .padding(.horizontal, 16)
         }
     }
 
