@@ -109,13 +109,13 @@ struct AnalyticsView: View {
                 _ = errorHandler.handleAny(error, context: "CSV export")
             }
         case .pdf:
-            // PDF generation is the next phase — surface a friendly toast
-            // so the action sheet is wired and users see the option, but
-            // we don't ship a half-baked report.
-            errorHandler.showToast(
-                String(localized: "export.pdf.notReady.title"),
-                type: .info
-            )
+            let transactions = transactionViewModel.transactions
+            do {
+                let url = try await exportService.exportToPDF(transactions: transactions)
+                exportShareItem = ShareItem(url: url)
+            } catch {
+                _ = errorHandler.handleAny(error, context: "PDF export")
+            }
         }
     }
 

@@ -23,7 +23,13 @@ final class MockExportService: ExportServiceProtocol, @unchecked Sendable {
         let timestamp: Date
     }
 
+    struct ExportToPDFCall {
+        let transactions: [Transaction]
+        let timestamp: Date
+    }
+
     private(set) var csvExportCalls: [ExportToCSVCall] = []
+    private(set) var pdfExportCalls: [ExportToPDFCall] = []
     private(set) var googleSheetsExportCalls: [ExportToGoogleSheetsCall] = []
 
     // MARK: - Configuration
@@ -85,6 +91,17 @@ final class MockExportService: ExportServiceProtocol, @unchecked Sendable {
         }
 
         return result
+    }
+
+    func exportToPDF(transactions: [Transaction]) async throws -> URL {
+        if exportDelay > 0 {
+            try await Task.sleep(nanoseconds: UInt64(exportDelay * 1_000_000_000))
+        }
+        pdfExportCalls.append(ExportToPDFCall(transactions: transactions, timestamp: Date()))
+
+        // Reuse the CSV temp path scheme — tests don't need a real PDF.
+        let tempDir = FileManager.default.temporaryDirectory
+        return tempDir.appendingPathComponent("mock_export.pdf")
     }
 
     func exportToGoogleSheets(transactions: [Transaction]) async throws {
