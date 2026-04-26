@@ -66,14 +66,15 @@ struct ExpenseTrackerApp: App {
                     if transactionViewModel.showCelebration {
                         CelebrationOverlayView {
                             withAnimation { transactionViewModel.showCelebration = false }
-                            // Mark #2: Activate coach mark after celebration is dismissed
-                            if transactionViewModel.pendingCoachMark {
-                                transactionViewModel.pendingCoachMark = false
-                                Task { @MainActor in
-                                    try? await Task.sleep(for: .seconds(0.5))
-                                    container.coachMarkManager.activate(.firstTransactionSaved)
-                                }
-                            }
+                            // Note: previously chained the .firstTransactionSaved
+                            // coach mark here (with a 0.5s delay). Removed because
+                            // the back-to-back "celebrate → instruct" sequence
+                            // read as overlap on tap-to-dismiss and pushy on
+                            // auto-dismiss. The Transactions tab is already in
+                            // the tab bar, so the coach mark wasn't earning its
+                            // place. The infrastructure stays — it just no
+                            // longer activates from this path.
+                            transactionViewModel.pendingCoachMark = false
                         }
                     }
 

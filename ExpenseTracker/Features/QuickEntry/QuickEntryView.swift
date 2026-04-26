@@ -330,7 +330,7 @@ struct QuickEntryView: View {
                 UserDefaults.standard.set(true, forKey: UserDefaultsKeys.hasShownFirstTransactionCelebration)
                 errorService.dismissToast()
                 viewModel.showCelebration = true
-                viewModel.pendingCoachMark = true
+                // pendingCoachMark intentionally not set — see ExpenseTrackerApp:67
             }
 
             // Success animation
